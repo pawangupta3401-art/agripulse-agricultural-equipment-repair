@@ -1,0 +1,7782 @@
+"use client";
+
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import SyncDebugPanel from "./SyncDebugPanel";
+import {
+  Mic,
+  Camera,
+  Video,
+  Wrench,
+  AlertCircle,
+  CheckCircle2,
+  Calendar,
+  PhoneCall,
+  Clock,
+  ArrowLeft,
+  ChevronRight,
+  Bot,
+  WifiOff,
+  Wifi,
+  Trash2,
+  Image as ImageIcon,
+  Sparkles,
+  ShieldAlert,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  MapPin,
+  Star,
+  UserCheck,
+  ClipboardList,
+  RotateCcw,
+  Award,
+  CheckSquare,
+  Square,
+  Plus,
+  Bell,
+  Navigation,
+} from "lucide-react";
+import {
+  Machine,
+  RepairRequest,
+  UrgencyType,
+  InputMethod,
+  AIDiagnosisResult,
+  JobCard,
+  PartSelection,
+  MachinePassportRecord,
+  PhotoAnalysisResult,
+  PricingBreakdown,
+  PriceChangeReason,
+  FinalPriceAdjustment,
+  TechnicianCertification,
+  TechnicianTrainingRecord,
+  TechnicianVerificationBadge,
+} from "@/types";
+import {
+  getMachines,
+  getRepairRequests,
+  createRepairRequest,
+  syncPendingOutbox,
+  getPendingComplaintsCount,
+  updateRepairStatus,
+  recordRepairVerification,
+  reopenRepairForReRepair,
+  registerNewMachine,
+  markMachineServiceCompleted,
+  initialMachines,
+  initialRepairs,
+  resetDemoData,
+} from "@/services/storageService";
+import {
+  formatServiceDateHi,
+  getMaintenanceStatusDisplay,
+  getDefaultMaintenanceItems,
+  getDefaultServiceInterval,
+  calculateNextServiceDate,
+  calculateMaintenanceStatus,
+} from "@/services/preventiveMaintenanceService";
+import { runDemoAIDiagnosis } from "@/services/diagnosisService";
+import { requestAIDiagnosis } from "@/services/aiAssistantService";
+import { analyzeMachinePhoto } from "@/services/photoAnalysisService";
+import { matchTechnician, TechnicianMatchResult, skillLabelHi, MatchedTechnicianItem } from "@/services/technicianMatchingService";
+import {
+  createJobCard,
+  getJobCardByRepairId,
+  updateJobCardStatus,
+  updateTechnicianWorkflowStatus,
+  updatePartSelection,
+  getLatestJobCard,
+  jobCardStatusToRepairStatusTextHi,
+  completeJobCardRepair,
+  recordJobCardVerification,
+  reopenJobCardForReRepair,
+  updateJobCardPricing,
+} from "@/services/jobCardService";
+import {
+  calculateEstimatedPricing,
+  calculateFinalPricing,
+  calculatePartsCost,
+  formatCurrencyHi,
+  PRICE_CHANGE_REASONS,
+  getMachineRate,
+} from "@/services/pricingService";
+import { Technician, mockTechnicians } from "@/services/technicianData";
+import {
+  getTechnicians,
+  getTechnicianById,
+  submitTechnicianCertification,
+  addSelfDeclaredSkill,
+  getVerificationBadgeDisplay,
+  isCertificationExpired,
+  deriveTechnicianVerificationStatus,
+} from "@/services/certificationService";
+import {
+  FarmerLocation,
+  getDefaultFarmerLocation,
+  calculateTechnicianDistance,
+  getRouteUrl,
+  getSafeFarmerLocationText,
+  formatApproxDistance,
+} from "@/services/locationService";
+import { TechnicianWorkflowStatus, TECHNICIAN_STATUS_LABELS_HI } from "@/types";
+import { recommendSpareParts, SparePartRecommendationResult } from "@/services/sparePartRecommendationService";
+import { SparePart, getSparePartById } from "@/services/sparePartData";
+import { getPendingSyncCount, getSyncQueue, resetSyncQueue } from "@/services/syncQueueService";
+import SyncManager from "@/services/syncManager";
+import { MockBackendProvider, setBackendProvider, getBackendProvider } from "@/services/backendProvider";
+import { DEMO_OIL_LEAK_PHOTO_DATA_URL, PRIMARY_DEMO_SCENARIO } from "@/services/demoData";
+import dynamic from "next/dynamic";
+
+// P2K Step 1: Dynamically import map component (client-only; Leaflet uses window)
+const NearbyMechanicsMap = dynamic(() => import("./NearbyMechanicsMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-20 text-slate-500">
+      <span className="text-base font-bold">नक्शा लोड हो रहा है...</span>
+    </div>
+  ),
+});
+
+
+// P2Q & P2P: Recovery Engine, Telephony & Assisted Access imports
+import {
+  RecoveryPlan,
+  RecoveryOption,
+  SMSNotification,
+  ComplaintChannel,
+  ServiceCentre,
+  MaintenancePackage,
+} from "@/types";
+import {
+  generateRecoveryPlan,
+  getFeaturePhoneRecoverySummary,
+  contributeToMachinePassport,
+} from "@/services/recoveryEngineService";
+import {
+  processIVRInput,
+  lookupCallerIdentity,
+  getSMSNotificationHistory,
+  dispatchSimulatedSMS,
+  IVRStepState,
+} from "@/services/telephonyProvider";
+import { createAssistedRepair } from "@/services/assistedAccessService";
+import {
+  getServiceCentres,
+  getServiceCentreById,
+  getCentreTypeLabelHi,
+  getServiceCentreVerificationBadge,
+} from "@/services/serviceCentreService";
+import {
+  DEMO_MAINTENANCE_PACKAGES,
+  getPlatformBusinessSummary,
+  calculateTechnicianSettlement,
+  calculateServiceCentreSettlement,
+} from "@/services/businessModelService";
+import {
+  t,
+  SUPPORTED_LANGUAGES,
+  LanguageCode,
+  getStoredLanguage,
+  setStoredLanguage,
+  hasChosenLanguage,
+  isRTL,
+  getSpeechRecognitionCode,
+  localizeDiagnosisProblem,
+} from "@/i18n";
+import { getLocalizedSMSTemplate } from "@/services/telephonyProvider";
+
+type ScreenType =
+  | "home"
+  | "machines"
+  | "machine_detail"
+  | "breakdown"
+  | "breakdown_success"
+  | "diagnosis"
+  | "repair"
+  | "service"
+  | "sahayak"
+  | "technician_match"
+  | "technician_job_card"
+  | "repair_verification"
+  | "nearby_mechanics"
+  | "recovery_engine";
+
+type SyncState = "idle" | "syncing" | "synced";
+
+export default function AgriPulseApp() {
+  const [currentScreen, setCurrentScreen] = useState<ScreenType>("home");
+
+  // Multilingual System State (Section 1 & 2)
+  const [currentLanguage, setCurrentLanguage] = useState<LanguageCode>("hi");
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
+  const [showMoreLanguages, setShowMoreLanguages] = useState<boolean>(false);
+
+  // Network connectivity and sync state
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [syncState, setSyncState] = useState<SyncState>("idle");
+  // P2J Step 1: Sync debug panel (dev/test helper)
+  const [showSyncDebug, setShowSyncDebug] = useState<boolean>(false);
+  const [syncDebugLog, setSyncDebugLog] = useState<string[]>([]);
+  const [isSimulatingFailure, setIsSimulatingFailure] = useState<boolean>(false);
+  const [syncQueueSnapshot, setSyncQueueSnapshot] = useState<ReturnType<typeof getSyncQueue>>([]);
+
+  // Persistent dynamic states
+  const [machines, setMachines] = useState<Machine[]>(initialMachines);
+  const [repairs, setRepairs] = useState<RepairRequest[]>(initialRepairs);
+  const [selectedMachine, setSelectedMachine] = useState<Machine>(initialMachines[0]);
+
+  // Breakdown guided flow state (Step 1 -> 2 -> 3 -> 4)
+  const [breakdownStep, setBreakdownStep] = useState<1 | 2 | 3 | 4>(1);
+  const [breakdownMachineId, setBreakdownMachineId] = useState<string>("tractor");
+  const [breakdownInputMethod, setBreakdownInputMethod] = useState<InputMethod>("voice");
+  const [breakdownMediaName, setBreakdownMediaName] = useState<string>("");
+  const [breakdownDescription, setBreakdownDescription] = useState<string>("");
+  const [breakdownUrgency, setBreakdownUrgency] = useState<UrgencyType>("today");
+  const [lastSubmittedRepair, setLastSubmittedRepair] = useState<RepairRequest | null>(null);
+
+  // Phase 2C: Voice Recording & Speech Recognition State
+  const [isVoiceRecording, setIsVoiceRecording] = useState<boolean>(false);
+  const [voiceStatusText, setVoiceStatusText] = useState<string>("");
+  const [speechUnsupportedMessage, setSpeechUnsupportedMessage] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+
+  // Phase 2C: Photo Capture, Compressed DataURL Preview & Validation
+  const [breakdownPhotoPreview, setBreakdownPhotoPreview] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Phase P2I Step 2: YOLO Vision & Photo Analysis State
+  const [photoVisionResult, setPhotoVisionResult] = useState<PhotoAnalysisResult | null>(null);
+  const [isPhotoAnalyzing, setIsPhotoAnalyzing] = useState<boolean>(false);
+
+  // Hidden file inputs for photo & video
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  // Kisan Sahayak assistant state (Phase 2C Voice & Photo)
+  const [sahayakStep, setSahayakStep] = useState<
+    "init" | "voice" | "photo" | "urgency" | "ready"
+  >("init");
+  const [sahayakChoice, setSahayakChoice] = useState<"voice" | "photo" | "machine" | null>(null);
+  const [sahayakUrgency, setSahayakUrgency] = useState<UrgencyType | null>(null);
+  const [sahayakVoiceActive, setSahayakVoiceActive] = useState<boolean>(false);
+  const [sahayakDescription, setSahayakDescription] = useState<string>("");
+  const [sahayakPhoto, setSahayakPhoto] = useState<string | null>(null);
+  const [sahayakSpeechUnsupported, setSahayakSpeechUnsupported] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sahayakRecognitionRef = useRef<any>(null);
+  const sahayakExplicitStopRef = useRef<boolean>(false);
+  const sahayakPhotoInputRef = useRef<HTMLInputElement>(null);
+
+  // Phase 2D-A: AI Diagnosis Foundation State
+  const [currentDiagnosis, setCurrentDiagnosis] = useState<AIDiagnosisResult | null>(null);
+  const [isDiagnosing, setIsDiagnosing] = useState<boolean>(false);
+  const [showDiagnosisDetails, setShowDiagnosisDetails] = useState<boolean>(false);
+  const [diagnosisOrigin, setDiagnosisOrigin] = useState<"breakdown" | "sahayak">("breakdown");
+
+  // Phase P2E: Technician Matching State
+  const [techMatchResult, setTechMatchResult] = useState<TechnicianMatchResult | null>(null);
+  const [isFindingTech, setIsFindingTech] = useState<boolean>(false);
+  const [selectedAlternativeIdx, setSelectedAlternativeIdx] = useState<number | null>(null);
+  const [currentJobCard, setCurrentJobCard] = useState<JobCard | null>(null);
+  const [activeJobCardRepairId, setActiveJobCardRepairId] = useState<string | null>(null);
+
+  // P2K Step 1 & 2: Map & Dispatch State
+  const [mapPreselectedTech, setMapPreselectedTech] = useState<Technician | null>(null);
+  const [farmerLocation, setFarmerLocation] = useState<FarmerLocation | null>(null);
+  const [isAssigningTechnician, setIsAssigningTechnician] = useState<boolean>(false);
+
+  // P2M Step 1: Farmer-Friendly Voice, Sahayak, and Input states
+  const [voiceRecordedComplete, setVoiceRecordedComplete] = useState<boolean>(false);
+  const [activeProblemMode, setActiveProblemMode] = useState<"photo" | "voice" | "text">("voice");
+  const [sahayakQuestionAnswer, setSahayakQuestionAnswer] = useState<{
+    question: string;
+    answer: string;
+  } | null>(null);
+  const [sahayakInputMode, setSahayakInputMode] = useState<"voice" | "text">("voice");
+  const [sahayakCustomText, setSahayakCustomText] = useState<string>("");
+
+  const playAudioText = (text: string) => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = getSpeechRecognitionCode(currentLanguage);
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        // Safe fallback if TTS unsupported
+      }
+    }
+  };
+
+  const handleSelectLanguage = (lang: LanguageCode) => {
+    setCurrentLanguage(lang);
+    setStoredLanguage(lang);
+    setIsLanguageModalOpen(false);
+    const langObj = SUPPORTED_LANGUAGES.find((l) => l.code === lang);
+    setFeedbackMessage(
+      lang === "en" ? "✓ Language changed to English" :
+      lang === "mr" ? "✓ भाषा मराठीमध्ये बदलली" :
+      lang === "te" ? "✓ భాష తెలుగుగా మార్చబడింది" :
+      lang === "pa" ? "✓ ਭਾਸ਼ਾ ਪੰਜਾਬੀ ਵਿੱਚ ਬਦਲ ਗਈ" :
+      lang === "gu" ? "✓ ભાષા ગુજરાતીમાં બદલાઈ" :
+      lang === "ta" ? "✓ மொழி தமிழில் மாற்றப்பட்டது" :
+      lang === "ur" ? "✓ زبان تبدیل ہو گئی" :
+      `✓ भाषा: ${langObj?.nativeName || lang}`
+    );
+    setTimeout(() => setFeedbackMessage(null), 3000);
+  };
+
+  // Phase P2F: Spare Part Recommendation State
+  const [currentPartRecommendation, setCurrentPartRecommendation] =
+    useState<SparePartRecommendationResult | null>(null);
+
+  // P2O Step 2: Transparent Pricing State
+  const [priceAdjustmentReason, setPriceAdjustmentReason] =
+    useState<PriceChangeReason>("अतिरिक्त श्रम आवश्यक");
+  const [customPriceNote, setCustomPriceNote] = useState<string>("");
+  const [techLabourFeeOverride, setTechLabourFeeOverride] = useState<number | null>(null);
+  const [isEditingPrice, setIsEditingPrice] = useState<boolean>(false);
+
+  // P2Q: Human Override for Diagnosis (Technician Inspection)
+  const [isEditingDiagnosis, setIsEditingDiagnosis] = useState<boolean>(false);
+  const [techOverrideDiagnosisInput, setTechOverrideDiagnosisInput] = useState<string>("");
+
+  // P2O Step 3: Technician Training & Certification State
+  const [isCredentialsModalOpen, setIsCredentialsModalOpen] = useState<boolean>(false);
+  const [activeModalTech, setActiveModalTech] = useState<Technician | null>(null);
+  const [newCertName, setNewCertName] = useState<string>("");
+  const [newCertCategory, setNewCertCategory] = useState<string>("Tractor");
+  const [newCertOrg, setNewCertOrg] = useState<string>("");
+  const [newCertExpiry, setNewCertExpiry] = useState<string>("");
+  const [newSelfSkill, setNewSelfSkill] = useState<string>("");
+  const [isSubmittingCert, setIsSubmittingCert] = useState<boolean>(false);
+
+  // ─── P2Q & P2P: Recovery Engine, Telephony & Assisted Access State ────────
+  const [activeRecoveryPlan, setActiveRecoveryPlan] = useState<RecoveryPlan | null>(null);
+  const [selectedRecoveryOption, setSelectedRecoveryOption] = useState<RecoveryOption | null>(null);
+  const [isFeaturePhoneModalOpen, setIsFeaturePhoneModalOpen] = useState<boolean>(false);
+  const [ivrState, setIvrState] = useState<IVRStepState>({
+    step: "main_menu",
+    callerPhone: "9876543210",
+    audioPromptHi: "AgriPulse किसान हेल्पलाइन में आपका स्वागत है। मशीन मरम्मत के लिए 1 दबाएं, शिकायत की स्थिति जानने के लिए 2 दबाएं, मैकेनिक से सीधे बात करने के लिए 3 दबाएं।",
+    options: [
+      { key: "1", labelHi: "मशीन मरम्मत", actionTextHi: "1: मशीन मरम्मत" },
+      { key: "2", labelHi: "शिकायत स्थिति", actionTextHi: "2: स्थिति जांचें" },
+      { key: "3", labelHi: "मैकेनिक संपर्क", actionTextHi: "3: मैकेनिक संपर्क" },
+    ],
+  });
+  const [isSmsDrawerOpen, setIsSmsDrawerOpen] = useState<boolean>(false);
+  const [isAssistedModalOpen, setIsAssistedModalOpen] = useState<boolean>(false);
+  const [assistedFarmerName, setAssistedFarmerName] = useState<string>("रामेश्वर पाटिल");
+  const [assistedFarmerPhone, setAssistedFarmerPhone] = useState<string>("9823001122");
+  const [assistedMachineId, setAssistedMachineId] = useState<string>("tractor");
+  const [assistedProblemText, setAssistedProblemText] = useState<string>("हाइड्रोलिक लिफ्ट ऊपर नहीं उठ रही");
+  const [isServiceCentreModalOpen, setIsServiceCentreModalOpen] = useState<boolean>(false);
+  const [selectedServiceCentreModal, setSelectedServiceCentreModal] = useState<ServiceCentre | null>(null);
+  const [isBusinessSummaryModalOpen, setIsBusinessSummaryModalOpen] = useState<boolean>(false);
+
+  // Farmer feedback toast
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+  // Phase P2G Step 2: Preventive Maintenance & Service Reminder State
+  const [isAddMachineModalOpen, setIsAddMachineModalOpen] = useState<boolean>(false);
+  const [newMachineType, setNewMachineType] = useState<string>("tractor");
+  const [newMachineName, setNewMachineName] = useState<string>("");
+  const [checkedChecklistItems, setCheckedChecklistItems] = useState<Record<string, boolean>>({});
+
+  const handleToggleChecklistItem = (item: string) => {
+    setCheckedChecklistItems((prev) => ({
+      ...prev,
+      [item]: !prev[item],
+    }));
+  };
+
+  const handleCompleteService = (machineId: string) => {
+    const updated = markMachineServiceCompleted(machineId);
+    if (updated) {
+      setSelectedMachine(updated);
+      refreshData();
+      setCheckedChecklistItems({});
+      setFeedbackMessage("✅ सर्विस पूरी हो गई! अगली सर्विस की तारीख अपडेट हो गई।");
+      setTimeout(() => setFeedbackMessage(null), 3500);
+    }
+  };
+
+  const handleRegisterMachineSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    let defaultHi = "नया महिंद्रा ट्रैक्टर";
+    let defaultEn = "Tractor";
+    if (newMachineType === "sprayer") {
+      defaultHi = "नया स्प्रेयर";
+      defaultEn = "Sprayer";
+    } else if (newMachineType === "water_pump") {
+      defaultHi = "नया वाटर पंप";
+      defaultEn = "Water Pump";
+    } else if (newMachineType === "power_tiller") {
+      defaultHi = "नया पावर टिलर";
+      defaultEn = "Power Tiller";
+    }
+
+    const finalName = newMachineName.trim() || defaultHi;
+    const newMachine = registerNewMachine({
+      name: defaultEn,
+      nameHi: finalName,
+      type: newMachineType,
+    });
+
+    refreshData();
+    setIsAddMachineModalOpen(false);
+    setNewMachineName("");
+    setSelectedMachine(newMachine);
+    setCheckedChecklistItems({});
+    setCurrentScreen("machine_detail");
+    setFeedbackMessage(`✅ नई मशीन (${newMachine.nameHi}) सफलतापूर्वक जोड़ी गई! अगली सर्विस तय की गई।`);
+    setTimeout(() => setFeedbackMessage(null), 3500);
+  };
+
+  // Sync state helper
+  const refreshData = () => {
+    try {
+      const storedMachines = getMachines();
+      const storedRepairs = getRepairRequests();
+      setMachines(storedMachines);
+      setRepairs(storedRepairs);
+    } catch {
+      // Safe fallback
+    }
+  };
+
+  // P2N: Demo reset function for judges / presenters / clean testing
+  const handleResetDemo = () => {
+    resetDemoData();
+    refreshData();
+    setCurrentJobCard(null);
+    setLastSubmittedRepair(null);
+    setBreakdownDescription("");
+    setBreakdownMediaName("");
+    setBreakdownPhotoPreview(null);
+    setValidationError(null);
+    setSpeechUnsupportedMessage(null);
+    setIsVoiceRecording(false);
+    setVoiceRecordedComplete(false);
+    setPhotoVisionResult(null);
+    setCurrentDiagnosis(null);
+    setBreakdownStep(1);
+    setSelectedMachine(initialMachines[0]);
+    setCurrentScreen("home");
+    setFeedbackMessage("✅ ऐप रीसेट सफल — स्वच्छ डेमो स्थिति (Fresh Demo State)");
+    setTimeout(() => setFeedbackMessage(null), 3500);
+  };
+
+  // Trigger automatic sync for pending complaints & cloud sync queue (P2J Step 1)
+  const triggerAutoSync = async () => {
+    if (typeof window === "undefined" || !navigator.onLine) return;
+    const pendingCount = getPendingComplaintsCount() + getPendingSyncCount();
+    if (pendingCount === 0) return;
+
+    // Show "इंटरनेट मिल गया। डेटा भेजा जा रहा है।"
+    setSyncState("syncing");
+
+    try {
+      const result = await syncPendingOutbox();
+      const syncResult = await SyncManager.runSync(true);
+      refreshData();
+      setSyncQueueSnapshot(getSyncQueue());
+
+      if (result.success && syncResult.success) {
+        setSyncState("synced");
+        setTimeout(() => setSyncState("idle"), 3500);
+      } else {
+        setSyncState("idle");
+      }
+    } catch {
+      // On failure: do NOT delete local data. Keep everything pending for retry.
+      setSyncState("idle");
+    }
+  };
+
+  // 1. Initial Load, Native Online/Offline Detection & Auto-Sync
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsOnline(navigator.onLine);
+
+      const handleOnline = () => {
+        setIsOnline(true);
+        triggerAutoSync();
+      };
+
+      const handleOffline = () => {
+        setIsOnline(false);
+        setSyncState("idle");
+      };
+
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+
+      // Load initial local data
+      refreshData();
+
+      // Multilingual: Load saved language or prompt first-launch selection modal
+      const savedLang = getStoredLanguage();
+      setCurrentLanguage(savedLang);
+      if (!hasChosenLanguage()) {
+        setIsLanguageModalOpen(true);
+      }
+
+      // Check for pending complaints on mount if online
+      if (navigator.onLine) {
+        triggerAutoSync();
+      }
+
+      // Auto-retry periodic timer every 20 seconds — watches BOTH complaint outbox and cloud sync queue
+      const retryTimer = setInterval(() => {
+        if (navigator.onLine && (getPendingComplaintsCount() + getPendingSyncCount()) > 0) {
+          triggerAutoSync();
+        }
+      }, 20000);
+
+      // P2J Step 1: Also init SyncManager auto-sync (handles "online" event internally)
+      const cleanupSyncManager = SyncManager.initAutoSync();
+      // Initial queue snapshot for debug panel
+      setSyncQueueSnapshot(getSyncQueue());
+
+      return () => {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+        clearInterval(retryTimer);
+        cleanupSyncManager();
+      };
+    }
+  }, []);
+
+  // Navigate to Machine Details
+  const handleOpenMachineDetail = (machine: Machine) => {
+    const all = getMachines();
+    const fresh = all.find((m) => m.id === machine.id) || machine;
+    setSelectedMachine(fresh);
+    setCheckedChecklistItems({});
+    setCurrentScreen("machine_detail");
+  };
+
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+      if (sahayakRecognitionRef.current) {
+        try {
+          sahayakRecognitionRef.current.abort();
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+    };
+  }, []);
+
+  // Phase 2C: Speech Recognition Start Handler
+  const startVoiceRecording = () => {
+    setValidationError(null);
+    setSpeechUnsupportedMessage(null);
+
+    if (typeof window === "undefined") return;
+
+    // Check browser speech recognition API support
+    const windowWithSpeech = window as unknown as {
+      SpeechRecognition?: any;
+      webkitSpeechRecognition?: any;
+    };
+    const SpeechRecognitionClass =
+      windowWithSpeech.SpeechRecognition || windowWithSpeech.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionClass) {
+      setSpeechUnsupportedMessage(
+        "आवाज़ की सुविधा इस फोन में उपलब्ध नहीं है। कृपया समस्या लिखें।"
+      );
+      return;
+    }
+
+    try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // Safe fallback
+        }
+      }
+
+      const recognition = new SpeechRecognitionClass();
+      recognition.lang = getSpeechRecognitionCode(currentLanguage);
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        setIsVoiceRecording(true);
+        setVoiceRecordedComplete(false);
+        setVoiceStatusText("🎤 सुन रहे हैं...");
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        if (transcript) {
+          setBreakdownDescription(transcript);
+          setBreakdownInputMethod("voice");
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        setIsVoiceRecording(false);
+        setVoiceStatusText("");
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          setSpeechUnsupportedMessage(
+            "माइक्रोफ़ोन की अनुमति नहीं मिली। कृपया समस्या लिखें।"
+          );
+        } else {
+          setSpeechUnsupportedMessage(
+            "आवाज़ की सुविधा इस फोन में उपलब्ध नहीं है। कृपया समस्या लिखें।"
+          );
+        }
+      };
+
+      recognition.onend = () => {
+        setIsVoiceRecording(false);
+        setVoiceStatusText("");
+        setVoiceRecordedComplete(true);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch {
+      setIsVoiceRecording(false);
+      setSpeechUnsupportedMessage(
+        "आवाज़ की सुविधा इस फोन में उपलब्ध नहीं है। कृपया समस्या लिखें।"
+      );
+    }
+  };
+
+  // Phase 2C: Speech Recognition Stop Handler
+  const stopVoiceRecording = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // Safe fallback
+      }
+    }
+    setIsVoiceRecording(false);
+    setVoiceStatusText("");
+    setVoiceRecordedComplete(true);
+  };
+
+  // P2M Step 1: Sahayak Quick Prompts Handler
+  const handleSahayakAskPrompt = (promptText: string) => {
+    let answerText = "";
+    const lower = promptText.toLowerCase();
+
+    if (lower.includes("कहाँ तक") || lower.includes("मरम्मत")) {
+      const activeRep = repairs.find(
+        (r) => r.status !== "completed"
+      ) || latestRepair;
+      if (activeRep && activeRep.status !== "completed") {
+        answerText = `${activeRep.machineNameHi}: वर्तमान स्थिति - ${activeRep.statusTextHi}। आपके नजदीकी मैकेनिक को सूचना दी गई है।`;
+      } else {
+        answerText = "आपकी किसी भी मशीन में अभी कोई मरम्मत बाकी नहीं है। आपकी सभी मशीनें ठीक से काम कर रही हैं।";
+      }
+    } else if (lower.includes("सर्विस") || lower.includes("अगली")) {
+      const overdueM = machines.find((m) => m.maintenanceStatus === "overdue");
+      const dueM = machines.find((m) => m.maintenanceStatus === "due");
+      const nextM = overdueM || dueM || machines[0];
+      if (overdueM) {
+        answerText = `🔔 सर्विस का समय आ गया है: ${overdueM.nameHi} (तय तारीख: ${formatServiceDateHi(overdueM.nextServiceDate)})। कृपया जल्द सर्विस कराएं।`;
+      } else if (dueM) {
+        answerText = `🔔 सर्विस का समय आ गया है: ${dueM.nameHi} की अगली सर्विस ${formatServiceDateHi(dueM.nextServiceDate)} को तय है।`;
+      } else if (nextM) {
+        answerText = `${nextM.nameHi}: अगली सर्विस ${formatServiceDateHi(nextM.nextServiceDate)} को है।`;
+      } else {
+        answerText = "आपकी सभी मशीनों का सर्विस रिकॉर्ड अद्यतन है।";
+      }
+    } else if (lower.includes("क्या समस्या") || lower.includes("समस्या थी")) {
+      const lastRep = repairs[0];
+      if (lastRep) {
+        answerText = `${lastRep.machineNameHi} में समस्या: ${lastRep.diagnosis?.possibleProblem || lastRep.problemDescription}।`;
+      } else {
+        answerText = "आपकी मशीनों में कोई बड़ी समस्या नहीं पाई गई है।";
+      }
+    } else if (lower.includes("क्या करना चाहिए") || lower.includes("सलाह")) {
+      answerText = "यदि मशीन में धुआं, असामान्य आवाज या लीकेज हो, तो इंजन तुरंत बंद कर दें। मैकेनिक के आने तक खुद कोई भारी पुर्जा न खोलें।";
+    } else {
+      answerText = `किसान जी, आपकी बात नोट कर ली गई है: "${promptText}"। आप सीधे "मशीन में समस्या है" दबाकर मैकेनिक बुला सकते हैं।`;
+    }
+
+    setSahayakQuestionAnswer({
+      question: promptText,
+      answer: answerText,
+    });
+  };
+
+  // Start breakdown reporting
+  const handleStartBreakdown = (machineId?: string) => {
+    setBreakdownMachineId(machineId || "tractor");
+    setBreakdownStep(1);
+    setBreakdownDescription("");
+    setBreakdownMediaName("");
+    setBreakdownPhotoPreview(null);
+    setValidationError(null);
+    setSpeechUnsupportedMessage(null);
+    setIsVoiceRecording(false);
+    setVoiceRecordedComplete(false);
+    setActiveProblemMode("voice");
+    setVoiceStatusText("");
+    setBreakdownInputMethod("voice");
+    setPhotoVisionResult(null);
+    setCurrentDiagnosis(null);
+    setBreakdownUrgency("today");
+    setCurrentScreen("breakdown");
+  };
+
+  // Phase P2I Step 2: Trigger Vision Analysis (YOLO-compatible / Mock)
+  const runPhotoVisionAnalysis = async (imageDataUrl: string, fileName?: string) => {
+    setIsPhotoAnalyzing(true);
+    setPhotoVisionResult(null);
+    try {
+      const machine = machines.find((m) => m.id === breakdownMachineId) || machines[0];
+      const result = await analyzeMachinePhoto({
+        image: imageDataUrl,
+        machineType: machine?.type || machine?.nameHi || "मशीन",
+        complaintText: breakdownDescription.trim(),
+        fileName: fileName || breakdownMediaName || "मशीन_फोटो.jpg",
+      });
+      setPhotoVisionResult(result);
+    } catch {
+      // Offline fallback: never crash!
+      setPhotoVisionResult({
+        isClear: false,
+        detectedIssue: "फोटो से समस्या स्पष्ट नहीं हो पाई।",
+        confidence: 0,
+        evidence: ["फोटो से समस्या स्पष्ट नहीं हो पाई।"],
+        actionHint: "आप बोलकर या लिखकर समस्या बता सकते हैं।",
+        rawDetails: "Vision Provider Offline / Fallback",
+        visionResult: {
+          detected: false,
+          detections: [],
+          imageQuality: "good",
+        },
+      });
+    } finally {
+      setIsPhotoAnalyzing(false);
+    }
+  };
+
+  // Phase 2C & P2I Step 2: Photo capture & Canvas compression (safe for localStorage)
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setValidationError(null);
+    setBreakdownMediaName(file.name || "मशीन_फोटो.jpg");
+    setPhotoVisionResult(null);
+
+    // Read and compress image using HTML5 Canvas (<60KB)
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          const MAX_SIZE = 640;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height = Math.round((height * MAX_SIZE) / width);
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width = Math.round((width * MAX_SIZE) / height);
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+            setBreakdownPhotoPreview(compressedDataUrl);
+            if (!breakdownDescription.trim()) {
+              setBreakdownInputMethod("photo");
+            }
+            // Trigger Vision Analysis (P2I Step 2)
+            runPhotoVisionAnalysis(compressedDataUrl, file.name);
+          }
+        } catch {
+          // Fallback to raw data url if canvas drawing fails
+          if (typeof event.target?.result === "string") {
+            const rawUrl = event.target.result;
+            setBreakdownPhotoPreview(rawUrl);
+            runPhotoVisionAnalysis(rawUrl, file.name);
+          }
+        }
+      };
+      if (typeof event.target?.result === "string") {
+        img.src = event.target.result;
+      }
+    };
+    reader.readAsDataURL(file);
+    // Reset file input so farmer can re-take or re-pick if desired
+    e.target.value = "";
+  };
+
+  // Remove attached photo
+  const handleRemovePhoto = () => {
+    setBreakdownPhotoPreview(null);
+    setBreakdownMediaName("");
+    setPhotoVisionResult(null);
+    setIsPhotoAnalyzing(false);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
+  };
+
+  // Step 2 Validation and Navigation -> AI Diagnosis (Phase 2D-A & P2I Step 2)
+  const handleStep2Next = () => {
+    const hasText = breakdownDescription.trim().length > 0;
+    const hasPhoto = !!breakdownPhotoPreview;
+
+    if (!hasText && !hasPhoto) {
+      setValidationError("कृपया बोलकर बताएं, फोटो लें, या समस्या लिखें।");
+      return;
+    }
+
+    // Requirement 8: If image quality is poor and no text description, prompt farmer
+    if (hasPhoto && photoVisionResult?.imageQuality === "poor" && !hasText) {
+      setValidationError("फोटो साफ नहीं है। एक और फोटो लें।");
+      return;
+    }
+
+    setValidationError(null);
+    if (hasText && hasPhoto) {
+      setBreakdownInputMethod("voice");
+    } else if (hasPhoto) {
+      setBreakdownInputMethod("photo");
+    } else {
+      setBreakdownInputMethod("voice");
+    }
+
+    // Launch AI Diagnosis Screen
+    setDiagnosisOrigin("breakdown");
+    setIsDiagnosing(true);
+    setShowDiagnosisDetails(false);
+    setCurrentScreen("diagnosis");
+
+    const machine = machines.find((m) => m.id === breakdownMachineId) || machines[0];
+
+    // Phase 2D-B & P2I Step 2: Photo Analysis Pipeline
+    (async () => {
+      let photoResult = photoVisionResult || undefined;
+      if (hasPhoto && breakdownPhotoPreview && !photoResult) {
+        photoResult = await analyzeMachinePhoto({
+          image: breakdownPhotoPreview,
+          machineType: machine.type || machine.nameHi,
+          complaintText: breakdownDescription.trim(),
+          fileName: breakdownMediaName || "photo.jpg",
+        });
+        setPhotoVisionResult(photoResult);
+      }
+
+      const diag = await requestAIDiagnosis(
+        {
+          machine,
+          problemDescription: breakdownDescription.trim(),
+          hasPhoto,
+          photoAnalysis: photoResult,
+          urgency: breakdownUrgency,
+        },
+        isOnline
+      );
+      setCurrentDiagnosis(diag);
+
+      // Realistic progress animation timing (1.2s)
+      setTimeout(() => {
+        setIsDiagnosing(false);
+      }, 1200);
+    })();
+  };
+
+  // Handle Video capture/select
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setBreakdownInputMethod("video");
+      setBreakdownMediaName(file.name || "वीडियो रिकॉर्ड हुआ");
+      setBreakdownStep(3);
+    }
+  };
+
+  // Submit breakdown flow (Supports Offline Mode, Voice, Photo & Typed Complaints, AI Diagnosis)
+  const handleBreakdownSubmit = () => {
+    try {
+      const description =
+        breakdownDescription.trim() ||
+        (breakdownPhotoPreview
+          ? "फोटो के माध्यम से मशीन की समस्या भेजी गई"
+          : "मशीन में समस्या आ रही है");
+
+      const method: InputMethod =
+        breakdownPhotoPreview && breakdownDescription.trim()
+          ? "voice"
+          : breakdownPhotoPreview
+          ? "photo"
+          : "voice";
+
+      const machineObj = machines.find((m) => m.id === breakdownMachineId);
+      const estCost = calculateEstimatedPricing({
+        machineId: breakdownMachineId,
+        machineType: machineObj?.type || machineObj?.nameHi,
+        recommendedPartIds: currentPartRecommendation?.recommendations.map((r) => r.part.id),
+      });
+
+      const newRepair = createRepairRequest({
+        farmerId: "farmer-001",
+        machineId: breakdownMachineId,
+        problemDescription: description,
+        inputMethod: method,
+        mediaFileName: breakdownMediaName || (breakdownPhotoPreview ? "मशीन_फोटो.jpg" : undefined),
+        photoDataUrl: breakdownPhotoPreview || undefined,
+        urgency: breakdownUrgency,
+        isOffline: !isOnline,
+        diagnosis: currentDiagnosis || undefined,
+        estimatedCost: estCost,
+      });
+
+      refreshData();
+      setLastSubmittedRepair(newRepair);
+      // Reset breakdown wizard state so subsequent flows start fresh
+      setBreakdownDescription("");
+      setBreakdownMediaName("");
+      setBreakdownPhotoPreview(null);
+      setValidationError(null);
+      setSpeechUnsupportedMessage(null);
+      setIsVoiceRecording(false);
+      setVoiceRecordedComplete(false);
+      setPhotoVisionResult(null);
+      setCurrentDiagnosis(null);
+      setBreakdownStep(1);
+      // P2E: Always go to technician match screen (works with local mock data even offline)
+      handleFindTechnician(newRepair);
+    } catch {
+      setFeedbackMessage("अभी जानकारी नहीं मिल पाई। कृपया थोड़ी देर बाद कोशिश करें।");
+      setTimeout(() => setFeedbackMessage(null), 3000);
+    }
+  };
+
+  // Phase 2C: Kisan Sahayak continuous voice recording
+  const startSahayakVoice = () => {
+    setSahayakSpeechUnsupported(null);
+    sahayakExplicitStopRef.current = false;
+
+    if (typeof window === "undefined") return;
+
+    const windowWithSpeech = window as unknown as {
+      SpeechRecognition?: any;
+      webkitSpeechRecognition?: any;
+    };
+    const SpeechRecognitionClass =
+      windowWithSpeech.SpeechRecognition || windowWithSpeech.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionClass) {
+      setSahayakSpeechUnsupported(
+        "आवाज़ की सुविधा इस फोन में उपलब्ध नहीं है। कृपया समस्या लिखें।"
+      );
+      setSahayakVoiceActive(false);
+      return;
+    }
+
+    try {
+      if (sahayakRecognitionRef.current) {
+        try {
+          sahayakRecognitionRef.current.abort();
+        } catch {}
+      }
+
+      const recognition = new SpeechRecognitionClass();
+      recognition.lang = getSpeechRecognitionCode(currentLanguage);
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        setSahayakVoiceActive(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let fullTranscript = "";
+        for (let i = 0; i < event.results.length; i++) {
+          fullTranscript += event.results[i][0].transcript;
+        }
+        if (fullTranscript.trim()) {
+          setSahayakDescription(fullTranscript);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        if (event.error === "no-speech") {
+          return;
+        }
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          setSahayakSpeechUnsupported("माइक्रोफ़ोन की अनुमति नहीं मिली। कृपया समस्या लिखें।");
+          setSahayakVoiceActive(false);
+        } else {
+          setSahayakVoiceActive(false);
+        }
+      };
+
+      recognition.onend = () => {
+        // If the browser ends due to silence but farmer has not clicked stop,
+        // keep text safe and re-engage if step is still voice
+        if (!sahayakExplicitStopRef.current && sahayakStep === "voice") {
+          try {
+            recognition.start();
+            return;
+          } catch {
+            setSahayakVoiceActive(false);
+          }
+        } else {
+          setSahayakVoiceActive(false);
+        }
+      };
+
+      sahayakRecognitionRef.current = recognition;
+      recognition.start();
+      setSahayakVoiceActive(true);
+    } catch {
+      setSahayakVoiceActive(false);
+      setSahayakSpeechUnsupported(
+        "आवाज़ की सुविधा इस फोन में उपलब्ध नहीं है। कृपया समस्या लिखें।"
+      );
+    }
+  };
+
+  const stopSahayakVoice = () => {
+    sahayakExplicitStopRef.current = true;
+    if (sahayakRecognitionRef.current) {
+      try {
+        sahayakRecognitionRef.current.stop();
+      } catch {}
+    }
+    setSahayakVoiceActive(false);
+  };
+
+  // Sahayak choices handler
+  const handleSahayakSelectOption = (choice: "voice" | "photo" | "machine") => {
+    setSahayakChoice(choice);
+    if (choice === "voice") {
+      setSahayakStep("voice");
+      startSahayakVoice();
+    } else if (choice === "photo") {
+      setSahayakStep("photo");
+      setTimeout(() => {
+        sahayakPhotoInputRef.current?.click();
+      }, 150);
+    } else {
+      handleStartBreakdown();
+    }
+  };
+
+  // Sahayak photo capture with canvas compression
+  const handleSahayakPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          const MAX_SIZE = 640;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height = Math.round((height * MAX_SIZE) / width);
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width = Math.round((width * MAX_SIZE) / height);
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL("image/jpeg", 0.7);
+            setSahayakPhoto(compressed);
+          }
+        } catch {
+          if (typeof event.target?.result === "string") {
+            setSahayakPhoto(event.target.result);
+          }
+        }
+      };
+      if (typeof event.target?.result === "string") {
+        img.src = event.target.result;
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleSahayakSelectUrgency = (urgency: UrgencyType) => {
+    setSahayakUrgency(urgency);
+    setSahayakStep("ready");
+  };
+
+  // Phase 2D-A: Sahayak Proceed to AI Diagnosis
+  const handleSahayakProceedToDiagnosis = () => {
+    stopSahayakVoice();
+    const hasText = sahayakDescription.trim().length > 0;
+    const hasPhoto = !!sahayakPhoto;
+
+    if (!hasText && !hasPhoto) {
+      setSahayakSpeechUnsupported("कृपया पहले बोलकर बताएं या फोटो लें।");
+      return;
+    }
+
+    setDiagnosisOrigin("sahayak");
+    setIsDiagnosing(true);
+    setShowDiagnosisDetails(false);
+    setCurrentScreen("diagnosis");
+
+    const machineId =
+      sahayakDescription.toLowerCase().includes("ट्रैक्टर") ||
+      sahayakDescription.toLowerCase().includes("tractor")
+        ? "tractor"
+        : "sprayer";
+    const machine = machines.find((m) => m.id === machineId) || machines[0];
+
+    // Phase 2D-B: Photo Analysis Pipeline
+    (async () => {
+      let photoResult = undefined;
+      if (hasPhoto && sahayakPhoto) {
+        photoResult = await analyzeMachinePhoto({
+          image: sahayakPhoto,
+          machineType: machine.type || machine.nameHi,
+          complaintText: sahayakDescription.trim(),
+        });
+      }
+
+      const diag = await requestAIDiagnosis(
+        {
+          machine,
+          problemDescription: sahayakDescription.trim(),
+          hasPhoto,
+          photoAnalysis: photoResult,
+          urgency: sahayakUrgency || "today",
+        },
+        isOnline
+      );
+      setCurrentDiagnosis(diag);
+
+      setTimeout(() => {
+        setIsDiagnosing(false);
+      }, 1200);
+    })();
+  };
+
+  // Phase 2D-A: "मैकेनिक बुलाएं" Action connects to the repair workflow
+  const handleContinueToRepair = () => {
+    if (diagnosisOrigin === "breakdown") {
+      setCurrentScreen("breakdown");
+      if (currentDiagnosis?.urgencyLevel === "high") {
+        setBreakdownUrgency("today");
+      }
+      setBreakdownStep(3); // Urgency selection
+    } else {
+      setCurrentScreen("sahayak");
+      if (currentDiagnosis?.urgencyLevel === "high") {
+        setSahayakUrgency("today");
+      }
+      setSahayakStep("urgency");
+    }
+  };
+
+  // Phase 2D-A: Back navigation from diagnosis screen
+  const handleBackFromDiagnosis = () => {
+    if (diagnosisOrigin === "breakdown") {
+      setCurrentScreen("breakdown");
+      setBreakdownStep(2);
+    } else {
+      setCurrentScreen("sahayak");
+      setSahayakStep(
+        sahayakChoice === "photo"
+          ? "photo"
+          : sahayakChoice === "voice"
+          ? "voice"
+          : "init"
+      );
+    }
+  };
+
+  const handleSahayakCallMechanic = () => {
+    try {
+      const description =
+        sahayakDescription.trim() ||
+        (sahayakPhoto
+          ? "फोटो के माध्यम से मशीन की समस्या भेजी गई"
+          : "किसान सहायक के माध्यम से मरम्मत का अनुरोध दर्ज हुआ");
+
+      const method: InputMethod =
+        sahayakPhoto && sahayakDescription.trim()
+          ? "voice"
+          : sahayakPhoto
+          ? "photo"
+          : "voice";
+
+      const machineId =
+        sahayakDescription.toLowerCase().includes("ट्रैक्टर") ||
+        sahayakDescription.toLowerCase().includes("tractor")
+          ? "tractor"
+          : "sprayer";
+
+      const newRepair = createRepairRequest({
+        machineId,
+        problemDescription: description,
+        inputMethod: method,
+        mediaFileName: sahayakPhoto ? "मशीन_फोटो.jpg" : undefined,
+        photoDataUrl: sahayakPhoto || undefined,
+        urgency: sahayakUrgency || "today",
+        isOffline: !isOnline,
+        diagnosis: currentDiagnosis || undefined,
+      });
+
+      refreshData();
+      setLastSubmittedRepair(newRepair);
+      setSahayakStep("init");
+      setSahayakChoice(null);
+      setSahayakUrgency(null);
+      setSahayakDescription("");
+      setSahayakPhoto(null);
+      setSahayakVoiceActive(false);
+      // P2E: Go to technician match screen
+      handleFindTechnician(newRepair);
+    } catch {
+      setFeedbackMessage("अभी जानकारी नहीं मिल पाई। कृपया थोड़ी देर बाद कोशिश करें।");
+      setTimeout(() => setFeedbackMessage(null), 3000);
+    }
+  };
+
+
+  // After sahayak or breakdown submit — find technician
+  // (Called inside handleBreakdownSubmit and handleSahayakCallMechanic after repair is created)
+
+  // ─── P2E: Technician Matching Handlers ───────────────────────────────────
+
+  /**
+   * Called after a repair request is created.
+   * Launches the technician-finding animation, then shows the result.
+   */
+  const handleFindTechnician = (repair: RepairRequest) => {
+    setIsFindingTech(true);
+    setSelectedAlternativeIdx(null);
+    setActiveJobCardRepairId(repair.id);
+    setCurrentScreen("technician_match");
+
+    // Determine urgency for matching
+    const urgency = repair.calculatedUrgency || null;
+
+    // Simulate finding delay (1.5s)
+    setTimeout(() => {
+      const result = matchTechnician({
+        machineType: repair.machineNameHi || "",
+        problemCategory: repair.diagnosis?.matchedRule,
+        urgency,
+        farmerLocation,
+      });
+      setTechMatchResult(result);
+      setIsFindingTech(false);
+    }, 1500);
+  };
+
+  /**
+   * Returns the currently shown technician:
+   * either the recommended one or an alternative the farmer selected.
+   */
+  const getDisplayedTechnician = (): import("@/services/technicianData").Technician | null => {
+    if (!techMatchResult) return null;
+    if (selectedAlternativeIdx !== null) {
+      return techMatchResult.alternatives[selectedAlternativeIdx] || techMatchResult.recommended;
+    }
+    return techMatchResult.recommended;
+  };
+
+  /**
+   * P2K Step 2: Farmer selects a technician.
+   * Idempotent & protected against duplicate rapid clicks / retries.
+   *
+   * Creates/updates repair request:
+   * - repairRequestId
+   * - technicianId
+   * - machineId
+   * - farmerId
+   * - diagnosis
+   * - urgency
+   * - selectedTechnician
+   * - assignedAt
+   * - status: "technician_assigned"
+   * - statusTextHi: "मैकेनिक नियुक्त हो गया है"
+   */
+  const handleSelectTechnician = (tech: Technician) => {
+    // 1. Duplicate click protection (idempotency guard)
+    if (isAssigningTechnician) return;
+    setIsAssigningTechnician(true);
+
+    try {
+      const repair =
+        repairs.find((r) => r.id === activeJobCardRepairId) ||
+        lastSubmittedRepair;
+
+      if (!tech || !repair) {
+        setFeedbackMessage("अभी जानकारी नहीं मिल पाई। कृपया थोड़ी देर बाद कोशिश करें।");
+        setTimeout(() => setFeedbackMessage(null), 2500);
+        setIsAssigningTechnician(false);
+        return;
+      }
+
+      // Calculate approximate distance without exposing raw lat/lng
+      const distResult = calculateTechnicianDistance(tech, farmerLocation);
+      const routeUrl = getRouteUrl(farmerLocation, tech);
+      const safeFarmerLocText = getSafeFarmerLocationText(farmerLocation);
+
+      const diagnosisText = repair.diagnosis?.possibleProblem || "AI जाँच उपलब्ध नहीं";
+      const urgencyLabel =
+        repair.calculatedUrgency === "emergency"
+          ? "🔴 तुरंत मदद चाहिए"
+          : repair.calculatedUrgency === "urgent"
+          ? "🟠 जल्द मरम्मत करें"
+          : "🟢 सामान्य मरम्मत";
+
+      // P2F: Run part recommendations before creating job card
+      const partResult = recommendSpareParts({
+        machineType: repair.machineNameHi || "",
+        matchedRule: repair.diagnosis?.matchedRule,
+        problemDescription: repair.problemDescription,
+      });
+      setCurrentPartRecommendation(partResult);
+      const recommendedPartIds = partResult.recommendations.map((r) => r.part.id);
+
+      // P2O Step 2: Calculate transparent pricing estimate
+      const estimatedCost = repair.estimatedCost || calculateEstimatedPricing({
+        machineId: repair.machineId,
+        machineType: repair.machineNameHi,
+        distanceKm: distResult.distanceKm,
+        recommendedPartIds,
+      });
+
+      // P2K Step 2: Create/update Job Card idempotently
+      const jobCard = createJobCard({
+        repairRequestId: repair.id,
+        machine: repair.machineNameHi,
+        machineIcon: repair.machineIcon,
+        problem: repair.problemDescription,
+        diagnosis: diagnosisText,
+        urgency: urgencyLabel,
+        safetyMessage: repair.safetyMessage,
+        technicianId: tech.id,
+        technicianNameHi: tech.nameHi,
+        technicianPhone: tech.phone,
+        technicianSkillHi: skillLabelHi(techMatchResult?.requiredSkill || null),
+        technicianDistanceKm: distResult.distanceKm,
+        technicianRating: tech.rating,
+        recommendedPartIds,
+        recommendationRule: partResult.triggeredBy,
+        farmerId: repair.farmerId || "farmer-001",
+        farmerLocationText: safeFarmerLocText,
+        visualEvidence:
+          repair.diagnosis?.photoAnalysis?.detectedIssue ||
+          repair.diagnosis?.photoAnalysis?.evidence?.join(", "),
+        photoDataUrl: repair.photoDataUrl,
+        technicianWorkflowStatus: "assigned",
+        assignedAt: new Date().toISOString(),
+        routeUrl: routeUrl || undefined,
+        approxDistanceText: distResult.displayText,
+        estimatedCost,
+        technicianVerificationStatus: tech.verificationStatus,
+        technicianExperienceYears: tech.experienceYears,
+      });
+
+      // P2F: Part availability map
+      const partAvailability: Record<string, boolean> = {};
+      partResult.recommendations.forEach((r) => {
+        partAvailability[r.part.id] = r.part.available;
+      });
+
+      // Update repair status with technician assignment:
+      // status: "technician_assigned"
+      // statusTextHi: "मैकेनिक नियुक्त हो गया है"
+      updateRepairStatus(repair.id, {
+        status: "technician_assigned",
+        statusTextHi: "मैकेनिक नियुक्त हो गया है",
+        technicianWorkflowStatus: "assigned",
+        technicianId: tech.id,
+        jobCardId: jobCard.jobId,
+        farmerId: repair.farmerId || "farmer-001",
+        selectedTechnician: tech,
+        assignedAt: new Date().toISOString(),
+        approxDistanceText: distResult.displayText,
+        routeUrl: routeUrl || undefined,
+        recommendedParts: recommendedPartIds,
+        partAvailability,
+        estimatedCost,
+        technicianVerificationStatus: tech.verificationStatus,
+      });
+      refreshData();
+
+      setCurrentJobCard(jobCard);
+      setCurrentScreen("technician_job_card");
+    } finally {
+      setTimeout(() => setIsAssigningTechnician(false), 800);
+    }
+  };
+
+  /**
+   * Farmer confirms the currently highlighted technician.
+   */
+  const handleConfirmTechnician = () => {
+    const tech = getDisplayedTechnician();
+    if (tech) {
+      handleSelectTechnician(tech);
+    }
+  };
+
+  /**
+   * P2K Step 2: Advance technician status through the 5 stages:
+   * 1. assigned   -> "मैकेनिक नियुक्त हो गया है"
+   * 2. on_the_way -> "मैकेनिक रास्ते में है"
+   * 3. arrived    -> "मैकेनिक पहुँच गया है"
+   * 4. repairing  -> "मरम्मत चल रही है"
+   * 5. completed  -> "मरम्मत पूरी हुई"
+   */
+  const handleAdvanceTechnicianStatus = (nextStatus: TechnicianWorkflowStatus) => {
+    if (!currentJobCard) return;
+
+    const statusMap: Record<
+      TechnicianWorkflowStatus,
+      { statusTextHi: string; repairStatus: import("@/types").RepairStatus }
+    > = {
+      available: { statusTextHi: "उपलब्ध", repairStatus: "technician_assigned" },
+      assigned: { statusTextHi: "मैकेनिक नियुक्त हो गया है", repairStatus: "technician_assigned" },
+      on_the_way: { statusTextHi: "मैकेनिक रास्ते में है", repairStatus: "on_the_way" },
+      arrived: { statusTextHi: "मैकेनिक पहुँच गया है", repairStatus: "arrived" },
+      repairing: { statusTextHi: "मरम्मत चल रही है", repairStatus: "repairing" },
+      completed: { statusTextHi: "मरम्मत पूरी हुई", repairStatus: "verification_pending" },
+    };
+
+    const target = statusMap[nextStatus];
+    const updated = updateTechnicianWorkflowStatus(currentJobCard.jobId, nextStatus);
+    if (updated) {
+      setCurrentJobCard(updated);
+      updateRepairStatus(updated.repairRequestId, {
+        status: target.repairStatus,
+        statusTextHi: target.statusTextHi,
+        technicianWorkflowStatus: nextStatus,
+      });
+      refreshData();
+    }
+  };
+
+  /**
+   * Technician accepts the job (backward compatibility wrapper).
+   */
+  const handleTechnicianAccept = () => {
+    handleAdvanceTechnicianStatus("on_the_way");
+  };
+
+  /**
+   * Technician starts the repair (backward compatibility wrapper).
+   */
+  const handleTechnicianStart = () => {
+    handleAdvanceTechnicianStatus("repairing");
+  };
+
+  /**
+   * P2F: Technician marks a part as needed or not needed.
+   * Persists to localStorage via updatePartSelection and syncs to repair record.
+   */
+  const handlePartDecision = (
+    partId: string,
+    partNameHi: string,
+    decision: "needed" | "not_needed"
+  ) => {
+    if (!currentJobCard) return;
+    const selection: PartSelection = { partId, partNameHi, decision };
+    const updated = updatePartSelection(currentJobCard.jobId, selection);
+    if (updated) {
+      setCurrentJobCard(updated);
+      updateRepairStatus(updated.repairRequestId, {
+        selectedParts: updated.partSelections,
+      });
+    }
+  };
+
+  /**
+   * P2F: Helper to get a technician's current decision for a part.
+   */
+  const getPartDecision = (partId: string): "needed" | "not_needed" | "pending" => {
+    if (!currentJobCard?.partSelections) return "pending";
+    const sel = currentJobCard.partSelections.find((s) => s.partId === partId);
+    return sel ? sel.decision : "pending";
+  };
+
+  /**
+   * P2F Step 2: Technician completes repair — moves status to verification_pending.
+   * Does NOT mark job as finally completed yet.
+   */
+  const handleTechnicianCompleteRepair = () => {
+    if (!currentJobCard) return;
+    const updated = completeJobCardRepair(currentJobCard.jobId);
+    if (updated) {
+      setCurrentJobCard(updated);
+      updateRepairStatus(updated.repairRequestId, {
+        status: "verification_pending",
+        statusTextHi: "मशीन की जाँच बाकी है",
+        verificationStatus: "pending",
+        verificationAttempt: updated.verificationAttempt || 1,
+      });
+      refreshData();
+    }
+  };
+
+  /**
+   * P2F Step 2: Machine verification choice: passed (हाँ, मशीन सही है) or failed (नहीं, समस्या अभी है).
+   */
+  const handleVerificationChoice = (passed: boolean) => {
+    if (!currentJobCard) return;
+
+    // Resolve parts used from technician selections
+    const partsUsed = (currentJobCard.partSelections || [])
+      .filter((s) => s.decision === "needed")
+      .map((s) => s.partNameHi);
+
+    const activeRepair = repairs.find((r) => r.id === currentJobCard.repairRequestId);
+    const verificationId = activeRepair?.verificationId || `verif-${currentJobCard.repairRequestId}-${Date.now()}`;
+
+    const finalPricing = currentJobCard.finalCost || currentJobCard.estimatedCost || calculateEstimatedPricing({
+      machineType: currentJobCard.machine,
+      partSelections: currentJobCard.partSelections,
+      distanceKm: currentJobCard.technicianDistanceKm,
+    });
+
+    const passportContrib = activeRecoveryPlan
+      ? contributeToMachinePassport({
+          plan: activeRecoveryPlan,
+          jobCard: currentJobCard,
+          finalCost: finalPricing.total,
+        })
+      : {
+          recoverySummaryHi: `मरम्मत ${currentJobCard.technicianNameHi} द्वारा पूर्ण।`,
+          preventiveAdviceHi: "अगली सामान्य सर्विस 90 दिन बाद अनुशंसित है।",
+        };
+
+    const passportData: MachinePassportRecord = {
+      repairDate: new Date().toLocaleDateString("hi-IN"),
+      diagnosis: currentJobCard.technicianOverrideDiagnosis || activeRepair?.diagnosis?.possibleProblem || currentJobCard.diagnosis,
+      technician: currentJobCard.technicianNameHi,
+      partsUsed: partsUsed.length > 0 ? partsUsed : ["कोई नया पार्ट नहीं लगा"],
+      repairResult: passed ? "सफलतापूर्वक मरम्मत हुई" : "जाँच में समस्या पाई गई",
+      verificationResult: passed ? "मशीन सही पाई गई (Passed)" : "जाँच असफल (Failed)",
+      verificationId,
+      finalCost: finalPricing.total,
+      costBreakdown: finalPricing,
+      problemDescription: currentJobCard.problem,
+      estimatedCost: currentJobCard.estimatedCost?.total,
+      serviceCentreNameHi: currentJobCard.serviceCentreNameHi,
+      maintenanceRecommendation: passportContrib.preventiveAdviceHi,
+      technicianOverrideDiagnosis: currentJobCard.technicianOverrideDiagnosis,
+    };
+
+    const updatedCard = recordJobCardVerification(currentJobCard.jobId, passed, undefined, verificationId);
+    if (updatedCard) {
+      setCurrentJobCard(updatedCard);
+    }
+
+    recordRepairVerification(currentJobCard.repairRequestId, passed, passportData);
+    refreshData();
+  };
+
+  /**
+   * P2O Step 2: Save transparent price adjustment with mandatory reason
+   */
+  const handleSavePriceAdjustment = () => {
+    if (!currentJobCard) return;
+
+    const est = currentJobCard.estimatedCost || calculateEstimatedPricing({
+      machineType: currentJobCard.machine,
+      distanceKm: currentJobCard.technicianDistanceKm,
+      partSelections: currentJobCard.partSelections,
+    });
+
+    const partsCost = calculatePartsCost({ partSelections: currentJobCard.partSelections });
+    const labourFee = techLabourFeeOverride !== null ? Math.max(0, techLabourFeeOverride) : (currentJobCard.finalCost?.labourFee ?? est.labourFee);
+
+    const { finalPricing, priceAdjustment } = calculateFinalPricing({
+      estimatedPricing: est,
+      revisedLabourFee: labourFee,
+      revisedPartsCost: partsCost,
+      reason: priceAdjustmentReason,
+      customReasonNote: customPriceNote.trim() || undefined,
+      technicianId: currentJobCard.technicianId,
+    });
+
+    const updated = updateJobCardPricing(currentJobCard.jobId, {
+      finalCost: finalPricing,
+      priceAdjustment,
+    });
+
+    if (updated) {
+      setCurrentJobCard(updated);
+      updateRepairStatus(updated.repairRequestId, {
+        finalCost: finalPricing,
+        priceAdjustment,
+      });
+      refreshData();
+      setIsEditingPrice(false);
+      setFeedbackMessage("✓ पारदर्शी बिलिंग व लागत संशोधन सुरक्षित किया गया");
+      setTimeout(() => setFeedbackMessage(null), 3000);
+    }
+  };
+
+  /**
+   * P2Q: Save technician physical inspection diagnosis override (Human Override)
+   */
+  const handleSaveDiagnosisOverride = () => {
+    if (!currentJobCard || !techOverrideDiagnosisInput.trim()) return;
+    const updatedDiagnosis = techOverrideDiagnosisInput.trim();
+    const updated = {
+      ...currentJobCard,
+      technicianOverrideDiagnosis: updatedDiagnosis,
+      diagnosis: updatedDiagnosis,
+    };
+    setCurrentJobCard(updated);
+    updateRepairStatus(updated.repairRequestId, {
+      diagnosis: {
+        id: `override-${Date.now()}`,
+        possibleProblem: updatedDiagnosis,
+        confidence: "उच्च (मैकेनिक द्वारा प्रत्यक्ष पुष्टि)",
+        confidenceValue: 100,
+        reasons: ["मैकेनिक द्वारा प्रत्यक्ष भौतिक निरीक्षण के बाद वास्तविक खराबी की पुष्टि हुई।"],
+        safeAction: "मैकेनिक द्वारा सुझाई गई प्रक्रिया का पालन करें।",
+        urgencyLevel: "medium",
+        urgencyText: "सत्यापित",
+        urgencyColor: "bg-emerald-100 text-emerald-900 border-emerald-300",
+        disclaimer: "यह मैकेनिक द्वारा प्रत्यक्ष भौतिक निरीक्षण के बाद सत्यापित निदान है।",
+        matchedRule: "technician_override",
+        timestamp: new Date().toISOString(),
+      },
+    });
+    setIsEditingDiagnosis(false);
+    setFeedbackMessage("✓ मैकेनिक द्वारा वास्तविक खराबी का विवरण अपडेट किया गया");
+    setTimeout(() => setFeedbackMessage(null), 3000);
+  };
+
+  /**
+   * P2O Step 3: Open technician credentials & training modal
+   */
+  const handleOpenCredentialsModal = (tech: Technician) => {
+    const freshTech = getTechnicianById(tech.id) || tech;
+    setActiveModalTech(freshTech);
+    setIsCredentialsModalOpen(true);
+    setNewCertName("");
+    setNewCertOrg("");
+    setNewCertExpiry("");
+    setNewSelfSkill("");
+    setIsSubmittingCert(false);
+  };
+
+  /**
+   * P2O Step 3: Submit new certification for verification review.
+   * SECURITY: Status is set to 'pending'. Self-verification is strictly disallowed.
+   */
+  const handleSubmitNewCertificate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeModalTech || !newCertName.trim() || !newCertOrg.trim()) return;
+
+    const submitted = submitTechnicianCertification(activeModalTech.id, {
+      certificationName: newCertName.trim(),
+      category: newCertCategory,
+      issuingOrganization: newCertOrg.trim(),
+      certificationLevel: "Advanced",
+      issueDate: new Date().toISOString().slice(0, 10),
+      expiryDate: newCertExpiry.trim() || undefined,
+    });
+
+    if (submitted) {
+      const updatedTech = getTechnicianById(activeModalTech.id);
+      if (updatedTech) setActiveModalTech(updatedTech);
+      refreshData();
+      setIsSubmittingCert(false);
+      setFeedbackMessage("✓ नया प्रमाणन सत्यापन समीक्षा के लिए जमा किया गया (समीक्षाधीन)");
+      setTimeout(() => setFeedbackMessage(null), 3500);
+    }
+  };
+
+  /**
+   * P2O Step 3: Add self-declared skill, recorded separately from verified skills.
+   */
+  const handleAddSelfSkill = () => {
+    if (!activeModalTech || !newSelfSkill.trim()) return;
+    addSelfDeclaredSkill(activeModalTech.id, newSelfSkill.trim());
+    const updatedTech = getTechnicianById(activeModalTech.id);
+    if (updatedTech) setActiveModalTech(updatedTech);
+    setNewSelfSkill("");
+    setFeedbackMessage("✓ नया कौशल (स्वयं घोषित) जोड़ा गया");
+    setTimeout(() => setFeedbackMessage(null), 3000);
+  };
+
+  /**
+   * P2F Step 2: Re-repair trigger when verification fails.
+   * Increments attempt count and links back to original repair & job card.
+   */
+  const handleReRepair = () => {
+    if (!currentJobCard) return;
+    const updatedCard = reopenJobCardForReRepair(currentJobCard.jobId);
+    if (updatedCard) {
+      setCurrentJobCard(updatedCard);
+    }
+    reopenRepairForReRepair(currentJobCard.repairRequestId);
+    refreshData();
+  };
+
+  // ─── P2Q: Recovery Engine Handlers ───────────────────────────────────────
+
+  /**
+   * Launch Recovery Engine from any diagnosis or complaint.
+   */
+  const handleLaunchRecoveryEngine = (customMachine?: Machine, customProblem?: string) => {
+    const targetMachine = customMachine || currentBreakdownMachine || machines[0];
+    const problem = customProblem || breakdownDescription || sahayakDescription || "मशीन में खराबी";
+
+    const isCritical =
+      breakdownUrgency === "today" ||
+      sahayakUrgency === "today" ||
+      currentDiagnosis?.urgencyLevel === "high" ||
+      problem.toLowerCase().includes("बुवाई") ||
+      problem.toLowerCase().includes("कटाई");
+
+    const plan = generateRecoveryPlan({
+      machine: targetMachine,
+      problemDescription: problem,
+      diagnosis: currentDiagnosis || null,
+      urgency: isCritical ? "emergency" : "urgent",
+      farmerLocation,
+      isOnline,
+      requiredByTimeText: isCritical ? "कल बुवाई शुरू" : "सामान्य",
+      isCriticalFarmWindow: isCritical,
+    });
+
+    setActiveRecoveryPlan(plan);
+    setSelectedRecoveryOption(plan.recoveryOptions[0] || null);
+    setCurrentScreen("recovery_engine");
+  };
+
+  /**
+   * Confirm selected Recovery Option (Fastest, Nearest Centre, or Lower Cost).
+   */
+  const handleConfirmRecoveryOption = (option: RecoveryOption) => {
+    if (!activeRecoveryPlan) return;
+    setIsAssigningTechnician(true);
+
+    try {
+      const activeRepair = lastSubmittedRepair || latestRepair;
+      const repairId = activeRepair?.id || `repair-${Date.now()}`;
+
+      // 1. Resolve technician
+      const tech = option.technicianId
+        ? getTechnicianById(option.technicianId) || mockTechnicians.find((t) => t.id === option.technicianId) || mockTechnicians[0]
+        : mockTechnicians[0];
+
+      // 2. Resolve service centre if workshop mode
+      const centre = option.serviceCentreId ? getServiceCentreById(option.serviceCentreId) : undefined;
+
+      // 3. Create or update Job Card
+      const jobCard = createJobCard({
+        repairRequestId: repairId,
+        machine: activeRecoveryPlan.machineNameHi,
+        machineIcon: activeRecoveryPlan.machineIcon,
+        problem: activeRecoveryPlan.problemSummaryHi,
+        diagnosis: currentDiagnosis?.possibleProblem || activeRecoveryPlan.problemSummaryHi,
+        urgency: activeRecoveryPlan.urgencyLevel,
+        safetyMessage: activeRecoveryPlan.safetyWarning || undefined,
+        technicianId: tech.id,
+        technicianNameHi: tech.nameHi,
+        technicianPhone: tech.phone,
+        technicianSkillHi: tech.skills[0] || "मैकेनिक",
+        technicianDistanceKm: option.distanceKm,
+        technicianRating: tech.rating,
+        technicianVerificationStatus: tech.verificationStatus,
+        technicianExperienceYears: tech.experienceYears,
+        farmerLocationText: getSafeFarmerLocationText(farmerLocation),
+        approxDistanceText: option.distanceText,
+        estimatedCost: option.pricing,
+        serviceMode: option.serviceMode,
+        serviceCentreId: centre?.id,
+        serviceCentreNameHi: centre?.nameHi,
+        serviceCentreType: centre?.centreType,
+        serviceCentreAddress: centre?.location.addressHi,
+      });
+
+      // 4. Update Repair Request status
+      if (activeRepair) {
+        updateRepairStatus(activeRepair.id, {
+          status: "technician_assigned",
+          statusTextHi: option.serviceMode === "workshop" ? "सर्विस सेंटर पर बुकिंग पुष्टीकृत" : "मैकेनिक नियुक्त हो गया है",
+          technicianId: tech.id,
+          jobCardId: jobCard.jobId,
+          serviceMode: option.serviceMode,
+          serviceCentreId: centre?.id,
+          serviceCentreNameHi: centre?.nameHi,
+          estimatedCost: option.pricing,
+        });
+      }
+
+      // 5. Dispatch SMS alert
+      const smsText = `AgriPulse: ${activeRecoveryPlan.machineNameHi} रिकवरी योजना पुष्टीकृत (${option.badgeHi})। प्रदाता: ${option.providerNameHi}। अनुमान: ₹${option.pricing.total}। सहायता: 1800-AGRI-HELP`;
+      dispatchSimulatedSMS({
+        recipientPhone: "9876543210",
+        messageTextHi: smsText,
+        eventType: "technician_assigned",
+        complaintId: repairId,
+      });
+
+      refreshData();
+      setCurrentJobCard(jobCard);
+      setCurrentScreen("technician_job_card");
+      setFeedbackMessage(`✓ रिकवरी विकल्प पुष्टीकृत: ${option.badgeHi}`);
+      setTimeout(() => setFeedbackMessage(null), 3000);
+    } finally {
+      setTimeout(() => setIsAssigningTechnician(false), 600);
+    }
+  };
+
+  /**
+   * P2P: Feature-phone IVR Keypad simulator handler
+   */
+  const handleKeypadPress = (digit: string) => {
+    const result = processIVRInput(ivrState, digit);
+    setIvrState(result.nextState);
+    if (result.createdRepair) {
+      refreshData();
+      setLastSubmittedRepair(result.createdRepair);
+      setFeedbackMessage("✓ फीचर फोन कॉल से शिकायत दर्ज हुई (SMS भेजा गया)");
+      setTimeout(() => setFeedbackMessage(null), 4000);
+    }
+  };
+
+  /**
+   * P2P: Assisted Access desk submit handler
+   */
+  const handleAssistedSubmit = () => {
+    if (!assistedFarmerPhone || !assistedProblemText) return;
+    const res = createAssistedRepair({
+      operatorId: "op-nagpur-fpo",
+      operatorNameHi: "सुनील पाटिल (ऑपरेटर)",
+      operatorOrgNameHi: "नागपुर किसान उत्पादक कंपनी (FPO)",
+      farmerName: assistedFarmerName,
+      farmerPhone: assistedFarmerPhone,
+      machineId: assistedMachineId,
+      problemDescription: assistedProblemText,
+      urgency: "today",
+      isCriticalFarmWindow: true,
+    });
+    refreshData();
+    setLastSubmittedRepair(res.repair);
+    setActiveRecoveryPlan(res.recoveryPlan);
+    setSelectedRecoveryOption(res.recoveryPlan.recoveryOptions[0]);
+    setIsAssistedModalOpen(false);
+    setCurrentScreen("recovery_engine");
+    setFeedbackMessage("✓ FPO सहायक डेस्क द्वारा शिकायत दर्ज: रिकवरी योजना तैयार");
+    setTimeout(() => setFeedbackMessage(null), 3500);
+  };
+
+  // Active bottom navigation helper
+  const getActiveTab = () => {
+    if (
+      currentScreen === "home" ||
+      currentScreen === "sahayak" ||
+      currentScreen === "diagnosis" ||
+      currentScreen === "breakdown"
+    ) {
+      return "home";
+    }
+    if (currentScreen === "machines" || currentScreen === "machine_detail") return "machines";
+    if (
+      currentScreen === "repair" ||
+      currentScreen === "breakdown_success" ||
+      currentScreen === "technician_match" ||
+      currentScreen === "nearby_mechanics" ||
+      currentScreen === "technician_job_card" ||
+      currentScreen === "repair_verification"
+    ) return "repair";
+    if (currentScreen === "service") return "service";
+    return "home";
+  };
+
+  // Dynamic calculations for Home & Repair screens
+  const activeRepairs = repairs.filter((r) => r.status !== "completed");
+  const latestRepair = activeRepairs[0] || (repairs.length > 0 ? repairs[0] : null);
+  const currentBreakdownMachine =
+    machines.find((m) => m.id === breakdownMachineId) || machines[0];
+
+  return (
+    <div
+      dir={isRTL(currentLanguage) ? "rtl" : "ltr"}
+      className={`flex flex-col min-h-screen bg-[#FAF8F5] text-slate-900 pb-28 select-none ${
+        isRTL(currentLanguage) ? "font-serif text-right" : "text-left"
+      }`}
+    >
+      {/* Hidden native media pickers */}
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        ref={photoInputRef}
+        onChange={handlePhotoSelect}
+        className="hidden"
+        aria-hidden="true"
+      />
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        ref={sahayakPhotoInputRef}
+        onChange={handleSahayakPhotoSelect}
+        className="hidden"
+        aria-hidden="true"
+      />
+      <input
+        type="file"
+        accept="video/*"
+        ref={videoInputRef}
+        onChange={handleVideoSelect}
+        className="hidden"
+        aria-hidden="true"
+      />
+
+      {/* ================= HEADER ================= */}
+      <header className="bg-emerald-800 text-white px-5 py-4 border-b-4 border-amber-500 shadow-md sticky top-0 z-40">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {currentScreen !== "home" && (
+              <button
+                onClick={() => {
+                  if (currentScreen === "diagnosis") {
+                    handleBackFromDiagnosis();
+                  } else if (currentScreen === "machine_detail") {
+                    setCurrentScreen("machines");
+                  } else if (currentScreen === "breakdown" && breakdownStep > 1) {
+                    setBreakdownStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
+                  } else if (
+                    currentScreen === "sahayak" &&
+                    (sahayakStep === "voice" || sahayakStep === "photo")
+                  ) {
+                    stopSahayakVoice();
+                    setSahayakStep("init");
+                  } else {
+                    setCurrentScreen("home");
+                  }
+                }}
+                className="bg-emerald-900 hover:bg-emerald-950 p-2.5 rounded-2xl border border-emerald-600 text-white font-black flex items-center justify-center transition-colors"
+                aria-label={t("common.back", currentLanguage)}
+              >
+                <ArrowLeft className={`w-6 h-6 ${isRTL(currentLanguage) ? "rotate-180" : ""}`} />
+              </button>
+            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🌾</span>
+                <h1 className="text-2xl font-black tracking-wide text-white">AgriPulse</h1>
+              </div>
+              <p className="text-xs text-emerald-100 font-medium tracking-tight">
+                From breakdown to back-in-field.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Multilingual Quick Switcher Pill (Section 1 & 2) */}
+            <button
+              type="button"
+              id="header-language-switcher-btn"
+              onClick={() => setIsLanguageModalOpen(true)}
+              title="अपनी भाषा चुनें / Choose Language"
+              className="bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black border-2 border-amber-600 px-3 py-1.5 rounded-full text-xs transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+              aria-label="भाषा चुनें"
+            >
+              <span className="text-sm">🌐</span>
+              <span>{SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage)?.nativeName || "English"}</span>
+            </button>
+
+            {/* Small Sync Status Indicator */}
+            <span
+              className={`px-3 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 border shadow-xs ${
+                syncState === "syncing"
+                  ? "bg-blue-100 text-blue-900 border-blue-300 animate-pulse"
+                  : !isOnline
+                  ? "bg-amber-100 text-amber-950 border-amber-300"
+                  : "bg-emerald-100 text-emerald-900 border-emerald-300"
+              }`}
+              title="डेटा सुरक्षा स्थिति"
+            >
+              <span>
+                {syncState === "syncing"
+                  ? "🔄"
+                  : !isOnline
+                  ? "📴"
+                  : "🟢"}
+              </span>
+              <span className="hidden sm:inline">
+                {syncState === "syncing"
+                  ? t("common.syncingNotice", currentLanguage)
+                  : !isOnline
+                  ? t("common.offlineNotice", currentLanguage)
+                  : t("common.dataSafeNotice", currentLanguage)}
+              </span>
+            </span>
+
+            <button
+              onClick={handleResetDemo}
+              title="डेमो स्थिति रीसेट करें (Judge/Demo Fresh Start)"
+              className="bg-emerald-900/90 hover:bg-emerald-950 text-amber-300 border border-emerald-600 px-2.5 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95 flex items-center gap-1 shadow-sm cursor-pointer"
+              aria-label="डेमो रीसेट"
+            >
+              <span>🔄</span>
+              <span className="hidden sm:inline">{t("common.reset", currentLanguage)}</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ================= OFFLINE / ONLINE INDICATOR BANNERS (Section 14) ================= */}
+      {/* 1. Offline Banner */}
+      {!isOnline && (
+        <div className="bg-amber-100 border-b-2 border-amber-400 px-4 py-2.5 text-center text-amber-950 font-black text-base flex items-center justify-center gap-2 shadow-sm" role="status" aria-live="polite">
+          <span className="text-xl">📴</span>
+          <span>{t("common.offlineNotice", currentLanguage)}</span>
+        </div>
+      )}
+
+      {/* 2. Syncing Banner */}
+      {isOnline && syncState === "syncing" && (
+        <div className="bg-blue-600 border-b-2 border-blue-800 px-4 py-2.5 text-center text-white font-black text-base flex items-center justify-center gap-2 shadow-md animate-pulse" role="status" aria-live="polite">
+          <span className="text-xl animate-spin">🔄</span>
+          <span>{t("common.syncingNotice", currentLanguage)}</span>
+        </div>
+      )}
+
+      {/* 3. Sync Successful Banner */}
+      {isOnline && syncState === "synced" && (
+        <div className="bg-emerald-600 border-b-2 border-emerald-800 px-4 py-2.5 text-center text-white font-black text-base flex items-center justify-center gap-2 shadow-md" role="status" aria-live="polite">
+          <span className="text-xl">🟢</span>
+          <span>{t("common.dataSafeNotice", currentLanguage)}</span>
+        </div>
+      )}
+
+      {/* Farmer Feedback Toast */}
+      {feedbackMessage && (
+        <div className="fixed top-20 left-4 right-4 z-50 max-w-md mx-auto bg-amber-800 text-white p-4 rounded-2xl font-black text-center text-lg shadow-2xl border-2 border-white animate-bounce flex items-center justify-center gap-2">
+          <AlertCircle className="w-6 h-6 text-amber-300 shrink-0" />
+          <span>{feedbackMessage}</span>
+        </div>
+      )}
+
+      {/* ================= MULTILINGUAL: FIRST-LAUNCH & SETTINGS LANGUAGE SELECTION MODAL ================= */}
+      {isLanguageModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-3 backdrop-blur-md animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-5 sm:p-6 space-y-4 border-4 border-emerald-600 shadow-2xl">
+            {/* Modal Header */}
+            <div className="text-center space-y-1.5 pb-2 border-b border-slate-200">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-100 border-2 border-emerald-400 text-3xl shadow-inner">
+                🌾
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                AgriPulse
+              </h2>
+              <div className="text-xl sm:text-2xl font-black text-emerald-800">
+                Choose Your Language
+              </div>
+              <div className="text-base sm:text-lg font-extrabold text-amber-700">
+                अपनी भाषा चुनें
+              </div>
+              <p className="text-xs font-bold text-slate-500 max-w-sm mx-auto">
+                पूरी किसान स्क्रीन और वॉयस सिस्टम आपकी चुनी हुई भाषा में काम करेंगे। (Full farmer UI & voice interaction adapt to your choice.)
+              </p>
+            </div>
+
+            {/* Primary 8 Languages */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              {SUPPORTED_LANGUAGES.slice(0, 8).map((lang) => {
+                const isSelected = currentLanguage === lang.code;
+                return (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => handleSelectLanguage(lang.code)}
+                    className={`p-3.5 rounded-2xl border-3 text-left transition-all active:scale-95 flex flex-col justify-between cursor-pointer ${
+                      isSelected
+                        ? "bg-emerald-50 border-emerald-600 ring-3 ring-emerald-300 shadow-md"
+                        : "bg-slate-50 hover:bg-emerald-50/50 border-slate-200 hover:border-emerald-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-black text-slate-900">{lang.nativeName}</span>
+                      {isSelected && <span className="text-emerald-700 font-black text-base">✓</span>}
+                    </div>
+                    <div className="text-xs font-bold text-slate-500 mt-1 flex items-center justify-between">
+                      <span>{lang.name}</span>
+                      <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">
+                        {lang.script}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* More Languages Accordion Toggle */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowMoreLanguages(!showMoreLanguages)}
+                className="w-full py-2.5 px-4 rounded-xl border-2 border-dashed border-emerald-500 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-900 font-extrabold text-sm flex items-center justify-between transition-colors cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <span>🌐</span>
+                  <span>More Languages & Regional Dialects / और भाषाएं</span>
+                </span>
+                <span>{showMoreLanguages ? "▲" : "▼"}</span>
+              </button>
+
+              {showMoreLanguages && (
+                <div className="grid grid-cols-2 gap-2.5 mt-2.5 animate-fadeIn">
+                  {SUPPORTED_LANGUAGES.slice(8).map((lang) => {
+                    const isSelected = currentLanguage === lang.code;
+                    return (
+                      <button
+                        key={lang.code}
+                        type="button"
+                        onClick={() => handleSelectLanguage(lang.code)}
+                        className={`p-3 rounded-2xl border-2 text-left transition-all active:scale-95 flex flex-col justify-between cursor-pointer ${
+                          isSelected
+                            ? "bg-emerald-50 border-emerald-600 ring-2 ring-emerald-300 shadow-md"
+                            : "bg-slate-50 hover:bg-emerald-50/50 border-slate-200 hover:border-emerald-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-base font-black text-slate-900">{lang.nativeName}</span>
+                          {isSelected && <span className="text-emerald-700 font-black text-sm">✓</span>}
+                        </div>
+                        <div className="text-xs font-bold text-slate-500 mt-1 flex items-center justify-between">
+                          <span>{lang.name}</span>
+                          {lang.isRTL && (
+                            <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-1.5 py-0.5 rounded">
+                              RTL
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Regional Dialects and Voice Fallback Honesty Notice */}
+            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3 text-[11px] font-bold text-amber-950 flex items-start gap-2">
+              <span className="text-base shrink-0">💡</span>
+              <span>
+                <strong>क्षेत्रीय बोली व वॉयस सहायता:</strong> हरियाणवी व राजस्थानी/मारवाड़ी जैसी बोलियों में वॉयस पहचान निकटतम समर्थित भाषा (हिन्दी) के माध्यम से सुगम बनाई गई है। यदि किसी बोली में विशिष्ट अनुवाद उपलब्ध न हो, तो सहज क्षेत्रीय फॉलबैक लागू रहता है।
+              </span>
+            </div>
+
+            {/* Close button if user already has a chosen language */}
+            {hasChosenLanguage() && (
+              <button
+                type="button"
+                onClick={() => setIsLanguageModalOpen(false)}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-sm cursor-pointer"
+              >
+                {t("common.close", currentLanguage)}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= P2O STEP 3: TECHNICIAN CREDENTIALS & TRAINING MODAL ================= */}
+      {isCredentialsModalOpen && activeModalTech && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3.5 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 space-y-4 border-4 border-emerald-600 shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center text-2xl">
+                  👨‍🔧
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900">{activeModalTech.nameHi}</h3>
+                  <div className="text-xs font-bold text-slate-500">
+                    {activeModalTech.phone} • {activeModalTech.serviceArea || "ग्रामीण सेवा क्षेत्र"}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCredentialsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 font-black text-2xl p-1"
+                aria-label="बंद करें"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Verification Status Badge Header */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl border-2 bg-slate-50">
+              <div>
+                <span className="text-xs font-bold text-slate-500 block">सत्यापन स्थिति (Status):</span>
+                <span className="text-base font-black text-slate-900 flex items-center gap-1.5 mt-0.5">
+                  {activeModalTech.verificationStatus === "verified"
+                    ? "🟢 प्रमाणित मैकेनिक (Verified)"
+                    : activeModalTech.verificationStatus === "expired"
+                    ? "🔴 प्रमाणन समाप्त / नवीनीकरण आवश्यक"
+                    : "🟡 सत्यापन प्रक्रियाधीन (Under Verification)"}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-bold text-slate-500 block">कार्य अनुभव:</span>
+                <span className="text-base font-black text-slate-900">
+                  {activeModalTech.experienceYears ? `${activeModalTech.experienceYears} वर्ष` : "3+ वर्ष"}
+                </span>
+              </div>
+            </div>
+
+            {/* Demo Notice Disclaimer (Prompt Rule 3 & 12) */}
+            <div className="text-[11px] font-bold text-amber-900 bg-amber-50 p-2.5 rounded-xl border border-amber-300 leading-snug">
+              ⚠️ <strong>डेमो सूचना:</strong> यह रिकॉर्ड्स प्रदर्शन (Demo) हेतु हैं। आधिकारिक या सरकारी मान्यता का कोई असत्य दावा नहीं किया गया है।
+            </div>
+
+            {/* Section 1: Equipment Categories */}
+            <div className="space-y-1.5">
+              <span className="text-xs font-black text-slate-700 uppercase tracking-wide">
+                🚜 प्रमाणित उपकरण श्रेणियां (Equipment Categories):
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {(activeModalTech.equipmentCategories || activeModalTech.skills).map((eq, i) => (
+                  <span
+                    key={i}
+                    className="bg-emerald-50 text-emerald-950 font-bold px-2.5 py-1 rounded-xl text-xs border border-emerald-300"
+                  >
+                    ✓ {eq}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Section 2: Technical Skills (Separating Verified vs Self-Declared — Rule 13) */}
+            <div className="space-y-2 border-t border-slate-100 pt-3">
+              <span className="text-xs font-black text-slate-700 uppercase tracking-wide">
+                ⚙️ तकनीकी दक्षता व कौशल (Technical Skills):
+              </span>
+              <div className="space-y-1.5">
+                {/* Verified Technical Skills */}
+                <div className="flex flex-wrap gap-1.5">
+                  {(activeModalTech.technicalSkills || ["Mechanical", "Hydraulic"]).map((sk, i) => (
+                    <span
+                      key={i}
+                      className="bg-blue-50 text-blue-950 font-bold px-2.5 py-1 rounded-xl text-xs border border-blue-300 flex items-center gap-1"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-700" />
+                      <span>{sk} (प्रमाणित)</span>
+                    </span>
+                  ))}
+                  {/* Self-Declared Skills */}
+                  {(activeModalTech.selfDeclaredSkills || []).map((sk, i) => (
+                    <span
+                      key={i}
+                      className="bg-slate-100 text-slate-700 font-bold px-2.5 py-1 rounded-xl text-xs border border-slate-300"
+                    >
+                      ℹ️ {sk} (स्वयं घोषित)
+                    </span>
+                  ))}
+                </div>
+
+                {/* Quick Add Self-Declared Skill */}
+                <div className="flex gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={newSelfSkill}
+                    onChange={(e) => setNewSelfSkill(e.target.value)}
+                    placeholder="कौशल जोड़ें (जैसे: वेल्डिंग)"
+                    className="flex-1 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddSelfSkill}
+                    className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-black px-3 py-1.5 rounded-xl text-xs"
+                  >
+                    + जोड़ें
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Certifications Portfolio (Rule 3, 5, 9) */}
+            <div className="space-y-2 border-t border-slate-100 pt-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-slate-700 uppercase tracking-wide">
+                  📜 प्रमाणन पोर्टफोलियो (Certifications):
+                </span>
+                <span className="text-[11px] font-bold text-slate-500">
+                  {activeModalTech.certifications?.length || 0} रिकॉर्ड
+                </span>
+              </div>
+
+              {(!activeModalTech.certifications || activeModalTech.certifications.length === 0) ? (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 font-bold text-center">
+                  अभी कोई औपचारिक प्रमाण पत्र दर्ज नहीं है (स्वयं घोषित अनुभव)
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {activeModalTech.certifications.map((cert) => {
+                    const expired = isCertificationExpired(cert) || cert.verificationStatus === "expired";
+
+                    return (
+                      <div
+                        key={cert.id}
+                        className={`p-3 rounded-2xl border-2 space-y-1 text-xs ${
+                          expired
+                            ? "bg-red-50 border-red-300"
+                            : cert.verificationStatus === "verified"
+                            ? "bg-emerald-50 border-emerald-300"
+                            : "bg-amber-50 border-amber-300"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="font-black text-slate-900 text-sm">
+                              {cert.certificationName}
+                            </div>
+                            <div className="text-[11px] font-bold text-slate-600">
+                              संस्था: {cert.issuingOrganization}
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2 py-0.5 rounded-full font-black text-[10px] shrink-0 border ${
+                              expired
+                                ? "bg-red-200 text-red-950 border-red-400"
+                                : cert.verificationStatus === "verified"
+                                ? "bg-emerald-200 text-emerald-950 border-emerald-400"
+                                : "bg-amber-200 text-amber-950 border-amber-400"
+                            }`}
+                          >
+                            {expired
+                              ? "🔴 समाप्त (Expired)"
+                              : cert.verificationStatus === "verified"
+                              ? "🟢 सत्यापित (Verified)"
+                              : "🟡 समीक्षाधीन (Pending)"}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center text-[11px] text-slate-700 pt-1 border-t border-slate-200/60">
+                          <span>स्तर: {cert.certificationLevel} • श्रेणी: {cert.category}</span>
+                          <span>
+                            {cert.expiryDate ? (
+                              expired ? (
+                                <strong className="text-red-700">समाप्त: {cert.expiryDate} (नवीनीकरण आवश्यक)</strong>
+                              ) : (
+                                `वैधता: ${cert.expiryDate}`
+                              )
+                            ) : (
+                              "आजीवन वैध"
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Section 4: Training Records (Rule 4) */}
+            <div className="space-y-2 border-t border-slate-100 pt-3">
+              <span className="text-xs font-black text-slate-700 uppercase tracking-wide">
+                🎓 पूर्ण व प्रगतिरत प्रशिक्षण (Training):
+              </span>
+              {(!activeModalTech.trainingRecords || activeModalTech.trainingRecords.length === 0) ? (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 font-bold text-center">
+                  कोई प्रशिक्षण रिकॉर्ड दर्ज नहीं है
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {activeModalTech.trainingRecords.map((tr) => (
+                    <div
+                      key={tr.id}
+                      className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="font-black text-slate-900">{tr.trainingTitle}</div>
+                        <div className="text-[11px] text-slate-500 font-bold">
+                          प्रदाता: {tr.trainingProvider} ({tr.completionDate})
+                        </div>
+                      </div>
+                      <span
+                        className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${
+                          tr.status === "Completed"
+                            ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                            : tr.status === "In Progress"
+                            ? "bg-blue-100 text-blue-900 border-blue-300"
+                            : "bg-red-100 text-red-900 border-red-300"
+                        }`}
+                      >
+                        {tr.status === "Completed"
+                          ? "✓ पूर्ण (Completed)"
+                          : tr.status === "In Progress"
+                          ? "प्रगति पर (In Progress)"
+                          : "समाप्त (Expired)"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Section 5: Submit New Certification Form (Rule 8 & 13) */}
+            <div className="border-t border-slate-100 pt-3 space-y-2">
+              {!isSubmittingCert ? (
+                <button
+                  type="button"
+                  onClick={() => setIsSubmittingCert(true)}
+                  className="w-full py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 font-black rounded-xl text-xs border border-emerald-300 flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Plus className="w-4 h-4 text-emerald-700" />
+                  <span>+ नया प्रमाणन सत्यापन के लिए जमा करें (Submit Certificate)</span>
+                </button>
+              ) : (
+                <form onSubmit={handleSubmitNewCertificate} className="bg-slate-50 p-3.5 rounded-2xl border-2 border-emerald-400 space-y-2.5">
+                  <div className="text-xs font-black text-slate-900 border-b pb-1">
+                    नया प्रमाण पत्र सबमिट करें (समीक्षा हेतु):
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-0.5">प्रमाणन का नाम:</label>
+                    <input
+                      type="text"
+                      required
+                      value={newCertName}
+                      onChange={(e) => setNewCertName(e.target.value)}
+                      placeholder="जैसे: कंबाइन हार्वेस्टर हाइड्रॉलिक्स"
+                      className="w-full border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 bg-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 block mb-0.5">उपकरण श्रेणी:</label>
+                      <select
+                        value={newCertCategory}
+                        onChange={(e) => setNewCertCategory(e.target.value)}
+                        className="w-full border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 bg-white focus:outline-none"
+                      >
+                        <option value="Tractor">Tractor (ट्रैक्टर)</option>
+                        <option value="Sprayer">Sprayer (स्प्रेयर)</option>
+                        <option value="Water Pump">Water Pump (वाटर पंप)</option>
+                        <option value="Power Tiller">Power Tiller (पावर टिलर)</option>
+                        <option value="Harvester">Harvester (हार्वेस्टर)</option>
+                        <option value="Hydraulic">Hydraulic (हाइड्रोलिक)</option>
+                        <option value="Electrical">Electrical (इलेक्ट्रिकल)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 block mb-0.5">जारीकर्ता संस्था:</label>
+                      <input
+                        type="text"
+                        required
+                        value={newCertOrg}
+                        onChange={(e) => setNewCertOrg(e.target.value)}
+                        placeholder="जैसे: NAMI Demo Institute"
+                        className="w-full border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 bg-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-0.5">समाप्ति तिथि (यदि लागू हो):</label>
+                    <input
+                      type="date"
+                      value={newCertExpiry}
+                      onChange={(e) => setNewCertExpiry(e.target.value)}
+                      className="w-full border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 bg-white focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="submit"
+                      className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-2 rounded-xl text-xs shadow-sm"
+                    >
+                      ✓ समीक्षा हेतु जमा करें (Pending)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsSubmittingCert(false)}
+                      className="px-3 py-2 bg-slate-200 text-slate-700 font-bold rounded-xl text-xs"
+                    >
+                      रद्द करें
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setIsCredentialsModalOpen(false)}
+              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black py-3 rounded-2xl text-sm transition-colors"
+            >
+              बंद करें (Close)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= P2P: FEATURE PHONE / IVR SIMULATOR MODAL ================= */}
+      {isFeaturePhoneModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-3.5 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 rounded-3xl max-w-sm w-full p-5 space-y-4 border-4 border-blue-500 shadow-2xl text-white">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">📞</span>
+                <div>
+                  <h3 className="text-lg font-black text-white">AgriPulse फोन सेवा (IVR)</h3>
+                  <p className="text-[11px] font-bold text-blue-300">टोल-फ्री: 1800-AGRI-HELP</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFeaturePhoneModalOpen(false)}
+                className="text-slate-400 hover:text-white font-black text-2xl p-1"
+                aria-label="कॉल समाप्त करें"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Prototype Disclaimer */}
+            <div className="text-[11px] font-bold text-amber-200 bg-amber-950/60 p-2.5 rounded-xl border border-amber-500/50 leading-snug">
+              ⚠️ <strong>प्रोटोटाइप / डेमो सिमुलेशन:</strong> बिना स्मार्टफोन वाला किसान भी सामान्य फोन से इस IVR के जरिए उसी केंद्रीय मरम्मत प्रणाली में शिकायत दर्ज कर सकता है।
+            </div>
+
+            {/* IVR Voice Output Screen */}
+            <div className="bg-slate-950 p-4 rounded-2xl border-2 border-blue-600/70 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  कॉल चालू है...
+                </span>
+                <span className="text-xs font-mono text-slate-400">कॉलर: {ivrState.callerPhone}</span>
+              </div>
+              <p className="text-sm font-bold text-amber-100 bg-slate-900/80 p-3 rounded-xl border border-slate-800 leading-relaxed">
+                🔊 &quot;{ivrState.audioPromptHi}&quot;
+              </p>
+              {ivrState.statusMessageHi && (
+                <div className="text-xs font-black text-emerald-300 bg-emerald-950/70 p-2 rounded-lg border border-emerald-600/50">
+                  {ivrState.statusMessageHi}
+                </div>
+              )}
+            </div>
+
+            {/* DTMF Keypad Grid */}
+            <div className="grid grid-cols-3 gap-2.5 pt-1">
+              {[
+                { key: "1", sub: "शिकायत" },
+                { key: "2", sub: "स्थिति" },
+                { key: "3", sub: "मैकेनिक" },
+                { key: "4", sub: "सर्विस" },
+                { key: "5", sub: "JKL" },
+                { key: "6", sub: "MNO" },
+                { key: "7", sub: "PQRS" },
+                { key: "8", sub: "TUV" },
+                { key: "9", sub: "मेनू" },
+                { key: "*", sub: "रद्द" },
+                { key: "0", sub: "ऑपरेटर" },
+                { key: "#", sub: "पुष्टि" },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => handleKeypadPress(item.key)}
+                  className="bg-slate-800 hover:bg-blue-600 active:bg-blue-700 text-white rounded-2xl py-3 flex flex-col items-center justify-center border border-slate-700 transition-all active:scale-95 shadow-sm"
+                >
+                  <span className="text-xl font-black">{item.key}</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase">{item.sub}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* End Call / Reset */}
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIvrState({
+                    step: "main_menu",
+                    callerPhone: "9876543210",
+                    audioPromptHi: "AgriPulse किसान हेल्पलाइन में आपका स्वागत है। मशीन मरम्मत के लिए 1 दबाएं, शिकायत की स्थिति जानने के लिए 2 दबाएं, मैकेनिक से सीधे बात करने के लिए 3 दबाएं।",
+                    options: [
+                      { key: "1", labelHi: "मशीन मरम्मत", actionTextHi: "1: मशीन मरम्मत" },
+                      { key: "2", labelHi: "शिकायत स्थिति", actionTextHi: "2: स्थिति जांचें" },
+                      { key: "3", labelHi: "मैकेनिक संपर्क", actionTextHi: "3: मैकेनिक संपर्क" },
+                    ],
+                  });
+                }}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs border border-slate-700"
+              >
+                🔄 दोबारा कॉल शुरू करें
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFeaturePhoneModalOpen(false)}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-2.5 rounded-xl text-xs shadow-md"
+              >
+                🔴 कॉल समाप्त करें
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= P2P: ASSISTED ACCESS / FPO DESK MODAL ================= */}
+      {isAssistedModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/65 flex items-center justify-center p-3.5 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-5 space-y-4 border-4 border-amber-500 shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="text-3xl p-2 bg-amber-100 rounded-2xl">🌾</span>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900">FPO / सहायक सेवा डेस्क</h3>
+                  <div className="text-xs font-bold text-slate-500">
+                    ऑपरेटर: सुनील पाटिल • नागपुर किसान FPO केंद्र
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAssistedModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 font-black text-2xl p-1"
+                aria-label="बंद करें"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Info notice */}
+            <div className="text-xs font-bold text-emerald-900 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 leading-snug">
+              ℹ️ किसान द्वारा फोन या केंद्र पर आकर बताई गई समस्या को ऑपरेटर यहाँ दर्ज करता है। यह शिकायत सीधे मुख्य रिकवरी इंजन से जुड़ेगी।
+            </div>
+
+            {/* Form */}
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-black text-slate-700 block mb-1">
+                  किसान का नाम:
+                </label>
+                <input
+                  type="text"
+                  value={assistedFarmerName}
+                  onChange={(e) => setAssistedFarmerName(e.target.value)}
+                  className="w-full border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-black text-slate-700 block mb-1">
+                  किसान का फोन नंबर (SMS इसी पर जाएगा):
+                </label>
+                <input
+                  type="text"
+                  value={assistedFarmerPhone}
+                  onChange={(e) => setAssistedFarmerPhone(e.target.value)}
+                  className="w-full border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-black text-slate-700 block mb-1">
+                  मशीन चुनें:
+                </label>
+                <select
+                  value={assistedMachineId}
+                  onChange={(e) => setAssistedMachineId(e.target.value)}
+                  className="w-full border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 bg-white focus:outline-none focus:border-amber-500"
+                >
+                  {machines.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.icon} {m.nameHi} ({m.type || m.name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-black text-slate-700 block mb-1">
+                  मशीन में समस्या (विवरण):
+                </label>
+                <textarea
+                  rows={3}
+                  value={assistedProblemText}
+                  onChange={(e) => setAssistedProblemText(e.target.value)}
+                  className="w-full border-2 border-slate-300 rounded-xl p-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="bg-red-50 border border-red-300 rounded-xl p-2.5 flex items-center gap-2">
+                <span className="text-lg">⚠️</span>
+                <span className="text-xs font-black text-red-950">
+                  आपातकालीन: कल बुवाई का दिन है (महत्वपूर्ण कृषि काल)
+                </span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleAssistedSubmit}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-slate-950 font-black py-3 px-4 rounded-xl text-base shadow-md border-2 border-amber-700 transition-all"
+              >
+                ✓ शिकायत दर्ज करें व रिकवरी योजना बनाएं
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= P2P: SIMULATED SMS NOTIFICATION LOG DRAWER ================= */}
+      {isSmsDrawerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3.5 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] overflow-y-auto p-5 space-y-4 border-4 border-slate-700 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="text-3xl p-1.5 bg-slate-100 rounded-2xl">📱</span>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900">SMS संदेश इतिहास</h3>
+                  <div className="text-xs font-bold text-slate-500">
+                    किसान को भेजे गए अलर्ट व पुष्टि संदेश
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSmsDrawerOpen(false)}
+                className="text-slate-400 hover:text-slate-700 font-black text-2xl p-1"
+                aria-label="बंद करें"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Demo Notice */}
+            <div className="text-[11px] font-bold text-slate-700 bg-slate-100 p-2.5 rounded-xl border border-slate-300 leading-snug">
+              ℹ️ <strong>डेमो सिमुलेशन:</strong> वास्तविक टेलीकॉम गेटवे के बिना एसएमएस स्थानीय स्तर पर लॉग किए गए हैं।
+            </div>
+
+            {/* SMS List */}
+            {(() => {
+              const smsList = getSMSNotificationHistory();
+              if (smsList.length === 0) {
+                return (
+                  <div className="text-center py-8 text-slate-500 space-y-2">
+                    <span className="text-4xl block">📭</span>
+                    <p className="text-sm font-bold">अभी तक कोई SMS संदेश नहीं भेजा गया है।</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {smsList.map((sms) => (
+                    <div
+                      key={sms.id}
+                      className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-3.5 space-y-1.5 shadow-xs"
+                    >
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-black text-slate-800">
+                          प्राप्तकर्ता: {sms.recipientPhone}
+                        </span>
+                        <span className="text-slate-500 font-bold">
+                          {new Date(sms.sentAt).toLocaleTimeString("hi-IN", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-slate-900 bg-white p-2.5 rounded-xl border border-slate-200 leading-relaxed font-mono">
+                        {sms.messageTextHi}
+                      </p>
+                      <div className="flex items-center justify-between text-[11px] pt-0.5">
+                        <span className="text-emerald-700 font-bold">
+                          ✓ स्थिति: सफलतापूर्वक भेजा गया (सिम्युलेटेड)
+                        </span>
+                        <span className="text-slate-400 uppercase">{sms.eventType}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            <button
+              type="button"
+              onClick={() => setIsSmsDrawerOpen(false)}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-3 rounded-2xl text-sm"
+            >
+              बंद करें (Close)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MAIN CONTENT ================= */}
+      <main className="flex-1 p-4 max-w-md mx-auto w-full">
+        {/* ================= 1. HOME SCREEN (Section 2) ================= */}
+        {currentScreen === "home" && (
+          <div className="space-y-4">
+            {/* Farmer Welcome Banner */}
+            <div className="bg-emerald-50 border-3 border-emerald-300 rounded-3xl p-5 shadow-sm">
+              <h2 className="text-3xl font-black text-emerald-950 flex items-center gap-2">
+                <span>🙏</span> {t("welcome.greeting", currentLanguage)}
+              </h2>
+              <p className="text-xl font-extrabold text-emerald-900 mt-2 leading-snug">
+                {t("welcome.howCanIHelp", currentLanguage)}
+              </p>
+            </div>
+
+            {/* Service Reminders (if any due/overdue) */}
+            {(() => {
+              const overdueList = machines.filter((m) => m.maintenanceStatus === "overdue");
+              const dueList = machines.filter((m) => m.maintenanceStatus === "due");
+              if (overdueList.length === 0 && dueList.length === 0) return null;
+
+              return (
+                <div className="space-y-2.5">
+                  {overdueList.map((m) => (
+                    <div
+                      key={`home-overdue-${m.id}`}
+                      onClick={() => handleOpenMachineDetail(m)}
+                      className="cursor-pointer bg-red-50 border-3 border-red-400 text-red-950 p-4 rounded-2xl shadow-sm flex items-center justify-between active:scale-[0.99] transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl p-2 bg-red-100 rounded-xl">{m.icon}</span>
+                        <div>
+                          <div className="text-lg font-black flex items-center gap-1.5 text-red-900">
+                            <span>🔔 {t("preventive.serviceDue", currentLanguage)}</span>
+                          </div>
+                          <div className="text-sm font-bold text-red-800">
+                            {m.nameHi} — {t("passport.nextMaintenance", currentLanguage)}: {formatServiceDateHi(m.nextServiceDate)}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-sm font-black bg-red-700 text-white px-3 py-1.5 rounded-xl shrink-0">
+                        {t("common.view", currentLanguage)} ➔
+                      </span>
+                    </div>
+                  ))}
+
+                  {dueList.map((m) => (
+                    <div
+                      key={`home-due-${m.id}`}
+                      onClick={() => handleOpenMachineDetail(m)}
+                      className="cursor-pointer bg-amber-50 border-3 border-amber-400 text-amber-950 p-4 rounded-2xl shadow-sm flex items-center justify-between active:scale-[0.99] transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl p-2 bg-amber-100 rounded-xl">{m.icon}</span>
+                        <div>
+                          <div className="text-lg font-black flex items-center gap-1.5 text-amber-900">
+                            <span>🔔 {t("preventive.serviceDue", currentLanguage)}</span>
+                          </div>
+                          <div className="text-sm font-bold text-amber-800">
+                            {m.nameHi} — {t("passport.nextMaintenance", currentLanguage)}: {formatServiceDateHi(m.nextServiceDate)}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-sm font-black bg-amber-700 text-white px-3 py-1.5 rounded-xl shrink-0">
+                        {t("common.view", currentLanguage)} ➔
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* ================= P2R: 1-CLICK HACKATHON DEMO SCENARIO ================= */}
+            <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 rounded-3xl p-5 text-white shadow-xl border-3 border-emerald-950 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black bg-amber-400 text-slate-950 px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                  🎯 नागपुर RISE 2026 • 1-Click Demo
+                </span>
+                <span className="text-xs font-bold text-emerald-200">
+                  3–5 min flow
+                </span>
+              </div>
+              <div>
+                <h3 className="text-xl sm:text-2xl font-black text-amber-200">
+                  {currentLanguage === "en" ? "Tractor Hydraulic Emergency Scenario" : "ट्रैक्टर हाइड्रोलिक समस्या डेमो परिदृश्य"}
+                </h3>
+                <p className="text-xs sm:text-sm font-bold text-emerald-100 mt-1">
+                  {currentLanguage === "en" ? "Machine: Tractor • Issue: Hydraulic Pressure Drop • Urgency: Sowing Tomorrow" : "उपकरण: ट्रैक्टर • समस्या: हाइड्रोलिक प्रेशर ड्रॉप • स्थिति: कल बुवाई (आपातकाल)"}
+                </p>
+              </div>
+              <button
+                type="button"
+                id="start-hackathon-demo-btn"
+                onClick={() => {
+                  setBreakdownMachineId("tractor");
+                  setBreakdownDescription(currentLanguage === "en" ? "Tractor hydraulic lift not lifting, sowing scheduled tomorrow morning" : "ट्रैक्टर की हाइड्रोलिक लिफ्ट नहीं उठ रही, कल बुवाई शुरू करनी है");
+                  setBreakdownUrgency("today");
+                  setBreakdownStep(2);
+                  setCurrentScreen("breakdown");
+                }}
+                className="w-full bg-amber-400 hover:bg-amber-300 active:scale-[0.98] text-slate-950 font-black py-3.5 px-4 rounded-2xl text-lg shadow-lg flex items-center justify-center gap-2 transition-transform cursor-pointer"
+              >
+                <span>🚜 {currentLanguage === "en" ? "Launch Demo Scenario" : "डेमो शुरू करें (3–5 Min Flow)"}</span>
+                <span>➔</span>
+              </button>
+            </div>
+
+            {/* ================= MULTI-CHANNEL ACCESS RIBBON ================= */}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                id="home-open-recovery-btn"
+                onClick={() => handleLaunchRecoveryEngine(machines[0], currentLanguage === "en" ? "Tractor hydraulic lift failure, emergency repair needed" : "ट्रैक्टर की हाइड्रोलिक लिफ्ट नहीं उठ रही, कल बुवाई शुरू करनी है")}
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border-2 border-emerald-300 rounded-2xl p-3 text-center space-y-1 shadow-xs transition-all active:scale-95 cursor-pointer"
+              >
+                <span className="text-2xl block">⚡</span>
+                <span className="text-xs font-black block">{t("dashboard.recoveryEngine", currentLanguage)}</span>
+              </button>
+              <button
+                type="button"
+                id="home-open-ivr-btn"
+                onClick={() => setIsFeaturePhoneModalOpen(true)}
+                className="bg-blue-50 hover:bg-blue-100 text-blue-950 border-2 border-blue-300 rounded-2xl p-3 text-center space-y-1 shadow-xs transition-all active:scale-95 cursor-pointer"
+              >
+                <span className="text-2xl block">📞</span>
+                <span className="text-xs font-black block">{t("dashboard.featurePhone", currentLanguage)}</span>
+              </button>
+              <button
+                type="button"
+                id="home-open-assisted-btn"
+                onClick={() => setIsAssistedModalOpen(true)}
+                className="bg-amber-50 hover:bg-amber-100 text-amber-950 border-2 border-amber-300 rounded-2xl p-3 text-center space-y-1 shadow-xs transition-all active:scale-95 cursor-pointer"
+              >
+                <span className="text-2xl block">🌾</span>
+                <span className="text-xs font-black block">{t("dashboard.assistedDesk", currentLanguage)}</span>
+              </button>
+            </div>
+
+            {/* PRIORITY 1: 🚜 मेरी मशीनें (My Machines) */}
+            <button
+              onClick={() => setCurrentScreen("machines")}
+              className="w-full bg-white hover:bg-emerald-50 active:bg-emerald-100 border-3 border-emerald-300 rounded-3xl p-5 flex items-center justify-between text-left shadow-sm transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-4">
+                <span className="text-4xl p-3 bg-emerald-100 rounded-2xl">🚜</span>
+                <div>
+                  <div className="text-2xl font-black text-slate-900">{t("dashboard.myMachines", currentLanguage)}</div>
+                  <div className="text-base font-bold text-slate-600 mt-0.5">
+                    {machines.length} {t("machines.title", currentLanguage)}
+                  </div>
+                </div>
+              </div>
+              <span className="text-xl font-black text-emerald-800 bg-emerald-100 px-4 py-2 rounded-2xl">
+                {t("common.view", currentLanguage)} ➔
+              </span>
+            </button>
+
+            {/* PRIORITY 2: 🔧 मशीन में समस्या है (PRIMARY ACTION CALLOUT) */}
+            <button
+              onClick={() => handleStartBreakdown()}
+              className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] transition-all text-white rounded-3xl p-6 shadow-xl border-4 border-emerald-950 flex items-center justify-between text-left ring-4 ring-emerald-200 cursor-pointer"
+            >
+              <div className="flex items-center gap-4">
+                <span className="text-4xl p-3 bg-emerald-800/90 rounded-2xl border border-emerald-500 shadow-inner">🔧</span>
+                <div>
+                  <div className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                    {t("dashboard.reportBreakdown", currentLanguage)}
+                  </div>
+                  <div className="text-base sm:text-lg text-amber-200 font-extrabold mt-0.5">
+                    {t("dashboard.callMechanic", currentLanguage)}
+                  </div>
+                </div>
+              </div>
+              <span className="text-2xl bg-emerald-900 px-4 py-2.5 rounded-2xl font-black border border-emerald-600">
+                ➔
+              </span>
+            </button>
+
+            {/* PRIORITY 3: 📋 मेरी मरम्मत (My Repairs) */}
+            <button
+              onClick={() => setCurrentScreen("repair")}
+              className="w-full bg-white hover:bg-amber-50 active:bg-amber-100 border-3 border-amber-300 rounded-3xl p-5 flex items-center justify-between text-left shadow-sm transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-4">
+                <span className="text-4xl p-3 bg-amber-100 rounded-2xl">📋</span>
+                <div>
+                  <div className="text-2xl font-black text-slate-900">{t("dashboard.myRepairs", currentLanguage)}</div>
+                  <div className="text-base font-bold text-amber-900 mt-0.5">
+                    {activeRepairs.length > 0
+                      ? `${activeRepairs.length} ${t("repair.activeRepair", currentLanguage)} (${activeRepairs[0].machineNameHi})`
+                      : t("repair.noRepairs", currentLanguage)}
+                  </div>
+                </div>
+              </div>
+              <span className="text-xl font-black text-amber-800 bg-amber-100 px-4 py-2 rounded-2xl">
+                {t("common.view", currentLanguage)} ➔
+              </span>
+            </button>
+
+            {/* PRIORITY 4: 📅 अगली सर्विस (Next Service) */}
+            {(() => {
+              const overdueM = machines.find((m) => m.maintenanceStatus === "overdue");
+              const dueM = machines.find((m) => m.maintenanceStatus === "due");
+              const firstUpcoming = machines.find((m) => m.maintenanceStatus === "upcoming") || machines[0];
+              const displayM = overdueM || dueM || firstUpcoming;
+
+              let serviceStatusSummary = t("preventive.allMachinesHealthy", currentLanguage);
+              if (overdueM) {
+                serviceStatusSummary = `${overdueM.nameHi}: ${t("preventive.serviceOverdue", currentLanguage)} 🔴`;
+              } else if (dueM) {
+                serviceStatusSummary = `${dueM.nameHi}: ${t("preventive.serviceDue", currentLanguage)} 🟠`;
+              } else if (displayM) {
+                serviceStatusSummary = `${t("passport.nextMaintenance", currentLanguage)}: ${formatServiceDateHi(displayM.nextServiceDate)}`;
+              }
+
+              return (
+                <button
+                  onClick={() => setCurrentScreen("service")}
+                  className="w-full bg-white hover:bg-blue-50 active:bg-blue-100 border-3 border-blue-300 rounded-3xl p-5 flex items-center justify-between text-left shadow-sm transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-4xl p-3 bg-blue-100 rounded-2xl">📅</span>
+                    <div>
+                      <div className="text-2xl font-black text-slate-900">{t("dashboard.nextService", currentLanguage)}</div>
+                      <div className="text-base font-bold text-slate-600 mt-0.5">
+                        {serviceStatusSummary}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xl font-black text-blue-800 bg-blue-100 px-4 py-2 rounded-2xl">
+                    {t("common.view", currentLanguage)} ➔
+                  </span>
+                </button>
+              );
+            })()}
+
+            {/* PRIORITY 5: 🤖 किसान सहायक (Farmer Assistant) */}
+            <button
+              onClick={() => {
+                setSahayakStep("init");
+                setSahayakChoice(null);
+                setSahayakUrgency(null);
+                setCurrentScreen("sahayak");
+              }}
+              className="w-full bg-white hover:bg-amber-50 active:bg-amber-100 border-3 border-amber-300 rounded-3xl p-5 flex items-center justify-between text-left shadow-sm transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-4">
+                <span className="text-4xl p-3 bg-amber-100 rounded-2xl">🤖</span>
+                <div>
+                  <div className="text-2xl font-black text-slate-900">{t("dashboard.kisanSahayak", currentLanguage)}</div>
+                  <div className="text-base font-bold text-amber-900 mt-0.5">
+                    {t("dashboard.askQuestion", currentLanguage)}
+                  </div>
+                </div>
+              </div>
+              <span className="text-xl font-black text-amber-800 bg-amber-100 px-4 py-2 rounded-2xl">
+                {t("common.view", currentLanguage)} ➔
+              </span>
+            </button>
+          </div>
+        )}
+
+        {/* P2J Step 1: Sync Debug Panel (Unobtrusive) */}
+        {currentScreen === "home" && (
+          <div className="pt-2">
+            <details className="text-xs text-slate-400 group">
+              <summary className="cursor-pointer py-1 text-center font-bold text-slate-400 hover:text-slate-600">
+                तकनीकी जानकारी (जाँच के लिए)
+              </summary>
+              <div className="pt-2">
+                <SyncDebugPanel isOnline={isOnline} onRefresh={refreshData} />
+              </div>
+            </details>
+          </div>
+        )}
+
+        {/* ================= 2. MY MACHINES SCREEN ================= */}
+        {currentScreen === "machines" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                <span>🚜</span> मेरी मशीनें
+              </h2>
+              <span className="text-sm font-black bg-slate-200 text-slate-800 px-3 py-1 rounded-full">
+                कुल: {machines.length}
+              </span>
+            </div>
+
+            {/* + नई मशीन जोड़ें Button */}
+            <button
+              onClick={() => {
+                setNewMachineType("tractor");
+                setNewMachineName("नया महिंद्रा 575 ट्रैक्टर");
+                setIsAddMachineModalOpen(true);
+              }}
+              className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] transition-all text-white font-black py-4 px-4 rounded-2xl text-xl shadow-md border-3 border-emerald-950 flex items-center justify-center gap-2"
+            >
+              <Plus className="w-6 h-6 stroke-[3]" />
+              <span>+ नई मशीन जोड़ें</span>
+            </button>
+
+            {/* Add Machine Modal / Panel */}
+            {isAddMachineModalOpen && (
+              <div className="bg-emerald-50 border-3 border-emerald-500 rounded-3xl p-5 shadow-lg space-y-4 animate-fadeIn">
+                <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
+                  <h3 className="text-xl font-black text-emerald-950 flex items-center gap-2">
+                    <span>🚜</span> नई मशीन पंजीकरण
+                  </h3>
+                  <button
+                    onClick={() => setIsAddMachineModalOpen(false)}
+                    className="text-slate-500 hover:text-slate-800 font-black text-xl px-2 py-0.5 rounded-lg"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-base font-bold text-slate-800 mb-2">
+                    मशीन का प्रकार चुनें:
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { type: "tractor", labelHi: "ट्रैक्टर", icon: "🚜", interval: "90 दिन" },
+                      { type: "sprayer", labelHi: "स्प्रेयर", icon: "🎒", interval: "60 दिन" },
+                      { type: "water_pump", labelHi: "वाटर पंप", icon: "💧", interval: "90 दिन" },
+                      { type: "power_tiller", labelHi: "पावर टिलर", icon: "🚜", interval: "90 दिन" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.type}
+                        type="button"
+                        onClick={() => {
+                          setNewMachineType(opt.type);
+                          setNewMachineName(`नया ${opt.labelHi}`);
+                        }}
+                        className={`p-3 rounded-2xl border-2 text-left font-black transition-all ${
+                          newMachineType === opt.type
+                            ? "bg-emerald-700 text-white border-emerald-900 shadow-md"
+                            : "bg-white text-slate-800 border-slate-300 hover:bg-emerald-50"
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">{opt.icon}</div>
+                        <div className="text-lg">{opt.labelHi}</div>
+                        <div className={`text-xs ${newMachineType === opt.type ? "text-emerald-100" : "text-slate-500"}`}>
+                          सर्विस: {opt.interval}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-base font-bold text-slate-800 mb-1.5">
+                    मशीन का नाम:
+                  </label>
+                  <input
+                    type="text"
+                    value={newMachineName}
+                    onChange={(e) => setNewMachineName(e.target.value)}
+                    placeholder="उदा. महिंद्रा 575 ट्रैक्टर"
+                    className="w-full p-3.5 rounded-xl border-2 border-slate-300 font-black text-lg text-slate-900 bg-white focus:outline-hidden focus:border-emerald-600"
+                  />
+                </div>
+
+                <div className="flex gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddMachineModalOpen(false)}
+                    className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-black py-3 px-4 rounded-xl text-lg transition-colors"
+                  >
+                    रद्द करें
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRegisterMachineSubmit()}
+                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-3 px-4 rounded-xl text-lg shadow-md transition-colors"
+                  >
+                    ✓ मशीन जोड़ें
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Machines List */}
+            <div className="space-y-4">
+              {machines.map((machine) => {
+                const isIssue = machine.status === "issue";
+                const statusDisp = getMaintenanceStatusDisplay(machine.maintenanceStatus || "upcoming");
+
+                return (
+                  <div
+                    key={machine.id}
+                    className={`bg-white border-3 rounded-3xl p-5 shadow-sm transition-all ${
+                      machine.maintenanceStatus === "overdue"
+                        ? "border-red-400"
+                        : machine.maintenanceStatus === "due"
+                        ? "border-amber-400"
+                        : "border-slate-300"
+                    }`}
+                  >
+                    {/* Overdue/Due Alert Box */}
+                    {statusDisp.reminderMessageHi && (
+                      <div
+                        className={`mb-3.5 p-3 rounded-2xl border flex items-center gap-2 text-base font-black ${
+                          machine.maintenanceStatus === "overdue"
+                            ? "bg-red-50 text-red-900 border-red-300"
+                            : "bg-amber-50 text-amber-900 border-amber-300"
+                        }`}
+                      >
+                        <span>{statusDisp.reminderMessageHi}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-4">
+                      <span className="text-4xl p-3 bg-slate-100 rounded-2xl border border-slate-200 shrink-0">
+                        {machine.icon}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-2xl font-black text-slate-900 truncate">
+                          {machine.nameHi}
+                        </h3>
+
+                        {/* Status Badges */}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {isIssue ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                              {machine.statusText}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              {machine.statusText}
+                            </span>
+                          )}
+
+                          {/* P2G Maintenance Tag */}
+                          <span
+                            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border ${statusDisp.badgeClass}`}
+                          >
+                            <span>{statusDisp.fullTagHi}</span>
+                          </span>
+                        </div>
+
+                        {/* Next Service Date */}
+                        <div className="text-sm font-bold text-slate-800 mt-2.5 flex items-center gap-1.5">
+                          <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
+                          <span>अगली सर्विस: {formatServiceDateHi(machine.nextServiceDate)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Large "मशीन देखें" Button */}
+                    <div className="mt-4 pt-3 border-t border-slate-200">
+                      <button
+                        onClick={() => handleOpenMachineDetail(machine)}
+                        className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-4 px-4 rounded-2xl text-xl shadow-md flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
+                      >
+                        <span>मशीन देखें</span>
+                        <span>➔</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ================= 3. MACHINE DETAILS SCREEN (MACHINE PASSPORT) ================= */}
+        {currentScreen === "machine_detail" && (
+          <div className="space-y-4">
+            {/* Reminder Alert Banner */}
+            {selectedMachine.maintenanceStatus === "overdue" && (
+              <div className="bg-red-100 border-3 border-red-500 text-red-950 p-4 rounded-3xl font-black text-xl shadow-sm flex items-center gap-3">
+                <span className="text-3xl shrink-0">⚠️</span>
+                <span>इस मशीन की सर्विस बाकी है।</span>
+              </div>
+            )}
+            {selectedMachine.maintenanceStatus === "due" && (
+              <div className="bg-amber-100 border-3 border-amber-500 text-amber-950 p-4 rounded-3xl font-black text-xl shadow-sm flex items-center gap-3">
+                <span className="text-3xl shrink-0">🔔</span>
+                <span>इस मशीन की सर्विस जल्द करनी है।</span>
+              </div>
+            )}
+
+            <div className="bg-white border-3 border-emerald-400 rounded-3xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center gap-3">
+                <span className="text-5xl p-3 bg-emerald-50 rounded-2xl border border-emerald-200 shrink-0">
+                  {selectedMachine.icon}
+                </span>
+                <div>
+                  <h2 className="text-3xl font-black text-slate-900">
+                    {selectedMachine.nameHi}
+                  </h2>
+                  <p className="text-sm font-bold text-slate-500 uppercase tracking-wide">
+                    {selectedMachine.name} • {selectedMachine.type}
+                  </p>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="p-3 bg-slate-50 rounded-2xl border-2 border-slate-200 flex items-center justify-between">
+                <span className="text-base font-bold text-slate-700">मशीन स्थिति:</span>
+                <span
+                  className={`text-base font-black px-3 py-1 rounded-xl ${
+                    selectedMachine.status === "issue"
+                      ? "bg-amber-100 text-amber-900 border border-amber-300"
+                      : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                  }`}
+                >
+                  {selectedMachine.statusText}
+                </span>
+              </div>
+
+              {/* P2G STEP 2: "🔧 अगली सर्विस" Card */}
+              {(() => {
+                const statusDisp = getMaintenanceStatusDisplay(selectedMachine.maintenanceStatus || "upcoming");
+                const checklistItems =
+                  selectedMachine.maintenanceItems && selectedMachine.maintenanceItems.length > 0
+                    ? selectedMachine.maintenanceItems
+                    : getDefaultMaintenanceItems(selectedMachine.type || selectedMachine.name);
+
+                return (
+                  <div
+                    className={`rounded-3xl border-3 p-5 space-y-4 ${
+                      selectedMachine.maintenanceStatus === "overdue"
+                        ? "bg-red-50/80 border-red-400"
+                        : selectedMachine.maintenanceStatus === "due"
+                        ? "bg-amber-50/80 border-amber-400"
+                        : "bg-emerald-50/80 border-emerald-300"
+                    }`}
+                  >
+                    {/* Header: अगली सर्विस & Reminder */}
+                    <div className="flex items-center justify-between border-b pb-3 border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">📅</span>
+                        <span className="text-2xl font-black text-slate-900">
+                          {selectedMachine.maintenanceStatus === "overdue" || selectedMachine.maintenanceStatus === "due"
+                            ? "🔔 सर्विस का समय आ गया है"
+                            : "अगली सर्विस"}
+                        </span>
+                      </div>
+                      <span className={`px-3 py-1 rounded-xl text-sm font-black border ${statusDisp.badgeClass}`}>
+                        {statusDisp.fullTagHi}
+                      </span>
+                    </div>
+
+                    {/* Date */}
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200 flex justify-between items-center shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-6 h-6 text-emerald-700" />
+                        <span className="text-lg font-black text-slate-800">
+                          अगली सर्विस: {formatServiceDateHi(selectedMachine.nextServiceDate)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Maintenance Checklist: सरल जाँच बिंदु */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-2.5">
+                      <div className="text-lg font-black text-slate-900 flex items-center gap-2">
+                        <span>📋</span>
+                        <span>सर्विस में क्या देखें?</span>
+                      </div>
+                      <p className="text-xs font-bold text-slate-500">
+                        जाँच पूरी होने पर टिक करें:
+                      </p>
+
+                      <div className="space-y-2 pt-1">
+                        {checklistItems.map((item) => {
+                          const isChecked = !!checkedChecklistItems[item];
+                          return (
+                            <div
+                              key={item}
+                              onClick={() => handleToggleChecklistItem(item)}
+                              className={`cursor-pointer p-3 rounded-xl border-2 flex items-center gap-3 transition-colors ${
+                                isChecked
+                                  ? "bg-emerald-50 border-emerald-400 text-emerald-950 font-black"
+                                  : "bg-slate-50 border-slate-200 text-slate-800 font-bold hover:bg-slate-100"
+                              }`}
+                            >
+                              {isChecked ? (
+                                <CheckSquare className="w-6 h-6 text-emerald-700 shrink-0" />
+                              ) : (
+                                <Square className="w-6 h-6 text-slate-400 shrink-0" />
+                              )}
+                              <span className="text-lg">{item}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Service Completed Button */}
+                    <button
+                      onClick={() => handleCompleteService(selectedMachine.id)}
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] transition-all text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-3 border-emerald-950 flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle2 className="w-6 h-6" />
+                      <span>सर्विस पूरी हो गई</span>
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* SECTION 11: मेरी मशीन की जानकारी (Machine Passport) */}
+              <div className="bg-white border-3 border-emerald-400 rounded-3xl p-5 space-y-4 shadow-sm">
+                <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-3xl">📖</span>
+                    <h3 className="text-2xl font-black text-slate-900">
+                      मेरी मशीन की जानकारी
+                    </h3>
+                  </div>
+                  <span className="text-xs font-black bg-emerald-100 text-emerald-900 px-3 py-1 rounded-full border border-emerald-300">
+                    सुरक्षित रिकॉर्ड
+                  </span>
+                </div>
+
+                {/* 1. पिछली मरम्मत */}
+                <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 space-y-2">
+                  <div className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <span>🔧</span>
+                    <span>पिछली मरम्मत</span>
+                  </div>
+                  {(() => {
+                    const completedMachineRepairs = repairs.filter(
+                      (r) => r.machineId === selectedMachine.id && r.status === "completed"
+                    );
+
+                    if (completedMachineRepairs.length > 0) {
+                      return (
+                        <div className="space-y-2">
+                          {completedMachineRepairs.map((rep) => {
+                            const dateStr =
+                              rep.passportData?.repairDate ||
+                              (rep.verificationTime
+                                ? new Date(rep.verificationTime).toLocaleDateString("hi-IN")
+                                : new Date(rep.createdAt).toLocaleDateString("hi-IN"));
+                            const diagStr =
+                              rep.passportData?.diagnosis ||
+                              rep.diagnosis?.possibleProblem ||
+                              "सामान्य जाँच";
+                            const techStr =
+                              rep.passportData?.technician ||
+                              rep.selectedTechnician?.nameHi ||
+                              "प्रमाणित मैकेनिक";
+
+                            return (
+                              <div
+                                key={rep.id}
+                                className="p-3 bg-white rounded-xl border border-emerald-200 text-sm space-y-1"
+                              >
+                                <div className="flex justify-between font-black text-slate-900">
+                                  <span>{rep.problemDescription}</span>
+                                  <span className="text-xs text-slate-500">📅 {dateStr}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-100 flex-wrap gap-1">
+                                  <span className="text-slate-600 font-bold">
+                                    जाँच: {diagStr} • मैकेनिक: {techStr}
+                                    {rep.passportData?.serviceCentreNameHi && ` (${rep.passportData.serviceCentreNameHi})`}
+                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    {rep.passportData?.estimatedCost && (
+                                      <span className="text-[11px] text-slate-500 font-bold">
+                                        अनुमान: {formatCurrencyHi(rep.passportData.estimatedCost)}
+                                      </span>
+                                    )}
+                                    {(rep.passportData?.finalCost || rep.finalCost?.total || rep.estimatedCost?.total) && (
+                                      <span className="font-black text-amber-950 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
+                                        अंतिम लागत: {formatCurrencyHi(rep.passportData?.finalCost || rep.finalCost?.total || rep.estimatedCost?.total)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {rep.passportData?.maintenanceRecommendation && (
+                                  <div className="text-[11px] font-bold text-emerald-800 bg-emerald-50 p-1.5 rounded-lg border border-emerald-200 mt-1">
+                                    💡 निवारक सलाह: {rep.passportData.maintenanceRecommendation}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="text-sm font-bold text-slate-700">
+                        {selectedMachine.previousRepairs || "कोई बड़ी मरम्मत दर्ज नहीं"}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* 2. बदले गए पार्ट */}
+                <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 space-y-1.5">
+                  <div className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <span>⚙️</span>
+                    <span>बदले गए पार्ट</span>
+                  </div>
+                  {(() => {
+                    const completedMachineRepairs = repairs.filter(
+                      (r) => r.machineId === selectedMachine.id && r.status === "completed"
+                    );
+                    const dynamicParts = completedMachineRepairs.flatMap((r) => {
+                      if (r.passportData?.partsUsed && r.passportData.partsUsed.length > 0) {
+                        return r.passportData.partsUsed;
+                      }
+                      if (r.selectedParts && r.selectedParts.length > 0) {
+                        return r.selectedParts
+                          .filter((p) => p.decision === "needed")
+                          .map((p) => p.partNameHi);
+                      }
+                      return [];
+                    });
+
+                    if (dynamicParts.length > 0) {
+                      const allParts = [
+                        ...dynamicParts,
+                        ...(selectedMachine.partsReplaced
+                          ? selectedMachine.partsReplaced.split(",").map((s) => s.trim())
+                          : []),
+                      ];
+                      const uniqueParts = Array.from(new Set(allParts));
+                      return (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {uniqueParts.map((part, idx) => (
+                            <span
+                              key={idx}
+                              className="bg-emerald-100 text-emerald-950 font-bold px-2.5 py-1 rounded-lg text-sm border border-emerald-300"
+                            >
+                              ⚙️ {part}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="text-base font-bold text-slate-800">
+                        {selectedMachine.partsReplaced || "कोई नया पार्ट नहीं बदला गया"}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* 3. कुल सेवा रिकॉर्ड */}
+                <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 space-y-2">
+                  <div className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <span>📋</span>
+                    <span>कुल सेवा रिकॉर्ड</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                      <span className="text-xs text-slate-500 block">कुल संचालन:</span>
+                      <span className="text-base font-black text-slate-900">
+                        {selectedMachine.operatingHours.includes("घंटे")
+                          ? selectedMachine.operatingHours
+                          : `${selectedMachine.operatingHours} घंटे`}
+                      </span>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                      <span className="text-xs text-slate-500 block">पिछली सर्विस:</span>
+                      <span className="text-base font-black text-slate-900">
+                        {formatServiceDateHi(selectedMachine.lastServiceDate) || selectedMachine.lastService}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. अगली सर्विस */}
+                <div className="p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-300 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-emerald-800 block">अगली सर्विस:</span>
+                    <span className="text-xl font-black text-emerald-950">
+                      {formatServiceDateHi(selectedMachine.nextServiceDate)}
+                    </span>
+                  </div>
+                  <span className="text-3xl">📅</span>
+                </div>
+              </div>
+
+              {/* Primary Action Button */}
+              <div className="pt-2">
+                <button
+                  onClick={() => handleStartBreakdown(selectedMachine.id)}
+                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-5 px-4 rounded-3xl text-xl shadow-xl border-3 border-emerald-950 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                >
+                  <span className="text-2xl">🔧</span>
+                  <span>मशीन में समस्या है - मैकेनिक बुलाएं</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= 4. REPORT BREAKDOWN SCREEN ================= */}
+        {currentScreen === "breakdown" && (
+          <div className="space-y-4">
+            {/* Header with Step Indicator */}
+            <div className="bg-amber-50 border-3 border-amber-300 rounded-3xl p-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-amber-950 flex items-center gap-2">
+                  <span>🔧</span> मरम्मत की शिकायत
+                </h2>
+                <p className="text-sm font-bold text-amber-900 mt-0.5">
+                  चरण {breakdownStep} / 4
+                </p>
+              </div>
+              <span className="text-base font-black bg-amber-200 text-amber-900 px-3 py-1 rounded-xl">
+                चरण {breakdownStep}
+              </span>
+            </div>
+
+            {/* STEP 1: कौन-सी मशीन खराब है? */}
+            {breakdownStep === 1 && (
+              <div className="space-y-4">
+                <div className="bg-white border-3 border-slate-300 rounded-3xl p-5 space-y-3">
+                  <label className="block text-2xl font-black text-slate-900">
+                    कौन-सी मशीन खराब है?
+                  </label>
+                  <p className="text-sm font-bold text-slate-600">
+                    अपनी खराब मशीन पर दबाएं:
+                  </p>
+
+                  <div className="space-y-3 pt-1">
+                    {machines.map((machine) => (
+                      <button
+                        key={machine.id}
+                        type="button"
+                        onClick={() => {
+                          setBreakdownMachineId(machine.id);
+                          setBreakdownStep(2);
+                        }}
+                        className={`w-full p-4 rounded-2xl border-3 flex items-center justify-between transition-all ${
+                          breakdownMachineId === machine.id
+                            ? "bg-emerald-50 border-emerald-600 text-emerald-950 font-black shadow-md scale-[1.01]"
+                            : "bg-white border-slate-300 text-slate-800 font-bold hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <span className="text-4xl p-2 bg-slate-100 rounded-xl">
+                            {machine.icon}
+                          </span>
+                          <span className="text-2xl font-black">
+                            {machine.nameHi}
+                          </span>
+                        </div>
+                        <span className="text-xl font-black text-emerald-800">
+                          चुनें ➔
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: समस्या बताएं (Voice, Photo, Text Capture - Section 3, 4, 5) */}
+            {breakdownStep === 2 && (
+              <div className="space-y-4">
+                <div className="bg-white border-3 border-slate-300 rounded-3xl p-5 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                      <label className="block text-2xl font-black text-slate-900">
+                        मशीन में समस्या है
+                      </label>
+                      <p className="text-base font-bold text-slate-600 mt-0.5">
+                        मशीन:{" "}
+                        <span className="text-emerald-950 font-black text-lg">
+                          {currentBreakdownMachine.nameHi} {currentBreakdownMachine.icon}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* SECTION 3: 3 OBVIOUS CHOICES (फोटो लें, बोलकर बताएं, लिखकर बताएं) */}
+                  <div className="space-y-1">
+                    <span className="text-sm font-bold text-slate-600 block mb-1">
+                      समस्या बताने का तरीका चुनें:
+                    </span>
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Option 1: 📷 फोटो लें */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveProblemMode("photo");
+                          if (!breakdownPhotoPreview) photoInputRef.current?.click();
+                        }}
+                        className={`p-3.5 rounded-2xl border-3 flex flex-col items-center justify-center gap-1.5 transition-all text-center ${
+                          activeProblemMode === "photo" || breakdownPhotoPreview
+                            ? "bg-blue-50 border-blue-600 text-blue-950 font-black shadow-md ring-2 ring-blue-200"
+                            : "bg-slate-50 border-slate-300 text-slate-700 font-bold hover:bg-slate-100"
+                        }`}
+                      >
+                        <span className="text-3xl">📷</span>
+                        <span className="text-base font-black leading-tight">फोटो लें</span>
+                      </button>
+
+                      {/* Option 2: 🎤 बोलकर बताएं */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveProblemMode("voice");
+                          if (!isVoiceRecording && !breakdownDescription.trim()) startVoiceRecording();
+                        }}
+                        className={`p-3.5 rounded-2xl border-3 flex flex-col items-center justify-center gap-1.5 transition-all text-center ${
+                          activeProblemMode === "voice" || isVoiceRecording
+                            ? "bg-amber-50 border-amber-600 text-amber-950 font-black shadow-md ring-2 ring-amber-200"
+                            : "bg-slate-50 border-slate-300 text-slate-700 font-bold hover:bg-slate-100"
+                        }`}
+                      >
+                        <span className="text-3xl">🎤</span>
+                        <span className="text-base font-black leading-tight">बोलकर बताएं</span>
+                      </button>
+
+                      {/* Option 3: ⌨️ लिखकर बताएं */}
+                      <button
+                        type="button"
+                        onClick={() => setActiveProblemMode("text")}
+                        className={`p-3.5 rounded-2xl border-3 flex flex-col items-center justify-center gap-1.5 transition-all text-center ${
+                          activeProblemMode === "text"
+                            ? "bg-emerald-50 border-emerald-600 text-emerald-950 font-black shadow-md ring-2 ring-emerald-200"
+                            : "bg-slate-50 border-slate-300 text-slate-700 font-bold hover:bg-slate-100"
+                        }`}
+                      >
+                        <span className="text-3xl">⌨️</span>
+                        <span className="text-base font-black leading-tight">लिखकर बताएं</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* SECTION 4: VOICE MODE */}
+                  {activeProblemMode === "voice" && (
+                    <div className="space-y-3 pt-1">
+                      <div className="text-lg font-black text-slate-900">
+                        मशीन की समस्या बोलकर बताएं
+                      </div>
+
+                      {/* Recording state: 🔴 रिकॉर्ड हो रहा है */}
+                      {isVoiceRecording ? (
+                        <div className="bg-red-50 border-3 border-red-500 rounded-2xl p-5 text-center space-y-3 shadow-md animate-pulse">
+                          <div className="flex items-center justify-center gap-2 text-2xl font-black text-red-950">
+                            <span className="w-4 h-4 rounded-full bg-red-600 animate-ping"></span>
+                            <span>🔴 रिकॉर्ड हो रहा है</span>
+                          </div>
+                          <p className="text-base font-bold text-red-900">
+                            मुंह से साफ बोलें। बोलने के बाद नीचे बटन दबाएं:
+                          </p>
+                          <button
+                            type="button"
+                            onClick={stopVoiceRecording}
+                            className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-red-900 active:scale-[0.98] transition-transform"
+                          >
+                            ⏹️ बोलना पूरा हुआ
+                          </button>
+                        </div>
+                      ) : voiceRecordedComplete && breakdownDescription.trim() ? (
+                        /* Recording completed: "रिकॉर्डिंग पूरी हुई" with ▶️ सुनें & 🔄 फिर से रिकॉर्ड करें */
+                        <div className="bg-emerald-50 border-3 border-emerald-500 rounded-2xl p-4 space-y-3 shadow-sm">
+                          <div className="text-center">
+                            <div className="text-xl font-black text-emerald-950">
+                              ✓ रिकॉर्डिंग पूरी हुई
+                            </div>
+                            <div className="text-sm font-bold text-emerald-800 mt-0.5">
+                              आपकी बात रिकॉर्ड कर ली गई है
+                            </div>
+                          </div>
+
+                          <div className="p-3 bg-white rounded-xl border border-emerald-300 text-lg font-bold text-slate-900">
+                            &quot;{breakdownDescription}&quot;
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 pt-1">
+                            {/* ▶️ सुनें */}
+                            <button
+                              type="button"
+                              onClick={() => playAudioText(breakdownDescription)}
+                              className="bg-blue-600 hover:bg-blue-700 text-white font-black py-3 px-3 rounded-xl text-lg flex items-center justify-center gap-2 shadow-sm transition-all"
+                            >
+                              <span>▶️</span>
+                              <span>सुनें</span>
+                            </button>
+
+                            {/* 🔄 फिर से रिकॉर्ड करें */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setBreakdownDescription("");
+                                setVoiceRecordedComplete(false);
+                                startVoiceRecording();
+                              }}
+                              className="bg-amber-600 hover:bg-amber-700 text-white font-black py-3 px-3 rounded-xl text-lg flex items-center justify-center gap-2 shadow-sm transition-all"
+                            >
+                              <span>🔄</span>
+                              <span>फिर से रिकॉर्ड करें</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={startVoiceRecording}
+                          className="w-full bg-amber-500 hover:bg-amber-600 border-4 border-amber-800 text-white rounded-2xl p-5 text-left shadow-md flex items-center gap-4 active:scale-[0.98] transition-all"
+                        >
+                          <span className="text-4xl p-3 bg-amber-600 rounded-2xl">🎤</span>
+                          <div>
+                            <div className="text-2xl font-black text-white">
+                              बोलकर समस्या बताएं
+                            </div>
+                            <div className="text-sm font-bold text-amber-100 mt-0.5">
+                              दबाएं और मुंह से बोलकर खराबी बताएं
+                            </div>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* Live Demo Quick Phrase Helper */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBreakdownDescription(PRIMARY_DEMO_SCENARIO.voiceComplaint);
+                          setVoiceRecordedComplete(true);
+                          if (validationError) setValidationError(null);
+                        }}
+                        className="w-full text-left text-sm font-bold text-amber-950 bg-amber-50 hover:bg-amber-100 p-3 rounded-xl border border-amber-300 transition-colors flex items-center justify-between"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>💡</span>
+                          <span>डेमो वाक्य: <strong>&quot;{PRIMARY_DEMO_SCENARIO.voiceComplaint}&quot;</strong></span>
+                        </span>
+                        <span className="text-amber-700 font-black">टैप करें ➔</span>
+                      </button>
+
+                      {/* Fallback when Speech API is unavailable */}
+                      {speechUnsupportedMessage && (
+                        <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-2xl space-y-2">
+                          <div className="text-base font-bold text-amber-950 flex items-start gap-2">
+                            <AlertCircle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+                            <span>{speechUnsupportedMessage}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBreakdownDescription(PRIMARY_DEMO_SCENARIO.voiceComplaint);
+                              setVoiceRecordedComplete(true);
+                              setSpeechUnsupportedMessage(null);
+                              if (validationError) setValidationError(null);
+                            }}
+                            className="w-full text-left text-sm font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 p-2.5 rounded-xl border border-amber-300 transition-colors"
+                          >
+                            💡 उदाहरण वाक्य जोड़ें:{" "}
+                            <span className="underline">
+                              &quot;{PRIMARY_DEMO_SCENARIO.voiceComplaint}&quot;
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SECTION 5: PHOTO MODE */}
+                  {activeProblemMode === "photo" && (
+                    <div className="space-y-3 pt-1">
+                      <div className="text-lg font-black text-slate-900">
+                        समस्या वाली जगह की साफ फोटो लें
+                      </div>
+
+                      {!breakdownPhotoPreview ? (
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => photoInputRef.current?.click()}
+                            className="w-full bg-blue-50 hover:bg-blue-100 border-4 border-blue-500 rounded-2xl p-5 flex items-center gap-4 text-left shadow-md transition-all active:scale-[0.98]"
+                          >
+                            <span className="text-4xl p-3 bg-blue-500 text-white rounded-2xl">
+                              📷
+                            </span>
+                            <div>
+                              <div className="text-2xl font-black text-blue-950">
+                                फोटो खींचें
+                              </div>
+                              <div className="text-sm font-bold text-blue-800 mt-0.5">
+                                कैमरा खोलकर समस्या वाली जगह की साफ फोटो लें
+                              </div>
+                            </div>
+                          </button>
+
+                          {/* Live Demo Photo Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBreakdownPhotoPreview(DEMO_OIL_LEAK_PHOTO_DATA_URL);
+                              setBreakdownMediaName(PRIMARY_DEMO_SCENARIO.photoFileName);
+                              runPhotoVisionAnalysis(DEMO_OIL_LEAK_PHOTO_DATA_URL, PRIMARY_DEMO_SCENARIO.photoFileName);
+                              if (validationError) setValidationError(null);
+                            }}
+                            className="w-full bg-blue-100 hover:bg-blue-200 border-2 border-blue-400 text-blue-950 font-bold py-3 px-4 rounded-xl text-sm flex items-center justify-between transition-colors shadow-xs"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span>🚜</span>
+                              <span>डेमो फोटो जोड़ें (ट्रैक्टर ऑयल रिसाव)</span>
+                            </span>
+                            <span className="text-blue-800 font-black">लोड करें ➔</span>
+                          </button>
+                        </div>
+                      ) : (
+                        /* PHOTO PREVIEW CARD */
+                        <div className="p-4 bg-emerald-50 border-3 border-emerald-400 rounded-2xl space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-base font-black text-emerald-950 flex items-center gap-1.5">
+                              <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+                              मशीन की फोटो जुड़ गई
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleRemovePhoto}
+                              className="text-sm font-black text-red-700 bg-red-100 hover:bg-red-200 px-3 py-1.5 rounded-xl border border-red-300 transition-colors flex items-center gap-1"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>फोटो हटाएं</span>
+                            </button>
+                          </div>
+
+                          {/* Image Preview with Bounding Box Overlay */}
+                          <div className="relative rounded-xl overflow-hidden border-2 border-emerald-500 shadow-sm max-h-56 bg-black flex items-center justify-center">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={breakdownPhotoPreview}
+                              alt="मशीन की फोटो"
+                              className="w-full h-auto max-h-56 object-contain"
+                            />
+
+                            {!isPhotoAnalyzing &&
+                              photoVisionResult?.detected &&
+                              photoVisionResult.imageQuality === "good" &&
+                              photoVisionResult.visionResult?.detections?.[0]?.boundingBox && (
+                                <div
+                                  style={{
+                                    left: `${Math.max(4, Math.min(92, photoVisionResult.visionResult.detections[0].boundingBox.x * 100))}%`,
+                                    top: `${Math.max(4, Math.min(92, photoVisionResult.visionResult.detections[0].boundingBox.y * 100))}%`,
+                                    width: `${Math.max(12, Math.min(90, photoVisionResult.visionResult.detections[0].boundingBox.width * 100))}%`,
+                                    height: `${Math.max(12, Math.min(90, photoVisionResult.visionResult.detections[0].boundingBox.height * 100))}%`,
+                                  }}
+                                  className="absolute border-2 border-dashed border-amber-400 bg-amber-400/20 rounded pointer-events-none transition-all flex flex-col justify-start p-1"
+                                >
+                                  <span className="inline-block bg-amber-500 text-amber-950 font-black text-[10px] px-1 py-0.5 rounded shadow self-start">
+                                    {photoVisionResult.friendlyLabelHi || "जाँच क्षेत्र"}
+                                  </span>
+                                </div>
+                              )}
+                          </div>
+
+                          {/* 1. Loading: फोटो की जाँच हो रही है... */}
+                          {isPhotoAnalyzing && (
+                            <div className="p-3 bg-blue-50 border-2 border-blue-400 rounded-xl flex items-center gap-3 text-blue-950 animate-pulse">
+                              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                              <span className="font-black text-base">फोटो की जाँच हो रही है...</span>
+                            </div>
+                          )}
+
+                          {/* 2. Poor Quality Image Warning (Section 5) */}
+                          {!isPhotoAnalyzing && photoVisionResult?.imageQuality === "poor" && (
+                            <div className="p-4 bg-amber-50 border-3 border-amber-400 rounded-2xl space-y-3">
+                              <div className="flex items-start gap-2 text-amber-950 font-black text-lg">
+                                <AlertCircle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+                                <span>फोटो साफ नहीं है। एक और फोटो लें।</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => photoInputRef.current?.click()}
+                                  className="py-3 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black text-base shadow-sm transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                  <span>फिर से फोटो लें</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleStep2Next}
+                                  className="py-3 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-black text-base shadow-sm transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <span>आगे बढ़ें ➔</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Buttons: "फिर से फोटो लें" & "आगे बढ़ें" */}
+                          {!isPhotoAnalyzing && photoVisionResult?.imageQuality !== "poor" && (
+                            <div className="grid grid-cols-2 gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => photoInputRef.current?.click()}
+                                className="py-3 text-center text-base font-black text-blue-900 bg-blue-100 hover:bg-blue-200 rounded-xl transition-colors"
+                              >
+                                फिर से फोटो लें
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleStep2Next}
+                                className="py-3 text-center text-base font-black text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl transition-colors shadow-sm"
+                              >
+                                आगे बढ़ें ➔
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SECTION 3: TEXT DESCRIPTION (AVAILABLE IN ALL MODES) */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="block text-base font-black text-slate-800">
+                      समस्या का विवरण (बोला या लिखा हुआ):
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={breakdownDescription}
+                      onChange={(e) => {
+                        setBreakdownDescription(e.target.value);
+                        if (validationError) setValidationError(null);
+                      }}
+                      placeholder="आपकी बोली या लिखी बात यहाँ दिखेगी... (जैसे: ट्रैक्टर स्टार्ट नहीं हो रहा है, धुआं निकल रहा है)"
+                      className="w-full p-4 rounded-2xl border-3 border-slate-300 text-xl font-bold text-slate-900 bg-slate-50 focus:bg-white focus:border-emerald-600 focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  {/* Validation Error Message */}
+                  {validationError && (
+                    <div className="p-3 bg-red-50 border-2 border-red-400 rounded-xl text-red-900 font-black text-base flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                      <span>{validationError}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Back / Next Navigation */}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isVoiceRecording) stopVoiceRecording();
+                      setBreakdownStep(1);
+                    }}
+                    className="flex-1 py-4 text-lg font-black text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-2xl flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                    <span>मशीन बदलें</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isVoiceRecording) stopVoiceRecording();
+                      handleStep2Next();
+                    }}
+                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-4 px-4 rounded-2xl text-xl text-center shadow-md transition-colors"
+                  >
+                    आगे बढ़ें ➔
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: आज मशीन की जरूरत है? */}
+            {breakdownStep === 3 && (
+              <div className="space-y-4">
+                <div className="bg-white border-3 border-slate-300 rounded-3xl p-5 space-y-3">
+                  <label className="block text-2xl font-black text-slate-900">
+                    आज मशीन की जरूरत है?
+                  </label>
+                  <p className="text-sm font-bold text-slate-600">
+                    काम की आवश्यकता बताएं:
+                  </p>
+
+                  <div className="space-y-3 pt-1">
+                    {/* 🟢 हाँ, आज काम है */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBreakdownUrgency("today");
+                        setBreakdownStep(4);
+                      }}
+                      className="w-full bg-emerald-50 hover:bg-emerald-100 border-3 border-emerald-600 rounded-2xl p-4 flex items-center gap-4 text-left shadow-sm"
+                    >
+                      <span className="text-4xl">🟢</span>
+                      <div>
+                        <div className="text-2xl font-black text-emerald-950">हाँ, आज काम है</div>
+                        <div className="text-xs font-bold text-emerald-900">मैकेनिक को जल्द से जल्द भेजा जाएगा</div>
+                      </div>
+                    </button>
+
+                    {/* ⚪ नहीं, बाद में भी चलेगा */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBreakdownUrgency("later");
+                        setBreakdownStep(4);
+                      }}
+                      className="w-full bg-slate-50 hover:bg-slate-100 border-3 border-slate-400 rounded-2xl p-4 flex items-center gap-4 text-left shadow-sm"
+                    >
+                      <span className="text-4xl">⚪</span>
+                      <div>
+                        <div className="text-2xl font-black text-slate-900">नहीं, बाद में भी चलेगा</div>
+                        <div className="text-xs font-bold text-slate-600">सामान्य समय पर मरम्मत होगी</div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setBreakdownStep(2)}
+                  className="w-full py-3 text-base font-bold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>← पिछला सवाल</span>
+                </button>
+              </div>
+            )}
+
+            {/* STEP 4: मदद चाहिए (Final Verification) */}
+            {breakdownStep === 4 && (
+              <div className="space-y-4">
+                <div className="bg-white border-3 border-emerald-400 rounded-3xl p-5 space-y-4 shadow-sm">
+                  <div className="text-2xl font-black text-slate-900 border-b border-slate-200 pb-2">
+                    आपकी जानकारी की जांच:
+                  </div>
+
+                  <div className="space-y-2.5 text-base">
+                    <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
+                      <span className="font-bold text-slate-600">खराब मशीन:</span>
+                      <span className="font-black text-slate-900 text-lg">
+                        {currentBreakdownMachine.icon} {currentBreakdownMachine.nameHi}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
+                      <span className="font-bold text-slate-600">समस्या का तरीका:</span>
+                      <span className="font-black text-slate-900">
+                        {breakdownPhotoPreview && breakdownDescription.trim()
+                          ? "🎙️ बोलकर + 📷 फोटो"
+                          : breakdownPhotoPreview
+                          ? "📷 फोटो"
+                          : "🎙️ बोलकर / लिखकर"}
+                      </span>
+                    </div>
+
+                    {breakdownDescription && (
+                      <div className="p-3 bg-slate-50 rounded-xl">
+                        <span className="font-bold text-slate-600 block text-xs">विवरण:</span>
+                        <span className="font-black text-slate-900 text-lg">
+                          {breakdownDescription}
+                        </span>
+                      </div>
+                    )}
+
+                    {breakdownPhotoPreview && (
+                      <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-slate-600 block text-xs">
+                            संलग्न फोटो:
+                          </span>
+                          <span className="font-bold text-emerald-800 text-sm">
+                            ✓ फोटो सुरक्षित है
+                          </span>
+                        </div>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={breakdownPhotoPreview}
+                          alt="मशीन फोटो पूर्वावलोकन"
+                          className="w-16 h-16 object-cover rounded-xl border border-slate-300 shadow-sm"
+                        />
+                      </div>
+                    )}
+
+                    <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
+                      <span className="font-bold text-slate-600">काम की जरूरत:</span>
+                      <span className="font-black text-emerald-800">
+                        {breakdownUrgency === "today" ? "🟢 हाँ, आज काम है" : "⚪ बाद में चलेगा"}
+                      </span>
+                    </div>
+
+                    {/* Phase 2D-A: AI Diagnosis preview in verification */}
+                    {currentDiagnosis && (
+                      <div className="p-3.5 bg-emerald-50 rounded-2xl border-2 border-emerald-400 space-y-1">
+                        <div className="flex items-center justify-between text-xs font-black text-emerald-900">
+                          <span className="flex items-center gap-1">
+                            <Sparkles className="w-4 h-4 text-emerald-700" />
+                            AI संभावित समस्या:
+                          </span>
+                          <span className="bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
+                            विश्वास: {currentDiagnosis.confidence}
+                          </span>
+                        </div>
+                        <div className="text-base font-black text-slate-900">
+                          {currentDiagnosis.possibleProblem}
+                        </div>
+                        <div className="text-xs font-bold text-slate-600">
+                          {currentDiagnosis.urgencyText}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Network state info */}
+                    <div
+                      className={`p-3 rounded-xl border flex items-center gap-2 ${
+                        isOnline
+                          ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+                          : "bg-amber-50 border-amber-300 text-amber-950"
+                      }`}
+                    >
+                      {isOnline ? (
+                        <Wifi className="w-5 h-5 text-emerald-700 flex-shrink-0" />
+                      ) : (
+                        <WifiOff className="w-5 h-5 text-amber-700 flex-shrink-0" />
+                      )}
+                      <span className="text-sm font-bold">
+                        {isOnline
+                          ? "इंटरनेट चालू है - जानकारी तुरंत मैकेनिक को भेजी जाएगी"
+                          : "इंटरनेट बंद है - आपकी शिकायत और फोटो फोन में सुरक्षित रहेगी"}
+                      </span>
+                    </div>
+
+                    {/* P2O Step 2: Transparent Pricing Estimate Card */}
+                    {(() => {
+                      const estPricing = calculateEstimatedPricing({
+                        machineId: breakdownMachineId,
+                        machineType: currentBreakdownMachine.type || currentBreakdownMachine.nameHi,
+                        recommendedPartIds: currentPartRecommendation?.recommendations.map((r) => r.part.id),
+                      });
+
+                      return (
+                        <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-3 border-amber-400 rounded-2xl p-4 space-y-3 shadow-sm">
+                          <div className="flex items-center justify-between border-b border-amber-200 pb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">💰</span>
+                              <span className="text-lg font-black text-amber-950">
+                                अनुमानित मरम्मत लागत
+                              </span>
+                            </div>
+                            <span className="text-[11px] font-black bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
+                              पारदर्शी दर
+                            </span>
+                          </div>
+
+                          <div className="space-y-1.5 text-sm">
+                            <div className="flex justify-between items-center text-slate-700 font-bold">
+                              <span>जांच शुल्क (Diagnostic):</span>
+                              <span className="font-black text-slate-900">{formatCurrencyHi(estPricing.diagnosticFee)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-slate-700 font-bold">
+                              <span>मजदूरी (Labour):</span>
+                              <span className="font-black text-slate-900">{formatCurrencyHi(estPricing.labourFee)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-slate-700 font-bold">
+                              <span>स्पेयर पार्ट्स (अनुमानित):</span>
+                              <span className="font-black text-slate-900">{formatCurrencyHi(estPricing.partsEstimate)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-slate-700 font-bold">
+                              <span>घर पर आने का शुल्क (Travel):</span>
+                              <span className="font-black text-slate-900">{formatCurrencyHi(estPricing.travelFee)}</span>
+                            </div>
+                            {estPricing.discount > 0 && (
+                              <div className="flex justify-between items-center text-emerald-700 font-bold">
+                                <span>छूट / सब्सिडी:</span>
+                                <span className="font-black text-emerald-800">-{formatCurrencyHi(estPricing.discount)}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="pt-2 border-t-2 border-dashed border-amber-300 flex justify-between items-center">
+                            <div>
+                              <span className="text-xs font-bold text-amber-900 block">कुल अनुमानित खर्च</span>
+                              <span className="text-2xl font-black text-amber-950">
+                                {formatCurrencyHi(estPricing.total)}
+                              </span>
+                            </div>
+                            <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300">
+                              ✓ नो हिडन चार्ज
+                            </span>
+                          </div>
+
+                          <div className="text-[11px] font-bold text-amber-900/90 bg-amber-100/70 p-2.5 rounded-xl border border-amber-200 leading-snug">
+                            ⚠️ यह अनुमान है। मशीन की जांच के बाद अंतिम कीमत बदल सकती है।
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Primary Button */}
+                  <button
+                    type="button"
+                    onClick={handleBreakdownSubmit}
+                    className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-3xl p-5 text-xl font-black shadow-xl border-4 border-emerald-950 flex items-center justify-center gap-3 transition-transform active:scale-[0.98]"
+                  >
+                    <span>सेवा की पुष्टि करें (मदद चाहिए)</span>
+                    <span>➔</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setBreakdownStep(3)}
+                  className="w-full py-3 text-base font-bold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>← पिछला सवाल</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================= SUCCESS SCREEN (AWARE OF OFFLINE / ONLINE) ================= */}
+        {currentScreen === "breakdown_success" && lastSubmittedRepair && (
+          <div className="space-y-4">
+            <div
+              className={`border-3 rounded-3xl p-6 text-center space-y-4 shadow-sm ${
+                lastSubmittedRepair.isOfflineCreated
+                  ? "bg-amber-50 border-amber-400"
+                  : "bg-emerald-50 border-emerald-400"
+              }`}
+            >
+              <div
+                className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto text-3xl font-black shadow-md text-white ${
+                  lastSubmittedRepair.isOfflineCreated ? "bg-amber-600" : "bg-emerald-600"
+                }`}
+              >
+                {lastSubmittedRepair.isOfflineCreated ? "📴" : "✓"}
+              </div>
+
+              <div>
+                <h2 className="text-2xl font-black text-slate-900">
+                  {lastSubmittedRepair.isOfflineCreated
+                    ? "आपकी शिकायत फोन में सुरक्षित है।"
+                    : "आपकी मरम्मत की जानकारी मिल गई है।"}
+                </h2>
+                <p className="text-base font-bold text-slate-700 mt-1">
+                  {lastSubmittedRepair.isOfflineCreated
+                    ? "इंटरनेट मिलते ही जानकारी भेज दी जाएगी।"
+                    : "मरम्मत की शिकायत दर्ज हो गई है।"}
+                </p>
+              </div>
+
+              {/* Summary Card */}
+              <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 text-left space-y-2.5">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-2">
+                  <span className="text-3xl p-1 bg-slate-100 rounded-lg">
+                    {lastSubmittedRepair.machineIcon}
+                  </span>
+                  <div>
+                    <div className="text-lg font-black text-slate-900">
+                      {lastSubmittedRepair.machineNameHi}
+                    </div>
+                    <div className="text-xs font-bold text-slate-500">
+                      शिकायत संख्या: {lastSubmittedRepair.id}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-sm">
+                  <span className="font-bold text-slate-600">समस्या: </span>
+                  <span className="font-black text-slate-900">{lastSubmittedRepair.problemDescription}</span>
+                </div>
+
+                {lastSubmittedRepair.photoDataUrl && (
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-slate-500 block">संलग्न फोटो:</span>
+                      <span className="text-sm font-black text-emerald-800">📷 फोटो सुरक्षित है</span>
+                    </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={lastSubmittedRepair.photoDataUrl}
+                      alt="संलग्न फोटो"
+                      className="w-14 h-14 object-cover rounded-xl border border-slate-300 shadow-sm"
+                    />
+                  </div>
+                )}
+
+                <div className="text-sm">
+                  <span className="font-bold text-slate-600">प्राथमिकता: </span>
+                  <span className="font-black text-emerald-800">
+                    {lastSubmittedRepair.urgency === "today" ? "आज जरूरी काम है" : "सामान्य"}
+                  </span>
+                </div>
+
+                {/* Phase 2D-A: AI Diagnosis preview in Success Screen */}
+                {lastSubmittedRepair.diagnosis && (
+                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-300 space-y-1">
+                    <div className="flex items-center justify-between text-xs font-black text-emerald-900">
+                      <span className="flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                        AI संभावित समस्या:
+                      </span>
+                      <span className="bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full text-[11px]">
+                        विश्वास: {lastSubmittedRepair.diagnosis.confidence}
+                      </span>
+                    </div>
+                    <div className="text-base font-black text-slate-900">
+                      {lastSubmittedRepair.diagnosis.possibleProblem}
+                    </div>
+                    <div className="text-xs font-bold text-slate-600">
+                      {lastSubmittedRepair.diagnosis.urgencyText}
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 flex items-center justify-between">
+                  <span className="text-sm font-bold text-amber-900">वर्तमान स्थिति:</span>
+                  <span className="text-sm font-black text-amber-950">
+                    {lastSubmittedRepair.statusTextHi}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <button
+                onClick={() => setCurrentScreen("repair")}
+                className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <span>मेरी मरम्मत देखें</span>
+                <span>➔</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ================= 4B. AI DIAGNOSIS SCREEN (Phase 2D-A) ================= */}
+        {currentScreen === "diagnosis" && (
+          <div className="space-y-4">
+            {/* Header info */}
+            <div className="bg-white border-3 border-emerald-500 rounded-3xl p-5 shadow-sm space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl p-2 bg-emerald-50 rounded-2xl border border-emerald-200">
+                    {machines.find((m) => m.id === breakdownMachineId)?.icon || "🚜"}
+                  </span>
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900">
+                      {machines.find((m) => m.id === breakdownMachineId)?.nameHi || "मशीन"}
+                    </h2>
+                    <p className="text-xs font-bold text-slate-500">
+                      {machines.find((m) => m.id === breakdownMachineId)?.name} • {machines.find((m) => m.id === breakdownMachineId)?.type}
+                    </p>
+                  </div>
+                </div>
+                <span className="bg-emerald-100 text-emerald-900 text-sm font-black px-3.5 py-1.5 rounded-full border border-emerald-300">
+                  🤖 मशीन की प्रारंभिक जाँच
+                </span>
+              </div>
+            </div>
+
+            {/* 1. Progress indicator: "🔍 मशीन की जाँच हो रही है..." */}
+            {isDiagnosing ? (
+              <div className="bg-white border-3 border-emerald-400 rounded-3xl p-8 text-center space-y-6 shadow-md">
+                <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-4xl mx-auto animate-bounce shadow-inner">
+                  🔍
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-black text-slate-900">
+                    🔍 मशीन की जाँच हो रही है...
+                  </h3>
+                  <p className="text-base font-bold text-slate-600">
+                    आपकी समस्या एवं मशीन की स्थिति की जाँच की जा रही है
+                  </p>
+                </div>
+
+                {/* Visual Progress Bar */}
+                <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden border border-slate-300 shadow-inner">
+                  <div className="bg-emerald-600 h-full rounded-full w-4/5 animate-pulse transition-all duration-700"></div>
+                </div>
+
+                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-sm font-bold text-emerald-900">
+                  डेटा सुरक्षित है • फोन में ही त्वरित जाँच
+                </div>
+              </div>
+            ) : currentDiagnosis && (
+              /* 2. Diagnosis Result Card (Section 6 & 7) */
+              <div className="space-y-4">
+                {/* Safety rules run BEFORE displaying recommendation */}
+                {currentDiagnosis.safetyWarning && (
+                  <div className="bg-red-700 text-white p-4 rounded-3xl font-black text-xl shadow-lg border-3 border-red-950 flex items-center gap-3 animate-pulse">
+                    <span className="text-3xl shrink-0">⚠️</span>
+                    <span>{currentDiagnosis.safetyWarning}</span>
+                  </div>
+                )}
+
+                {/* Result Main Card */}
+                <div className="bg-white border-3 border-emerald-500 rounded-3xl p-5 shadow-md space-y-4">
+                  {/* Top: Urgency Label & Header */}
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <span className="text-sm font-black bg-emerald-100 text-emerald-950 border border-emerald-300 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-xs">
+                      <span>🤖</span>
+                      <span>मशीन की प्रारंभिक जाँच</span>
+                    </span>
+                    <span
+                      className={`text-base font-black px-4 py-1.5 rounded-full border shadow-xs ${
+                        breakdownUrgency === "today" || currentDiagnosis.urgencyLevel === "high"
+                          ? "bg-red-100 text-red-950 border-red-300"
+                          : currentDiagnosis.urgencyLevel === "medium"
+                          ? "bg-amber-100 text-amber-950 border-amber-300"
+                          : "bg-emerald-100 text-emerald-950 border-emerald-300"
+                      }`}
+                    >
+                      {breakdownUrgency === "today" || currentDiagnosis.urgencyLevel === "high"
+                        ? "🔴 बहुत जरूरी"
+                        : currentDiagnosis.urgencyLevel === "medium"
+                        ? "🟠 जल्दी दिखाएं"
+                        : "🟢 सामान्य"}
+                    </span>
+                  </div>
+
+                  {/* Section 7: Urgency Explanation */}
+                  <div className="p-3.5 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-950 font-black text-base flex items-center gap-2.5">
+                    <span className="text-xl">⚡</span>
+                    <span>
+                      {breakdownUrgency === "today" || currentDiagnosis.urgencyLevel === "high"
+                        ? "आज खेत का काम होना है, इसलिए यह मरम्मत जरूरी है।"
+                        : "अभी सामान्य स्थिति है, काम रुकने का खतरा कम है।"}
+                    </span>
+                  </div>
+
+                  {/* Photo Analysis Evidence Card if photo exists */}
+                  {(breakdownPhotoPreview || sahayakPhoto || currentDiagnosis.photoAnalysis) && (
+                    <div className="p-3.5 bg-blue-50 border-2 border-blue-300 rounded-2xl space-y-2 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">📷</span>
+                          <span className="text-sm font-black text-blue-950">
+                            मशीन की फोटो
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold text-blue-800">जाँच पूरी</span>
+                      </div>
+                      <div className="text-base font-black text-slate-900">
+                        {currentDiagnosis.photoAnalysis?.isClear
+                          ? `पहचान: ${currentDiagnosis.photoAnalysis.detectedIssue}`
+                          : "फोटो से समस्या साफ़ नहीं दिख रही है। मैकेनिक की जाँच ज़रूरी है।"}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. संभावित समस्या */}
+                  <div className="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-4 space-y-1">
+                    <div className="text-sm font-black text-emerald-900 uppercase tracking-wide">
+                      संभावित समस्या
+                    </div>
+                    <div className="text-2xl font-black text-slate-900 leading-snug">
+                      {currentDiagnosis.possibleProblem}
+                    </div>
+                  </div>
+
+                  {/* 3. क्यों ऐसा लग रहा है */}
+                  <div className="space-y-2">
+                    <div className="text-xl font-black text-slate-900 flex items-center gap-1.5">
+                      <span>❓</span>
+                      <span>क्यों ऐसा लग रहा है</span>
+                    </div>
+                    <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 space-y-2.5">
+                      {currentDiagnosis.reasons.map((reason, idx) => (
+                        <div key={idx} className="flex items-start gap-2.5 text-base font-bold text-slate-800">
+                          <span className="text-emerald-700 font-black text-lg leading-none mt-0.5">•</span>
+                          <span className="leading-snug">{reason}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 4. अभी क्या करें */}
+                  <div className="bg-amber-50 border-3 border-amber-400 rounded-2xl p-4 space-y-1.5">
+                    <div className="text-xl font-black text-amber-950 flex items-center gap-1.5">
+                      <span>⚠️</span>
+                      <span>अभी क्या करें</span>
+                    </div>
+                    <p className="text-lg font-black text-amber-900 leading-relaxed">
+                      {currentDiagnosis.safeAction}
+                    </p>
+                  </div>
+
+                  {/* Small Disclaimer */}
+                  <div className="bg-slate-100 border border-slate-200 rounded-2xl p-3.5 text-center">
+                    <p className="text-sm font-black text-slate-800 flex items-center justify-center gap-1.5">
+                      <span>⚠️</span>
+                      <span>अंतिम पुष्टि मैकेनिक करेगा।</span>
+                    </p>
+                  </div>
+
+                  {/* 7. Expandable "जानकारी देखें" Section */}
+                  {showDiagnosisDetails && (
+                    <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-4 space-y-3 pt-3">
+                      <div className="text-base font-black text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-2">
+                        <span>📋</span>
+                        <span>मशीन इतिहास एवं साक्ष्य विवरण</span>
+                      </div>
+                      <div className="space-y-2 text-sm font-bold text-slate-700">
+                        <div className="flex justify-between py-1 border-b border-slate-200">
+                          <span className="text-slate-500">मशीन मॉडल / प्रकार:</span>
+                          <span className="text-slate-900 font-black">
+                            {machines.find((m) => m.id === breakdownMachineId)?.name} (
+                            {machines.find((m) => m.id === breakdownMachineId)?.type})
+                          </span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-200">
+                          <span className="text-slate-500">पिछली सर्विस:</span>
+                          <span className="text-slate-900 font-black">
+                            {machines.find((m) => m.id === breakdownMachineId)?.lastService}
+                          </span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-200">
+                          <span className="text-slate-500">कुल संचालन:</span>
+                          <span className="text-slate-900 font-black">
+                            {machines.find((m) => m.id === breakdownMachineId)?.operatingHours}
+                          </span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-200">
+                          <span className="text-slate-500">वर्तमान स्थिति:</span>
+                          <span className="text-emerald-700 font-black">
+                            {machines.find((m) => m.id === breakdownMachineId)?.statusText}
+                          </span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-200">
+                          <span className="text-slate-500">पूर्व मरम्मत:</span>
+                          <span className="text-slate-800 font-bold">
+                            {machines.find((m) => m.id === breakdownMachineId)?.previousRepairs}
+                          </span>
+                        </div>
+                        {/* Farmer's complaint preview */}
+                        {(breakdownDescription || sahayakDescription) && (
+                          <div className="pt-1">
+                            <span className="text-xs text-slate-500 block mb-0.5">किसान की शिकायत:</span>
+                            <div className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold">
+                              &quot;{breakdownDescription || sahayakDescription}&quot;
+                            </div>
+                          </div>
+                        )}
+                        {/* Photo Preview if attached */}
+                        {(breakdownPhotoPreview || sahayakPhoto) && (
+                          <div className="pt-1 space-y-2">
+                            <span className="text-xs text-slate-500 block">संलग्न फोटो साक्ष्य:</span>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={breakdownPhotoPreview || sahayakPhoto || ""}
+                              alt="फोटो साक्ष्य"
+                              className="w-28 h-28 object-cover rounded-xl border-2 border-emerald-500 shadow-sm"
+                            />
+                            {currentDiagnosis.photoAnalysis && (
+                              <div className="p-3 bg-white rounded-xl border border-blue-200 space-y-1 mt-2">
+                                <span className="text-xs font-black text-blue-900 block">
+                                  फोटो विश्लेषण विवरण:
+                                </span>
+                                <div className="text-sm font-black text-slate-900">
+                                  {currentDiagnosis.photoAnalysis.detectedIssue}
+                                </div>
+                                <div className="text-xs font-bold text-slate-600">
+                                  {currentDiagnosis.photoAnalysis.evidence.join(" • ")}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 7. THREE BUTTONS: "मशीन रिकवरी योजना देखें", "पारंपरिक मैकेनिक खोजें" & "जानकारी देखें" */}
+                  <div className="space-y-2.5 pt-1">
+                    {/* Primary Button: मशीन रिकवरी योजना देखें */}
+                    <button
+                      type="button"
+                      id="launch-recovery-engine-diag-btn"
+                      onClick={() => handleLaunchRecoveryEngine()}
+                      className="w-full bg-gradient-to-r from-emerald-700 to-teal-800 hover:from-emerald-800 hover:to-teal-900 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-xl border-3 border-emerald-950 flex items-center justify-center gap-2.5 transition-transform ring-4 ring-emerald-200"
+                    >
+                      <span className="text-2xl">⚡</span>
+                      <span>मशीन रिकवरी योजना देखें ➔</span>
+                    </button>
+
+                    {/* Secondary Button: मैकेनिक बुलाएं (Direct matching) */}
+                    <button
+                      type="button"
+                      onClick={handleContinueToRepair}
+                      className="w-full bg-white hover:bg-slate-50 active:scale-[0.98] text-emerald-950 font-black py-3.5 px-4 rounded-2xl text-lg border-2 border-emerald-600 flex items-center justify-center gap-2.5 transition-transform"
+                    >
+                      <Wrench className="w-5 h-5 text-emerald-700" />
+                      <span>सीधे मैकेनिक सूची में जाएं</span>
+                    </button>
+
+                    {/* Button 3: जानकारी देखें */}
+                    <button
+                      type="button"
+                      onClick={() => setShowDiagnosisDetails(!showDiagnosisDetails)}
+                      className="w-full bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-800 font-bold py-3 px-4 rounded-2xl text-base border-2 border-slate-300 flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <span>{showDiagnosisDetails ? "▲ जानकारी छुपाएं" : "ℹ️ साक्ष्य एवं इतिहास विवरण"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Back navigation */}
+                <button
+                  type="button"
+                  onClick={handleBackFromDiagnosis}
+                  className="w-full py-3 text-base font-bold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>← समस्या बदलें / वापस जाएं</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================= 5. KISAN SAHAYAK (किसान सहायक) SCREEN ================= */}
+        {currentScreen === "sahayak" && (
+          <div className="space-y-4">
+            <div className="bg-amber-50 border-3 border-amber-400 rounded-3xl p-5 shadow-sm space-y-2">
+              <div className="flex items-center gap-3">
+                <span className="text-4xl p-2.5 bg-amber-500 text-white rounded-2xl shadow-sm">
+                  🤖
+                </span>
+                <div>
+                  <h2 className="text-2xl font-black text-amber-950">
+                    किसान सहायक
+                  </h2>
+                  <p className="text-base font-bold text-amber-900">
+                    अपनी मशीन के बारे में कुछ भी पूछें
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Answer Display Card if question asked */}
+            {sahayakQuestionAnswer && (
+              <div className="bg-emerald-50 border-3 border-emerald-500 rounded-3xl p-5 space-y-3 shadow-md">
+                <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
+                  <span className="text-xs font-black text-emerald-900 uppercase tracking-wide truncate max-w-[220px]">
+                    सवाल: {sahayakQuestionAnswer.question}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSahayakQuestionAnswer(null);
+                      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                        window.speechSynthesis.cancel();
+                      }
+                    }}
+                    className="text-xs font-black text-slate-500 hover:text-slate-800 bg-emerald-100 px-2 py-0.5 rounded-lg"
+                  >
+                    ✕ बंद करें
+                  </button>
+                </div>
+                <div className="text-xl font-black text-slate-900 leading-snug">
+                  {sahayakQuestionAnswer.answer}
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => playAudioText(sahayakQuestionAnswer.answer)}
+                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-3 px-4 rounded-xl text-base flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-[0.98]"
+                  >
+                    <span>▶️ बोलकर सुनें</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSahayakQuestionAnswer(null);
+                      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                        window.speechSynthesis.cancel();
+                      }
+                    }}
+                    className="bg-white text-slate-700 font-black py-3 px-4 rounded-xl text-base border border-slate-300 hover:bg-slate-50 transition-colors"
+                  >
+                    🔄 नया सवाल
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 1: Suggested Prompts & Input Modes */}
+            {sahayakStep === "init" && (
+              <div className="space-y-4">
+                {/* 1. Two Large Asking Modes: 🎤 बोलकर पूछें & ⌨️ लिखकर पूछें */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSahayakInputMode("voice");
+                      handleSahayakSelectOption("voice");
+                    }}
+                    className="bg-white hover:bg-amber-50 active:scale-[0.98] border-3 border-amber-400 rounded-2xl p-4 shadow-sm flex flex-col items-center justify-center gap-1.5 text-center transition-all"
+                  >
+                    <span className="text-3xl">🎤</span>
+                    <span className="text-lg font-black text-slate-900">बोलकर पूछें</span>
+                    <span className="text-xs font-bold text-amber-900">मुंह से बोलें</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSahayakInputMode("text");
+                    }}
+                    className={`bg-white hover:bg-blue-50 active:scale-[0.98] border-3 rounded-2xl p-4 shadow-sm flex flex-col items-center justify-center gap-1.5 text-center transition-all ${
+                      sahayakInputMode === "text" ? "border-blue-600 bg-blue-50" : "border-blue-400"
+                    }`}
+                  >
+                    <span className="text-3xl">⌨️</span>
+                    <span className="text-lg font-black text-slate-900">लिखकर पूछें</span>
+                    <span className="text-xs font-bold text-blue-900">टाइप करके पूछें</span>
+                  </button>
+                </div>
+
+                {/* If Text Mode active, show input box */}
+                {sahayakInputMode === "text" && (
+                  <div className="bg-white border-2 border-blue-400 rounded-2xl p-4 space-y-2 shadow-sm">
+                    <label className="block text-sm font-black text-slate-800">
+                      अपना सवाल यहाँ लिखें:
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={sahayakCustomText}
+                        onChange={(e) => setSahayakCustomText(e.target.value)}
+                        placeholder="जैसे: अगली सर्विस कब है?..."
+                        className="flex-1 p-3.5 rounded-xl border-2 border-slate-300 text-base font-bold text-slate-900 focus:outline-none focus:border-blue-600 bg-slate-50"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && sahayakCustomText.trim()) {
+                            handleSahayakAskPrompt(sahayakCustomText.trim());
+                            setSahayakCustomText("");
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (sahayakCustomText.trim()) {
+                            handleSahayakAskPrompt(sahayakCustomText.trim());
+                            setSahayakCustomText("");
+                          }
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-black px-4 rounded-xl text-base shadow-sm transition-colors"
+                      >
+                        पूछें ➔
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Four Farmer-Friendly Suggested Prompts */}
+                <div className="bg-white border-3 border-slate-200 rounded-3xl p-4 shadow-sm space-y-2.5">
+                  <div className="text-base font-black text-slate-800 flex items-center gap-2">
+                    <span>💡</span>
+                    <span>सीधे पूछें (टैप करें):</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleSahayakAskPrompt("मेरी मशीन की मरम्मत कहाँ तक पहुँची?")}
+                      className="w-full text-left p-3.5 bg-slate-50 hover:bg-amber-50 active:scale-[0.98] rounded-2xl border-2 border-slate-200 hover:border-amber-400 text-base font-black text-slate-900 flex items-center justify-between transition-all"
+                    >
+                      <span>🚜 मेरी मशीन की मरम्मत कहाँ तक पहुँची?</span>
+                      <span className="text-slate-400">➔</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSahayakAskPrompt("अगली सर्विस कब है?")}
+                      className="w-full text-left p-3.5 bg-slate-50 hover:bg-emerald-50 active:scale-[0.98] rounded-2xl border-2 border-slate-200 hover:border-emerald-400 text-base font-black text-slate-900 flex items-center justify-between transition-all"
+                    >
+                      <span>📅 अगली सर्विस कब है?</span>
+                      <span className="text-slate-400">➔</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSahayakAskPrompt("मेरी मशीन में क्या समस्या थी?")}
+                      className="w-full text-left p-3.5 bg-slate-50 hover:bg-blue-50 active:scale-[0.98] rounded-2xl border-2 border-slate-200 hover:border-blue-400 text-base font-black text-slate-900 flex items-center justify-between transition-all"
+                    >
+                      <span>🔍 मेरी मशीन में क्या समस्या थी?</span>
+                      <span className="text-slate-400">➔</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSahayakAskPrompt("अभी मुझे क्या करना चाहिए?")}
+                      className="w-full text-left p-3.5 bg-slate-50 hover:bg-red-50 active:scale-[0.98] rounded-2xl border-2 border-slate-200 hover:border-red-400 text-base font-black text-slate-900 flex items-center justify-between transition-all"
+                    >
+                      <span>🛡️ अभी मुझे क्या करना चाहिए?</span>
+                      <span className="text-slate-400">➔</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Primary Action: मशीन में समस्या है */}
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleStartBreakdown()}
+                    className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-emerald-950 flex items-center justify-center gap-2.5 transition-transform active:scale-[0.98]"
+                  >
+                    <Wrench className="w-6 h-6 text-amber-300" />
+                    <span>🔧 मशीन में समस्या है - मैकेनिक बुलाएं</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSahayakSelectOption("photo")}
+                    className="w-full bg-blue-50 hover:bg-blue-100 text-blue-950 font-black py-3 px-4 rounded-2xl text-base border-2 border-blue-300 flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <span>📷 मशीन की फोटो भेजें</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step: VOICE RECORDING (Problem 1 Fix) */}
+            {sahayakStep === "voice" && (
+              <div className="space-y-4">
+                <div className="bg-white border-3 border-amber-400 rounded-3xl p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <span className="text-xl font-black text-slate-900 flex items-center gap-2">
+                      <span>🎙️</span>
+                      <span>बोलकर समस्या बताएं</span>
+                    </span>
+                    {sahayakVoiceActive && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-red-100 text-red-800 border border-red-300">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+                        </span>
+                        माइक चालू है
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Active Recording Box or Start Button */}
+                  {sahayakVoiceActive ? (
+                    <div className="bg-red-50 border-3 border-red-500 rounded-2xl p-5 text-center space-y-3">
+                      <div className="flex items-center justify-center gap-2 text-2xl font-black text-red-950 animate-pulse">
+                        <Mic className="w-8 h-8 text-red-600 animate-bounce" />
+                        <span>🎤 सुन रहे हैं...</span>
+                      </div>
+                      <p className="text-sm font-bold text-red-900">
+                        मुंह से अपनी समस्या बोलें। जब बोलना पूरा हो जाए, नीचे लाल बटन दबाएं।
+                      </p>
+
+                      {/* Prominent STOP Button */}
+                      <button
+                        type="button"
+                        onClick={stopSahayakVoice}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-red-800 flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
+                      >
+                        <span>⏹️</span>
+                        <span>बोलना बंद करें</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={startSahayakVoice}
+                        className="w-full bg-amber-500 hover:bg-amber-600 text-white font-black py-4 px-4 rounded-2xl text-xl shadow-md border-2 border-amber-700 flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
+                      >
+                        <span>🎤</span>
+                        <span>
+                          {sahayakDescription ? "और बोलें / दोबारा बोलें" : "बोलना शुरू करें"}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Speech Unsupported or Permission Fallback */}
+                  {sahayakSpeechUnsupported && (
+                    <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-2xl space-y-2">
+                      <div className="text-base font-bold text-amber-950 flex items-start gap-2">
+                        <AlertCircle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+                        <span>{sahayakSpeechUnsupported}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSahayakDescription(
+                            "मेरे ट्रैक्टर से धुआं निकल रहा है और इंजन गरम हो रहा है।"
+                          );
+                          setSahayakSpeechUnsupported(null);
+                        }}
+                        className="w-full text-left text-sm font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 p-2.5 rounded-xl border border-amber-300 transition-colors"
+                      >
+                        💡 उदाहरण वाक्य जोड़ें:{" "}
+                        <span className="underline">
+                          &quot;मेरे ट्रैक्टर से धुआं निकल रहा है और इंजन गरम हो रहा है।&quot;
+                        </span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Captured Speech Display in Large Textarea */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="block text-base font-black text-slate-800">
+                      आपकी बोली हुई समस्या:
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={sahayakDescription}
+                      onChange={(e) => setSahayakDescription(e.target.value)}
+                      placeholder="आपकी बोली हुई बात यहाँ दिखेगी... (जैसे: मेरे ट्रैक्टर से धुआं निकल रहा है और इंजन गरम हो रहा है)"
+                      className="w-full p-4 rounded-2xl border-3 border-slate-300 text-xl font-bold text-slate-900 bg-slate-50 focus:bg-white focus:border-emerald-600 focus:outline-none transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Navigation Buttons for Voice Step */}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      stopSahayakVoice();
+                      setSahayakStep("init");
+                    }}
+                    className="flex-1 py-4 text-lg font-black text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-2xl flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                    <span>वापस जाएं</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSahayakProceedToDiagnosis}
+                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-4 px-4 rounded-2xl text-xl text-center shadow-md transition-colors"
+                  >
+                    आगे बढ़ें ➔
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step: PHOTO CAPTURE & PREVIEW (Problem 2 Fix) */}
+            {sahayakStep === "photo" && (
+              <div className="space-y-4">
+                <div className="bg-white border-3 border-blue-400 rounded-3xl p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <span className="text-xl font-black text-slate-900 flex items-center gap-2">
+                      <span>📷</span>
+                      <span>मशीन की फोटो</span>
+                    </span>
+                  </div>
+
+                  {!sahayakPhoto ? (
+                    <div className="space-y-3 text-center p-6 bg-blue-50 border-2 border-blue-200 rounded-2xl">
+                      <span className="text-5xl block">📷</span>
+                      <div className="text-xl font-black text-blue-950">
+                        खराब भाग की फोटो लें
+                      </div>
+                      <p className="text-sm font-bold text-blue-900">
+                        कैमरा खोलकर फोटो खींचें या फोन की गैलरी से चुनें
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => sahayakPhotoInputRef.current?.click()}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 px-4 rounded-2xl text-xl shadow-md transition-colors flex items-center justify-center gap-2"
+                      >
+                        <span>📷</span>
+                        <span>कैमरा खोलें / फोटो चुनें</span>
+                      </button>
+                    </div>
+                  ) : (
+                    /* PHOTO PREVIEW CARD */
+                    <div className="p-4 bg-emerald-50 border-3 border-emerald-400 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-base font-black text-emerald-950 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+                          फोटो सुरक्षित रूप से जुड़ गई
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSahayakPhoto(null);
+                            if (sahayakPhotoInputRef.current) {
+                              sahayakPhotoInputRef.current.value = "";
+                            }
+                          }}
+                          className="text-sm font-black text-red-700 bg-red-100 hover:bg-red-200 px-3 py-1.5 rounded-xl border border-red-300 transition-colors flex items-center gap-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>फोटो हटाएं</span>
+                        </button>
+                      </div>
+
+                      <div className="relative rounded-xl overflow-hidden border-2 border-emerald-500 shadow-sm max-h-60 bg-black flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={sahayakPhoto}
+                          alt="मशीन की फोटो"
+                          className="w-full h-auto max-h-60 object-contain"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => sahayakPhotoInputRef.current?.click()}
+                        className="w-full py-3 text-center text-base font-black text-blue-900 bg-blue-100 hover:bg-blue-200 rounded-xl transition-colors flex items-center justify-center gap-2"
+                      >
+                        <span>📷</span>
+                        <span>फोटो बदलें</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Optional short description */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="block text-sm font-bold text-slate-700">
+                      कुछ लिखना चाहें तो यहाँ लिखें (वैकल्पिक):
+                    </label>
+                    <input
+                      type="text"
+                      value={sahayakDescription}
+                      onChange={(e) => setSahayakDescription(e.target.value)}
+                      placeholder="जैसे: स्टार्ट नहीं हो रहा है..."
+                      className="w-full p-3.5 rounded-xl border-2 border-slate-300 text-base font-bold text-slate-900 focus:outline-none focus:border-emerald-600 bg-slate-50"
+                    />
+                  </div>
+                </div>
+
+                {/* Navigation Buttons for Photo Step */}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSahayakStep("init")}
+                    className="flex-1 py-4 text-lg font-black text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-2xl flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                    <span>वापस जाएं</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSahayakProceedToDiagnosis}
+                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-4 px-4 rounded-2xl text-xl text-center shadow-md transition-colors"
+                  >
+                    आगे बढ़ें ➔
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step: ASK URGENCY */}
+            {sahayakStep === "urgency" && (
+              <div className="space-y-4">
+                <div className="bg-emerald-50 border-3 border-emerald-400 rounded-3xl p-5 shadow-sm">
+                  <p className="text-xl font-black text-emerald-950 leading-relaxed">
+                    &quot;ठीक है किसान जी।<br />
+                    मैं आपकी मशीन की समस्या समझने में मदद करता हूँ।&quot;
+                  </p>
+                </div>
+
+                <div className="bg-white border-3 border-slate-300 rounded-3xl p-5 space-y-3 shadow-sm">
+                  <div className="text-2xl font-black text-slate-900">
+                    क्या आज मशीन की जरूरत है?
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    {/* 🟢 हाँ, आज काम है */}
+                    <button
+                      type="button"
+                      onClick={() => handleSahayakSelectUrgency("today")}
+                      className="w-full bg-emerald-50 hover:bg-emerald-100 active:scale-[0.98] border-3 border-emerald-600 rounded-2xl p-4 flex items-center gap-3 text-left transition-all"
+                    >
+                      <span className="text-3xl">🟢</span>
+                      <div>
+                        <div className="text-2xl font-black text-emerald-950">हाँ, आज काम है</div>
+                        <div className="text-sm font-bold text-emerald-900">
+                          खेत में जरूरी काम रुका है
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* ⚪ नहीं, बाद में भी चलेगा */}
+                    <button
+                      type="button"
+                      onClick={() => handleSahayakSelectUrgency("later")}
+                      className="w-full bg-slate-50 hover:bg-slate-100 active:scale-[0.98] border-3 border-slate-400 rounded-2xl p-4 flex items-center gap-3 text-left transition-all"
+                    >
+                      <span className="text-3xl">⚪</span>
+                      <div>
+                        <div className="text-2xl font-black text-slate-900">
+                          नहीं, बाद में भी चलेगा
+                        </div>
+                        <div className="text-sm font-bold text-slate-600">
+                          कल या परसों भी ठीक रहेगा
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSahayakStep(sahayakChoice === "photo" ? "photo" : "voice")}
+                  className="w-full py-3 text-base font-bold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>← पिछला सवाल</span>
+                </button>
+              </div>
+            )}
+
+            {/* Step: FINAL CONFIRMATION & CALL MECHANIC */}
+            {sahayakStep === "ready" && (
+              <div className="space-y-4">
+                {sahayakUrgency === "today" ? (
+                  <div className="bg-emerald-50 border-3 border-emerald-500 rounded-3xl p-5 shadow-sm">
+                    <p className="text-2xl font-black text-emerald-950 leading-relaxed">
+                      &quot;ठीक है। आपकी मरम्मत को जल्दी करने की कोशिश करेंगे।&quot;
+                    </p>
+                    <p className="text-sm font-bold text-emerald-900 mt-2">
+                      नजदीकी मैकेनिक को सूचना भेजी जाएगी।
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 border-3 border-slate-400 rounded-3xl p-5 shadow-sm">
+                    <p className="text-2xl font-black text-slate-900 leading-relaxed">
+                      &quot;ठीक है। हम सामान्य तरीके से आपकी मदद करेंगे।&quot;
+                    </p>
+                    <p className="text-sm font-bold text-slate-700 mt-2">
+                      सुविधाजनक समय पर मैकेनिक से संपर्क होगा।
+                    </p>
+                  </div>
+                )}
+
+                {/* Summary Card */}
+                <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 space-y-2.5">
+                  <div className="text-sm">
+                    <span className="font-bold text-slate-600">समस्या का तरीका: </span>
+                    <span className="font-black text-slate-900">
+                      {sahayakChoice === "voice" ? "🎙️ बोलकर बताई गई" : "📷 फोटो भेजी गई"}
+                    </span>
+                  </div>
+
+                  {sahayakDescription && (
+                    <div className="text-sm">
+                      <span className="font-bold text-slate-600">विवरण: </span>
+                      <span className="font-black text-slate-900 text-base">
+                        {sahayakDescription}
+                      </span>
+                    </div>
+                  )}
+
+                  {sahayakPhoto && (
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-slate-600 block">संलग्न फोटो:</span>
+                        <span className="text-sm font-bold text-emerald-800">✓ फोटो सुरक्षित है</span>
+                      </div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={sahayakPhoto}
+                        alt="मशीन फोटो"
+                        className="w-14 h-14 object-cover rounded-xl border border-slate-300 shadow-sm"
+                      />
+                    </div>
+                  )}
+
+                  {/* Phase 2D-A: AI Diagnosis preview in Sahayak ready */}
+                  {currentDiagnosis && (
+                    <div className="p-3 bg-emerald-50 rounded-xl border-2 border-emerald-300 space-y-1">
+                      <div className="flex items-center justify-between text-xs font-black text-emerald-900">
+                        <span className="flex items-center gap-1">
+                          <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                          AI संभावित समस्या:
+                        </span>
+                        <span className="bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full text-[11px]">
+                          {currentDiagnosis.confidence}
+                        </span>
+                      </div>
+                      <div className="text-base font-black text-slate-900">
+                        {currentDiagnosis.possibleProblem}
+                      </div>
+                      <div className="text-xs font-bold text-slate-600">
+                        {currentDiagnosis.urgencyText}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Final Buttons */}
+                <div className="space-y-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleLaunchRecoveryEngine()}
+                    className="w-full bg-gradient-to-r from-emerald-700 to-teal-800 hover:from-emerald-800 hover:to-teal-900 text-white rounded-3xl p-5 text-2xl font-black shadow-xl border-4 border-emerald-950 flex items-center justify-center gap-3 transition-transform active:scale-[0.98] ring-4 ring-emerald-200"
+                  >
+                    <span className="text-3xl">⚡</span>
+                    <span>मशीन रिकवरी योजना देखें ➔</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSahayakCallMechanic}
+                    className="w-full bg-white hover:bg-slate-50 text-emerald-950 rounded-2xl p-3.5 text-lg font-black border-2 border-emerald-600 flex items-center justify-center gap-2.5 transition-transform"
+                  >
+                    <Wrench className="w-5 h-5 text-emerald-700" />
+                    <span>सीधे मैकेनिक खोजें</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================= 6. MY REPAIR SCREEN (WITH PENDING OFFLINE BADGE) ================= */}
+        {currentScreen === "repair" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                <span>🔧</span> मेरी मरम्मत
+              </h2>
+              <span
+                className={`text-sm font-black px-3 py-1 rounded-full ${
+                  latestRepair && latestRepair.status !== "completed"
+                    ? latestRepair.syncStatus === "pending"
+                      ? "bg-amber-100 text-amber-900 border border-amber-300"
+                      : "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                    : "bg-slate-200 text-slate-700"
+                }`}
+              >
+                {latestRepair && latestRepair.status !== "completed"
+                  ? latestRepair.syncStatus === "pending"
+                    ? "फ़ोन में सुरक्षित (ऑफ़लाइन)"
+                    : "प्रगति पर है"
+                  : "कोई काम नहीं"}
+              </span>
+            </div>
+
+            {/* EMPTY STATE */}
+            {!latestRepair ? (
+              <div className="bg-white border-3 border-slate-200 rounded-3xl p-8 text-center space-y-4 shadow-sm">
+                <span className="text-5xl block">🚜</span>
+                <h3 className="text-2xl font-black text-slate-800">
+                  अभी कोई मरम्मत नहीं है।
+                </h3>
+                <p className="text-base font-bold text-slate-600">
+                  आपकी सभी मशीनें चालू स्थिति में हैं।
+                </p>
+                <button
+                  onClick={() => handleStartBreakdown()}
+                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-4 px-4 rounded-2xl text-xl shadow-md transition-colors"
+                >
+                  मशीन खराब है? मैकेनिक बुलाएं
+                </button>
+              </div>
+            ) : (
+              /* DYNAMIC REPAIR CARD */
+              <div className="bg-white border-3 border-amber-400 rounded-3xl p-5 shadow-md space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-4xl p-2 bg-amber-50 rounded-2xl border border-amber-200">
+                      {latestRepair.machineIcon}
+                    </span>
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-900">
+                        {latestRepair.machineNameHi}
+                      </h3>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                        शिकायत संख्या: {latestRepair.id}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="bg-amber-100 text-amber-900 text-sm font-extrabold px-3 py-1 rounded-full border border-amber-300">
+                    मरम्मत की शिकायत
+                  </span>
+                </div>
+
+                {/* Status Message Highlight */}
+                <div className="bg-amber-50 border-3 border-amber-300 rounded-2xl p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 text-amber-800 font-extrabold text-sm mb-1">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                    </span>
+                    वर्तमान स्थिति
+                  </div>
+                  <div className="text-2xl font-black text-amber-950">
+                    {latestRepair.statusTextHi}
+                  </div>
+                  <p className="text-sm text-amber-900 font-bold mt-1">
+                    {latestRepair.syncStatus === "pending"
+                      ? "इंटरनेट मिलते ही जानकारी मैकेनिक तक पहुँचा दी जाएगी"
+                      : "आपके नजदीकी मैकेनिक को सूचना भेजी जा चुकी है"}
+                  </p>
+                </div>
+
+                {/* Phase 2D-A: Attached AI Diagnosis if present */}
+                {latestRepair.diagnosis && (
+                  <div className="p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-300 space-y-2 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-emerald-900 flex items-center gap-1.5 uppercase tracking-wide">
+                        <Sparkles className="w-4 h-4 text-emerald-700" />
+                        AI प्रारंभिक जाँच रिपोर्ट
+                      </span>
+                      <span className="text-xs font-black bg-emerald-200 text-emerald-900 px-2.5 py-0.5 rounded-full">
+                        {latestRepair.diagnosis.confidence} विश्वास
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-500">संभावित समस्या:</div>
+                      <div className="text-xl font-black text-slate-900">
+                        {latestRepair.diagnosis.possibleProblem}
+                      </div>
+                    </div>
+                    <div className="pt-1 border-t border-emerald-200 text-xs font-bold text-slate-700">
+                      सलाह: {latestRepair.diagnosis.safeAction}
+                    </div>
+                  </div>
+                )}
+
+                {/* Attached Photo Evidence if present */}
+                {latestRepair.photoDataUrl && (
+                  <div className="p-3.5 bg-slate-50 rounded-2xl border-2 border-slate-200 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={latestRepair.photoDataUrl}
+                        alt="मशीन की फोटो"
+                        className="w-16 h-16 object-cover rounded-xl border border-slate-300 shadow-sm"
+                      />
+                      <div>
+                        <div className="text-xs font-bold text-slate-500">मशीन की फोटो साक्ष्य</div>
+                        <div className="text-base font-black text-slate-900">📷 फोटो सुरक्षित है</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* P2O Step 2: Transparent Pricing Breakdown & Price Change Banner */}
+                {(() => {
+                  const pricing = latestRepair.finalCost || latestRepair.estimatedCost;
+                  if (!pricing) return null;
+
+                  return (
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-3 border-amber-400 rounded-3xl p-4 space-y-3 shadow-sm">
+                      <div className="flex items-center justify-between border-b border-amber-200 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">💰</span>
+                          <span className="text-lg font-black text-amber-950">
+                            {latestRepair.finalCost ? "अंतिम मरम्मत लागत" : "अनुमानित मरम्मत लागत"}
+                          </span>
+                        </div>
+                        <span className="text-xs font-black bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
+                          {latestRepair.finalCost ? "पुष्टीकृत बिल" : "पारदर्शी दर"}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 text-sm">
+                        <div className="flex justify-between items-center text-slate-700 font-bold">
+                          <span>जांच शुल्क (Diagnostic):</span>
+                          <span className="font-black text-slate-900">{formatCurrencyHi(pricing.diagnosticFee)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-slate-700 font-bold">
+                          <span>मजदूरी (Labour):</span>
+                          <span className="font-black text-slate-900">{formatCurrencyHi(pricing.labourFee)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-slate-700 font-bold">
+                          <span>स्पेयर पार्ट्स (Parts):</span>
+                          <span className="font-black text-slate-900">{formatCurrencyHi(pricing.partsEstimate)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-slate-700 font-bold">
+                          <span>घर पर आने का शुल्क (Travel):</span>
+                          <span className="font-black text-slate-900">{formatCurrencyHi(pricing.travelFee)}</span>
+                        </div>
+                        {pricing.discount > 0 && (
+                          <div className="flex justify-between items-center text-emerald-700 font-bold">
+                            <span>छूट / सब्सिडी:</span>
+                            <span className="font-black text-emerald-800">-{formatCurrencyHi(pricing.discount)}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-2 border-t-2 border-dashed border-amber-300 flex justify-between items-center">
+                        <div>
+                          <span className="text-xs font-bold text-amber-900 block">
+                            {latestRepair.finalCost ? "कुल देय राशि" : "कुल अनुमानित राशि"}
+                          </span>
+                          <span className="text-2xl font-black text-amber-950">
+                            {formatCurrencyHi(pricing.total)}
+                          </span>
+                        </div>
+                        <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300">
+                          ✓ पारदर्शी दर
+                        </span>
+                      </div>
+
+                      {/* Explicit Price Adjustment notice if cost changed */}
+                      {latestRepair.priceAdjustment && (
+                        <div className="bg-amber-100/90 border-2 border-amber-300 rounded-2xl p-3 space-y-1.5 text-xs">
+                          <div className="font-black text-amber-950 flex items-center gap-1 text-sm">
+                            <span>⚠️</span>
+                            <span>लागत में बदलाव की सूचना (Price Modification):</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-1.5 text-center font-bold">
+                            <div className="bg-white p-1.5 rounded-lg border border-amber-200">
+                              <span className="text-[10px] text-slate-500 block">अनुमानित</span>
+                              <span className="text-slate-900">{formatCurrencyHi(latestRepair.priceAdjustment.estimatedTotal)}</span>
+                            </div>
+                            <div className="bg-white p-1.5 rounded-lg border border-amber-200">
+                              <span className="text-[10px] text-slate-500 block">संशोधित</span>
+                              <span className="text-amber-950 font-black">{formatCurrencyHi(latestRepair.priceAdjustment.revisedTotal)}</span>
+                            </div>
+                            <div className="bg-white p-1.5 rounded-lg border border-amber-200">
+                              <span className="text-[10px] text-slate-500 block">अंतर</span>
+                              <span className={latestRepair.priceAdjustment.difference > 0 ? "text-amber-800 font-black" : "text-emerald-700 font-black"}>
+                                {latestRepair.priceAdjustment.difference >= 0 ? "+" : ""}
+                                {formatCurrencyHi(latestRepair.priceAdjustment.difference)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-[11px] font-bold text-amber-900 pt-0.5">
+                            📌 कारण: <span className="underline">{latestRepair.priceAdjustment.reason}</span>
+                            {latestRepair.priceAdjustment.customReasonNote && ` (${latestRepair.priceAdjustment.customReasonNote})`}
+                          </div>
+                        </div>
+                      )}
+
+                      {!latestRepair.finalCost && (
+                        <div className="text-[11px] font-bold text-amber-900/90 bg-amber-100/70 p-2.5 rounded-xl border border-amber-200 leading-snug">
+                          ⚠️ यह अनुमान है। मशीन की जांच के बाद अंतिम कीमत बदल सकती है।
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* P2O Step 3: Assigned Technician & Certification Trust Preview */}
+                {(() => {
+                  const jobCard = getJobCardByRepairId(latestRepair.id);
+                  if (!jobCard) return null;
+                  const assignedTech = getTechnicianById(jobCard.technicianId);
+                  const vStatus = assignedTech?.verificationStatus || jobCard.technicianVerificationStatus || "verified";
+
+                  return (
+                    <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-3.5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">👨‍🔧</span>
+                          <div>
+                            <div className="text-sm font-black text-slate-900">{jobCard.technicianNameHi}</div>
+                            <div className="text-[11px] font-bold text-slate-500">
+                              {jobCard.technicianSkillHi} • {assignedTech?.experienceYears || jobCard.technicianExperienceYears || 3} वर्ष अनुभव
+                            </div>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[11px] font-black px-2.5 py-1 rounded-full border ${
+                            vStatus === "verified"
+                              ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                              : vStatus === "expired"
+                              ? "bg-red-100 text-red-900 border-red-300"
+                              : "bg-amber-100 text-amber-900 border-amber-300"
+                          }`}
+                        >
+                          {vStatus === "verified"
+                            ? "🟢 प्रमाणित"
+                            : vStatus === "expired"
+                            ? "🔴 समाप्त"
+                            : "🟡 प्रक्रियाधीन"}
+                        </span>
+                      </div>
+                      {assignedTech && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCredentialsModal(assignedTech)}
+                          className="w-full bg-white hover:bg-slate-100 text-slate-700 font-bold py-1.5 px-2 rounded-lg border border-slate-300 text-xs flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Award className="w-3.5 h-3.5 text-amber-600" />
+                          <span>मैकेनिक का प्रमाणन व प्रशिक्षण देखें</span>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Dynamic Timeline based on status — P2M Step 1: 6 simple farmer-friendly steps */}
+                <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 space-y-3.5">
+                  <div className="text-base font-black text-slate-800 mb-2">
+                    प्रगति की स्थिति:
+                  </div>
+
+                  {/* 1. शिकायत दर्ज */}
+                  <div className="flex items-center gap-3 text-emerald-800 font-black text-lg">
+                    <span className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-base font-black">
+                      ✓
+                    </span>
+                    <span>
+                      {latestRepair.syncStatus === "pending"
+                        ? "शिकायत दर्ज (फ़ोन में सुरक्षित)"
+                        : "शिकायत दर्ज"}
+                    </span>
+                  </div>
+
+                  {/* 2. मैकेनिक नियुक्त */}
+                  <div
+                    className={`flex items-center gap-3 font-black text-lg ${
+                      latestRepair.status === "finding_mechanic"
+                        ? "text-amber-900"
+                        : ["mechanic_assigned", "mechanic_accepted", "repair_in_progress", "verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
+                        ? "text-emerald-800"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    <span
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-black ${
+                        latestRepair.status === "finding_mechanic"
+                          ? "bg-amber-500 text-white animate-pulse"
+                          : ["mechanic_assigned", "mechanic_accepted", "repair_in_progress", "verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
+                          ? "bg-emerald-600 text-white"
+                          : "border-2 border-slate-300 bg-white text-slate-400"
+                      }`}
+                    >
+                      {["mechanic_assigned", "mechanic_accepted", "repair_in_progress", "verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
+                        ? "✓"
+                        : latestRepair.status === "finding_mechanic"
+                        ? "●"
+                        : "○"}
+                    </span>
+                    <span>
+                      {latestRepair.status === "finding_mechanic"
+                        ? "मैकेनिक नियुक्त (खोज जारी...)"
+                        : "मैकेनिक नियुक्त"}
+                    </span>
+                  </div>
+
+                  {/* 3. मैकेनिक रास्ते में */}
+                  <div
+                    className={`flex items-center gap-3 font-black text-lg ${
+                      ["mechanic_assigned", "mechanic_accepted"].includes(latestRepair.status)
+                        ? "text-amber-900"
+                        : ["repair_in_progress", "verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
+                        ? "text-emerald-800"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    <span
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-black ${
+                        ["mechanic_assigned", "mechanic_accepted"].includes(latestRepair.status)
+                          ? "bg-amber-500 text-white animate-pulse"
+                          : ["repair_in_progress", "verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
+                          ? "bg-emerald-600 text-white"
+                          : "border-2 border-slate-300 bg-white text-slate-400"
+                      }`}
+                    >
+                      {["repair_in_progress", "verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
+                        ? "✓"
+                        : ["mechanic_assigned", "mechanic_accepted"].includes(latestRepair.status)
+                        ? "●"
+                        : "○"}
+                    </span>
+                    <span>
+                      {["mechanic_assigned", "mechanic_accepted"].includes(latestRepair.status)
+                        ? "मैकेनिक रास्ते में"
+                        : "मैकेनिक रास्ते में"}
+                    </span>
+                  </div>
+
+                  {/* 4. मरम्मत */}
+                  <div
+                    className={`flex items-center gap-3 font-black text-lg ${
+                      latestRepair.status === "repair_in_progress"
+                        ? "text-blue-900"
+                        : ["verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
+                        ? "text-emerald-800"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    <span
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-black ${
+                        latestRepair.status === "repair_in_progress"
+                          ? "bg-blue-600 text-white animate-pulse"
+                          : ["verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
+                          ? "bg-emerald-600 text-white"
+                          : "border-2 border-slate-300 bg-white text-slate-400"
+                      }`}
+                    >
+                      {["verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
+                        ? "✓"
+                        : latestRepair.status === "repair_in_progress"
+                        ? "●"
+                        : "○"}
+                    </span>
+                    <span>
+                      {latestRepair.status === "repair_in_progress"
+                        ? "मरम्मत (जारी है...)"
+                        : "मरम्मत"}
+                    </span>
+                  </div>
+
+                  {/* 5. जाँच */}
+                  <div
+                    className={`flex items-center gap-3 font-black text-lg ${
+                      latestRepair.status === "verification_pending"
+                        ? "text-amber-900"
+                        : latestRepair.status === "completed"
+                        ? "text-emerald-800"
+                        : latestRepair.status === "re_repair_required"
+                        ? "text-red-800"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    <span
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-black ${
+                        latestRepair.status === "verification_pending"
+                          ? "bg-amber-500 text-white animate-pulse"
+                          : latestRepair.status === "completed"
+                          ? "bg-emerald-600 text-white"
+                          : latestRepair.status === "re_repair_required"
+                          ? "bg-red-500 text-white"
+                          : "border-2 border-slate-300 bg-white text-slate-400"
+                      }`}
+                    >
+                      {latestRepair.status === "completed"
+                        ? "✓"
+                        : latestRepair.status === "re_repair_required"
+                        ? "✕"
+                        : latestRepair.status === "verification_pending"
+                        ? "●"
+                        : "○"}
+                    </span>
+                    <span>
+                      {latestRepair.status === "verification_pending"
+                        ? "जाँच (मशीन चलाकर देखें)"
+                        : latestRepair.status === "re_repair_required"
+                        ? "जाँच (समस्या बाकी है)"
+                        : "जाँच"}
+                    </span>
+                  </div>
+
+                  {/* 6. पूरी */}
+                  <div
+                    className={`flex items-center gap-3 font-black text-lg ${
+                      latestRepair.status === "completed"
+                        ? "text-emerald-800"
+                        : latestRepair.status === "re_repair_required"
+                        ? "text-red-900"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    <span
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-black ${
+                        latestRepair.status === "completed"
+                          ? "bg-emerald-600 text-white"
+                          : latestRepair.status === "re_repair_required"
+                          ? "bg-red-600 text-white"
+                          : "border-2 border-slate-300 bg-white text-slate-400"
+                      }`}
+                    >
+                      {latestRepair.status === "completed"
+                        ? "✓"
+                        : latestRepair.status === "re_repair_required"
+                        ? "✕"
+                        : "○"}
+                    </span>
+                    <span>
+                      {latestRepair.status === "re_repair_required"
+                        ? "पूरी (दोबारा मरम्मत जरूरी)"
+                        : "पूरी"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Verification Pending Action Banner */}
+                {latestRepair.status === "verification_pending" && (
+                  <div className="p-4 bg-amber-50 border-3 border-amber-400 rounded-2xl space-y-2 text-center shadow-sm">
+                    <div className="text-lg font-black text-amber-950">
+                      मरम्मत पूरी हो गई है! अब मशीन चलाकर जाँच करें।
+                    </div>
+                    <p className="text-xs font-bold text-amber-800">
+                      सुनिश्चित करें कि मशीन अब बिना किसी समस्या के चल रही है।
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const card = getJobCardByRepairId(latestRepair.id) || currentJobCard;
+                        if (card) setCurrentJobCard(card);
+                        setCurrentScreen("repair_verification");
+                      }}
+                      className="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-slate-950 font-black py-3.5 px-4 rounded-xl text-lg border-2 border-amber-700 flex items-center justify-center gap-2 transition-transform shadow-md"
+                    >
+                      <span>मशीन की जाँच करें</span>
+                      <span>➔</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Re-repair Required Action Banner */}
+                {latestRepair.status === "re_repair_required" && (
+                  <div className="p-4 bg-red-50 border-3 border-red-400 rounded-2xl space-y-2 text-center shadow-sm">
+                    <div className="text-lg font-black text-red-950">
+                      समस्या अभी ठीक नहीं हुई है — दोबारा मरम्मत की जरूरत है।
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const card = getJobCardByRepairId(latestRepair.id) || currentJobCard;
+                        if (card) setCurrentJobCard(card);
+                        handleReRepair();
+                      }}
+                      className="w-full bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-black py-3.5 px-4 rounded-xl text-lg border-2 border-red-900 flex items-center justify-center gap-2 transition-transform shadow-md"
+                    >
+                      <RotateCcw className="w-5 h-5 text-white" />
+                      <span>दोबारा मरम्मत कराएं</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Completed Celebration Banner */}
+                {latestRepair.status === "completed" && (
+                  <div className="p-4 bg-emerald-50 border-3 border-emerald-400 rounded-2xl space-y-2 text-center shadow-sm">
+                    <div className="text-lg font-black text-emerald-950">
+                      मशीन की मरम्मत सफलतापूर्वक पूरी हो गई।
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentScreen("machines")}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black py-3 px-4 rounded-xl text-base border-2 border-emerald-900 flex items-center justify-center gap-2 transition-transform"
+                    >
+                      <span>मेरी मशीन देखें</span>
+                      <span>➔</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* View Digital Job Card button if available */}
+                {getJobCardByRepairId(latestRepair.id) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const card = getJobCardByRepairId(latestRepair.id);
+                      if (card) setCurrentJobCard(card);
+                      setCurrentScreen("technician_job_card");
+                    }}
+                    className="w-full bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 text-slate-800 font-bold py-3 px-4 rounded-xl text-base flex items-center justify-center gap-2"
+                  >
+                    <ClipboardList className="w-5 h-5 text-slate-600" />
+                    <span>डिजिटल जॉब कार्ड देखें</span>
+                  </button>
+                )}
+
+                {/* Direct Helpline Assistance */}
+                <div className="pt-1">
+                  <a
+                    href="tel:1800000000"
+                    className="w-full bg-slate-100 hover:bg-slate-200 border-3 border-slate-300 text-slate-900 py-4 px-4 rounded-2xl flex items-center justify-center gap-2 font-black text-lg transition-colors"
+                  >
+                    <PhoneCall className="w-6 h-6 text-emerald-700" />
+                    <span>सीधे हेल्पलाइन पर बात करें</span>
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================= 7. SERVICE TAB SCREEN ================= */}
+        {currentScreen === "service" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                <span>📅</span> अगली सर्विस सारणी
+              </h2>
+              <span className="text-sm font-black bg-blue-100 text-blue-900 px-3 py-1 rounded-full border border-blue-200">
+                कुल: {machines.length} मशीनें
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {machines.map((machine) => {
+                const statusDisp = getMaintenanceStatusDisplay(machine.maintenanceStatus || "upcoming");
+                const checklist =
+                  machine.maintenanceItems && machine.maintenanceItems.length > 0
+                    ? machine.maintenanceItems
+                    : getDefaultMaintenanceItems(machine.type || machine.name);
+
+                return (
+                  <div
+                    key={`srv-screen-${machine.id}`}
+                    className={`bg-white border-3 rounded-3xl p-5 shadow-sm space-y-4 transition-all ${
+                      machine.maintenanceStatus === "overdue"
+                        ? "border-red-400"
+                        : machine.maintenanceStatus === "due"
+                        ? "border-amber-400"
+                        : "border-blue-300"
+                    }`}
+                  >
+                    {/* Header: Machine & Tag */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-4xl p-2.5 bg-slate-100 rounded-2xl border border-slate-200 shrink-0">
+                          {machine.icon}
+                        </span>
+                        <div>
+                          <h3 className="text-2xl font-black text-slate-900">{machine.nameHi}</h3>
+                          <p className="text-xs font-bold text-slate-500 uppercase">{machine.name}</p>
+                        </div>
+                      </div>
+                      <span className={`px-3 py-1 rounded-xl text-xs font-black border shrink-0 ${statusDisp.badgeClass}`}>
+                        {statusDisp.fullTagHi}
+                      </span>
+                    </div>
+
+                    {/* Reminder message if due or overdue */}
+                    {statusDisp.reminderMessageHi && (
+                      <div
+                        className={`p-3 rounded-xl border font-black text-base flex items-center gap-2 ${
+                          machine.maintenanceStatus === "overdue"
+                            ? "bg-red-50 text-red-900 border-red-300"
+                            : "bg-amber-50 text-amber-900 border-amber-300"
+                        }`}
+                      >
+                        <span>{statusDisp.reminderMessageHi}</span>
+                      </div>
+                    )}
+
+                    {/* Next service date info */}
+                    <div className="p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl flex justify-between items-center">
+                      <div>
+                        <div className="text-xs font-bold text-slate-600">सर्विस की तारीख:</div>
+                        <div className="text-2xl font-black text-slate-900 mt-0.5">
+                          {formatServiceDateHi(machine.nextServiceDate)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-slate-500">अंतराल:</div>
+                        <div className="text-base font-black text-slate-800">
+                          हर {machine.serviceIntervalDays || 90} दिन
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Checklist preview */}
+                    <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-200">
+                      <div className="text-xs font-bold text-slate-600 mb-1.5 flex items-center gap-1">
+                        <span>📋</span>
+                        <span>मुख्य जाँच बिंदु:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {checklist.slice(0, 5).map((item) => (
+                          <span
+                            key={item}
+                            className="bg-white border border-slate-300 text-slate-800 text-xs font-bold px-2 py-1 rounded-lg"
+                          >
+                            ✓ {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        onClick={() => handleOpenMachineDetail(machine)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-900 font-black py-3 px-3 rounded-xl text-base border-2 border-slate-300 flex items-center justify-center gap-1 transition-colors"
+                      >
+                        <span>जाँच सूची देखें</span>
+                        <span>➔</span>
+                      </button>
+                      <button
+                        onClick={() => handleCompleteService(machine.id)}
+                        className="bg-emerald-700 hover:bg-emerald-800 text-white font-black py-3 px-3 rounded-xl text-base shadow-md flex items-center justify-center gap-1 transition-colors active:scale-[0.98]"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>सर्विस पूरी हुई</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ================= P2K: NEARBY MECHANICS MAP SCREEN ================= */}
+        {currentScreen === "nearby_mechanics" && (
+          <NearbyMechanicsMap
+            technicians={getTechnicians()}
+            isOnline={isOnline}
+            initialFarmerLocation={farmerLocation}
+            onLocationChange={(loc) => setFarmerLocation(loc)}
+            onSelectTechnician={(tech) => handleSelectTechnician(tech)}
+            onClose={() => setCurrentScreen("technician_match")}
+          />
+        )}
+
+        {/* ================= P2Q & P2R: RECOVERY ENGINE SCREEN ================= */}
+        {currentScreen === "recovery_engine" && activeRecoveryPlan && (
+          <div className="space-y-4">
+            {/* Header with Back button */}
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <button
+                type="button"
+                onClick={() => setCurrentScreen(currentDiagnosis ? "diagnosis" : "home")}
+                className="flex items-center gap-1.5 text-base font-bold text-slate-600 hover:text-slate-900"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span>वापस</span>
+              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black bg-emerald-100 text-emerald-900 px-3 py-1 rounded-full border border-emerald-300">
+                  ⚡ रिकवरी इंजन
+                </span>
+                <span className="text-xs font-bold text-slate-500">
+                  निर्णय सहायता
+                </span>
+              </div>
+            </div>
+
+            {/* Offline Honesty Alert */}
+            {activeRecoveryPlan.isOffline && (
+              <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-3 flex items-center gap-2.5 text-xs font-bold text-amber-950">
+                <span className="text-xl">📦</span>
+                <span>
+                  <strong>कैश्ड जानकारी (ऑफलाइन मोड):</strong> लाइव उपलब्धता अनुपलब्ध है। स्थानीय मेमोरी से अनुमानित विकल्प प्रदर्शित किए गए हैं।
+                </span>
+              </div>
+            )}
+
+            {/* Machine & Problem Banner */}
+            <div className="bg-white border-3 border-emerald-500 rounded-3xl p-5 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl p-2.5 bg-emerald-50 rounded-2xl border border-emerald-200">
+                    {activeRecoveryPlan.machineIcon}
+                  </span>
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900">
+                      {activeRecoveryPlan.machineNameHi}
+                    </h2>
+                    <p className="text-xs font-bold text-slate-500">
+                      मशीन आईडी: {activeRecoveryPlan.machineId}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-black px-3 py-1.5 rounded-full border bg-amber-100 text-amber-950 border-amber-300">
+                  {activeRecoveryPlan.recoveryStatus === "recovery_planning"
+                    ? "🟠 रिकवरी योजना तैयार"
+                    : "🔴 मशीन बंद (खराबी)"}
+                </span>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                <span className="text-xs font-bold text-slate-500 block">शिकायत / समस्या:</span>
+                <span className="text-base font-black text-slate-900">
+                  {activeRecoveryPlan.problemSummaryHi}
+                </span>
+              </div>
+            </div>
+
+            {/* Critical Farm Window Urgency Banner */}
+            {activeRecoveryPlan.isCriticalFarmWindow && (
+              <div className="bg-gradient-to-r from-red-600 to-amber-600 text-white rounded-3xl p-4.5 shadow-lg border-3 border-red-950 flex items-start gap-3">
+                <span className="text-3xl shrink-0 mt-0.5">🌾</span>
+                <div className="space-y-1">
+                  <div className="text-lg font-black tracking-wide">
+                    {activeRecoveryPlan.criticalWindowTextHi || "⚠️ महत्वपूर्ण कृषि काल — तत्काल मरम्मत प्राथमिकता"}
+                  </div>
+                  <p className="text-xs font-bold text-amber-100 leading-relaxed">
+                    खेत का काम (बुवाई/कटाई) प्रभावित न हो, इसके लिए सबसे त्वरित समाधान को सर्वोच्च प्राथमिकता दी गई है।
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Safety Hazard Warning if applicable */}
+            {activeRecoveryPlan.safetyWarning && (
+              <div className="bg-red-50 border-3 border-red-500 rounded-3xl p-4 flex items-start gap-3 shadow-md">
+                <ShieldAlert className="w-6 h-6 text-red-700 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="text-base font-black text-red-950">
+                    सुरक्षा चेतावनी: {activeRecoveryPlan.safetyWarning}
+                  </div>
+                  <p className="text-xs font-bold text-red-800">
+                    मशीन चालू करने का प्रयास न करें। मैकेनिक के आने तक इंजन बंद रखें।
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* AI Diagnosis Honesty Card */}
+            <div className="bg-emerald-50/80 border-2 border-emerald-300 rounded-3xl p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs font-black text-emerald-950">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-emerald-700" />
+                  AI संभावित समस्या विश्लेषण
+                </span>
+                <span className="bg-emerald-200 text-emerald-900 px-2.5 py-0.5 rounded-full font-bold">
+                  विश्वास स्तर: {activeRecoveryPlan.aiConfidence === "high" ? "उच्च" : activeRecoveryPlan.aiConfidence === "medium" ? "मध्यम" : "निम्न (जांच आवश्यक)"}
+                </span>
+              </div>
+              <div className="text-lg font-black text-slate-900">
+                संभावित समस्या: {activeRecoveryPlan.problemSummaryHi}
+              </div>
+              <div className="text-xs font-bold text-slate-700">
+                सलाह: {activeRecoveryPlan.confidenceAdviceHi}
+              </div>
+              <div className="text-[11px] font-bold text-emerald-900 bg-emerald-100/70 p-2 rounded-xl border border-emerald-200">
+                ℹ️ यह प्रारंभिक आकलन है। तकनीकी पुष्टि मैकेनिक द्वारा प्रत्यक्ष निरीक्षण के बाद ही होगी।
+              </div>
+            </div>
+
+            {/* Bottlenecks and Machine History Alerts */}
+            {activeRecoveryPlan.partsBottleneckDetected && activeRecoveryPlan.partsBottleneckAdviceHi && (
+              <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-3 flex items-center gap-2.5 text-xs font-bold text-amber-950">
+                <span className="text-xl">🔧</span>
+                <span>स्पेयर पार्ट्स स्थिति: {activeRecoveryPlan.partsBottleneckAdviceHi}</span>
+              </div>
+            )}
+
+            {activeRecoveryPlan.previousIssueNoticeHi && (
+              <div className="bg-blue-50 border-2 border-blue-300 rounded-2xl p-3 flex items-center gap-2.5 text-xs font-bold text-blue-950">
+                <span className="text-xl">📜</span>
+                <span>मशीन इतिहास: {activeRecoveryPlan.previousIssueNoticeHi}</span>
+              </div>
+            )}
+
+            {/* Practical Recovery Options (Selectable Cards) */}
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xl font-black text-slate-900 flex items-center gap-2">
+                  <span>🎯</span>
+                  <span>उपलब्ध रिकवरी विकल्प ({activeRecoveryPlan.recoveryOptions.length})</span>
+                </span>
+                <span className="text-xs font-bold text-slate-500">
+                  सुविधाजनक विकल्प चुनें
+                </span>
+              </div>
+
+              {activeRecoveryPlan.recoveryOptions.map((opt) => {
+                const isSelected = selectedRecoveryOption?.id === opt.id;
+
+                return (
+                  <div
+                    key={opt.id}
+                    onClick={() => setSelectedRecoveryOption(opt)}
+                    className={`rounded-3xl p-5 border-3 transition-all cursor-pointer space-y-3.5 shadow-sm ${
+                      isSelected
+                        ? "bg-white border-emerald-600 ring-4 ring-emerald-100 shadow-md"
+                        : "bg-white border-slate-300 hover:border-slate-400"
+                    }`}
+                  >
+                    {/* Badge & Radio */}
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`text-xs font-black px-3 py-1 rounded-full border ${
+                          opt.type === "fastest"
+                            ? "bg-emerald-100 text-emerald-950 border-emerald-300"
+                            : opt.type === "nearest_centre"
+                            ? "bg-blue-100 text-blue-950 border-blue-300"
+                            : "bg-amber-100 text-amber-950 border-amber-300"
+                        }`}
+                      >
+                        {opt.type === "fastest" && "⚡ "}
+                        {opt.type === "nearest_centre" && "🏪 "}
+                        {opt.type === "lowest_cost" && "💰 "}
+                        {opt.badgeHi}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-500">
+                          लगभग {opt.estimatedServiceTimeHours} घंटे
+                        </span>
+                        <div
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                            isSelected
+                              ? "border-emerald-600 bg-emerald-600 text-white"
+                              : "border-slate-300 bg-white"
+                          }`}
+                        >
+                          {isSelected && <span className="text-xs font-black">✓</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Title & Service Provider */}
+                    <div>
+                      <h3 className="text-xl font-black text-slate-900">
+                        {opt.providerNameHi}
+                      </h3>
+                      <div className="text-sm font-bold text-slate-700 mt-0.5">
+                        {opt.serviceMode === "doorstep" ? "🏠 घर पर सेवा (Doorstep)" : "🏢 वर्कशॉप पर ले जाएं (Service Centre)"} • {opt.providerTypeHi}
+                      </div>
+                      <div className="text-xs font-bold text-slate-500 mt-0.5">
+                        दूरी: {opt.distanceText} • अनुमानित समय: {opt.estimatedServiceTimeTextHi}
+                        {activeRecoveryPlan.isOffline && (
+                          <span className="ml-2 text-amber-800 font-bold bg-amber-100 px-1.5 py-0.5 rounded">
+                            ⚠️ लाइव उपलब्धता अनुपलब्ध (कैश्ड)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Parts & Capability Details */}
+                    <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 text-xs font-bold text-slate-700 space-y-1">
+                      <div>
+                        🔧 <span className="text-slate-500">स्पेयर पार्ट्स: </span>
+                        <span className="text-slate-900 font-black">
+                          {opt.partsAvailable ? "पार्ट्स उपलब्ध (In Stock)" : "मंगवाना पड़ेगा"}
+                        </span>
+                      </div>
+                      <div>
+                        ℹ️ <span className="text-slate-500">व्यावहारिक विवरण: </span>
+                        <span>{opt.reasonHi}</span>
+                      </div>
+                      {opt.prosHi && opt.prosHi.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {opt.prosHi.map((pro, idx) => (
+                            <span key={idx} className="bg-emerald-100 text-emerald-950 px-2 py-0.5 rounded text-[11px] font-bold">
+                              ✓ {pro}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Transparent Price Row */}
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                      <div>
+                        <span className="text-xs font-bold text-slate-500 block">अनुमानित कुल लागत:</span>
+                        <span className="text-2xl font-black text-slate-900">
+                          ₹{opt.pricing.total}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[11px] font-bold text-slate-600 block">
+                          जाँच: ₹{opt.pricing.diagnosticFee} + मजदूरी: ₹{opt.pricing.labourFee}
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-600 block">
+                          पार्ट्स: ₹{opt.pricing.partsEstimate} + यात्रा: ₹{opt.pricing.travelFee}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Confirm Selected Recovery Option Button */}
+            <div className="space-y-2.5 pt-2">
+              <button
+                type="button"
+                disabled={!selectedRecoveryOption || isAssigningTechnician}
+                onClick={() => selectedRecoveryOption && handleConfirmRecoveryOption(selectedRecoveryOption)}
+                className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] disabled:opacity-50 text-white font-black py-4 px-4 rounded-3xl text-xl shadow-xl border-3 border-emerald-950 flex items-center justify-center gap-3 transition-transform"
+              >
+                <CheckCircle2 className="w-6 h-6 text-amber-300" />
+                <span>
+                  {isAssigningTechnician
+                    ? "बुकिंग की जा रही है..."
+                    : `✓ ${selectedRecoveryOption?.badgeHi || "योजना"} पुष्टीकृत करें (जॉब कार्ड बनाएं)`}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentScreen("technician_match")}
+                className="w-full bg-white hover:bg-slate-50 text-slate-800 font-black py-3 px-4 rounded-2xl text-base border-2 border-slate-300 flex items-center justify-center gap-2 transition-colors"
+              >
+                <span>👨‍🔧 सभी उपलब्ध मैकेनिक सूची देखें</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ================= P2E & P2K: TECHNICIAN MATCH SCREEN ================= */}
+        {currentScreen === "technician_match" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                <span>👨‍🔧</span> पास के मैकेनिक
+              </h2>
+              {lastSubmittedRepair && (
+                <span className="text-sm font-bold text-slate-500">
+                  {lastSubmittedRepair.machineIcon} {lastSubmittedRepair.machineNameHi}
+                </span>
+              )}
+            </div>
+
+            {/* P2K Section 10: Mandatory Safety Warning for Hazardous Conditions */}
+            {(() => {
+              const rep =
+                repairs.find((r) => r.id === activeJobCardRepairId) ||
+                lastSubmittedRepair;
+              if (rep?.safetyMessage) {
+                return (
+                  <div className="bg-red-50 border-3 border-red-500 rounded-2xl p-4 flex items-start gap-3 shadow-md">
+                    <ShieldAlert className="w-6 h-6 text-red-700 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <div className="text-base font-black text-red-950">
+                        {rep.safetyMessage}
+                      </div>
+                      <p className="text-xs font-bold text-red-800">
+                        सुरक्षा चेतावनी: आग, धुआं, लीकेज या ओवरहीटिंग के समय मशीन तुरंत बंद रखें। मशीन चालू करने का प्रयास न करें।
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Map shortcut button */}
+            <button
+              type="button"
+              id="open-map-screen-btn"
+              onClick={() => setCurrentScreen("nearby_mechanics")}
+              className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-2 border-emerald-300 font-black py-3 px-4 rounded-2xl text-base flex items-center justify-center gap-2 shadow-sm transition-all"
+            >
+              <MapPin className="w-5 h-5 text-emerald-700" />
+              <span>🗺️ पास के मैकेनिक नक्शे पर देखें</span>
+            </button>
+
+            {/* LOADING STATE */}
+            {isFindingTech ? (
+              <div className="bg-white border-3 border-emerald-400 rounded-3xl p-8 text-center space-y-6 shadow-md">
+                <div className="w-20 h-20 rounded-full bg-emerald-100 border-4 border-emerald-400 flex items-center justify-center text-4xl mx-auto animate-bounce shadow-inner">
+                  👨‍🔧
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-black text-slate-900">
+                    आपके लिए मैकेनिक ढूंढ रहे हैं...
+                  </h3>
+                  <p className="text-base font-bold text-slate-600">
+                    हुनर, उपलब्धता, दूरी और कार्यभार की जाँच की जा रही है
+                  </p>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden border border-slate-300 shadow-inner">
+                  <div
+                    className="bg-emerald-600 h-full rounded-full animate-pulse"
+                    style={{ width: "70%" }}
+                  ></div>
+                </div>
+                <p className="text-xs font-bold text-slate-500">
+                  ⚡ स्थानीय डेटा से खोज — इंटरनेट की जरूरत नहीं
+                </p>
+              </div>
+            ) : techMatchResult ? (
+              <div className="space-y-4">
+                {/* Offline notice */}
+                {!isOnline && (
+                  <div className="bg-amber-50 border-3 border-amber-400 rounded-2xl p-4 flex items-start gap-3">
+                    <WifiOff className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm font-black text-amber-950">
+                      मैकेनिक की जानकारी फोन में सुरक्षित है। इंटरनेट आने पर सिंक की जाएगी।
+                    </p>
+                  </div>
+                )}
+
+                {/* Match reason banner */}
+                {techMatchResult.recommended ? (
+                  <div className="bg-emerald-50 border-3 border-emerald-500 rounded-2xl p-3 flex items-center gap-3">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-700 flex-shrink-0" />
+                    <div>
+                      <div className="text-lg font-black text-emerald-950">मैकेनिक मिल गया ✓</div>
+                      <div className="text-sm font-bold text-emerald-900">
+                        {techMatchResult.reasonHi}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 border-3 border-amber-400 rounded-2xl p-4">
+                    <p className="text-lg font-black text-amber-950">{techMatchResult.reasonHi}</p>
+                  </div>
+                )}
+
+                {/* P2M Step 1: Farmer-Friendly Technician Screen */}
+                <div className="space-y-3">
+                  <div className="text-xl font-black text-slate-900 flex items-center gap-2">
+                    <span>👨‍🔧</span>
+                    <span>पास के मैकेनिक</span>
+                  </div>
+
+                  {techMatchResult.matchedTechnicians.map((item, idx) => {
+                    const tech = item.technician;
+                    const routeUrl = getRouteUrl(farmerLocation, tech);
+
+                    return (
+                      <div
+                        key={tech.id}
+                        id={`technician-card-${tech.id}`}
+                        className={`rounded-3xl p-5 border-3 transition-all space-y-4 shadow-sm ${
+                          idx === 0 && tech.available
+                            ? "bg-white border-emerald-500 shadow-md ring-2 ring-emerald-200"
+                            : "bg-white border-slate-300"
+                        }`}
+                      >
+                        {/* Header: Name & Availability */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-14 h-14 rounded-2xl bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center text-3xl shrink-0 shadow-inner">
+                              👨‍🔧
+                            </div>
+                            <div>
+                              <h3 className="text-2xl font-black text-slate-900">
+                                {tech.nameHi}
+                              </h3>
+                            </div>
+                          </div>
+
+                          <span
+                            className={`text-base font-black px-3 py-1.5 rounded-xl border flex items-center gap-1.5 shrink-0 ${
+                              tech.available
+                                ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                                : "bg-slate-100 text-slate-600 border-slate-300"
+                            }`}
+                          >
+                            {tech.available ? "🟢 उपलब्ध" : "🔴 व्यस्त"}
+                          </span>
+                        </div>
+
+                        {/* Details: Machine Experience & Distance */}
+                        <div className="grid grid-cols-2 gap-2.5 text-sm">
+                          <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-3 flex items-center gap-2.5">
+                            <Wrench className="w-5 h-5 text-emerald-700 shrink-0" />
+                            <div>
+                              <div className="text-xs font-bold text-emerald-800">
+                                मशीन का अनुभव
+                              </div>
+                              <div className="text-base font-black text-emerald-950 truncate">
+                                {item.expertiseLabel}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-3 flex items-center gap-2.5">
+                            <MapPin className="w-5 h-5 text-emerald-700 shrink-0" />
+                            <div>
+                              <div className="text-xs font-bold text-slate-600">
+                                लगभग दूरी
+                              </div>
+                              <div className="text-base font-black text-slate-900">
+                                {item.approxDistanceText}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* P2O Step 3: Farmer Trust & Certification Information */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2 text-xs">
+                          {/* Certification Badge */}
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-600">प्रमाणन स्थिति:</span>
+                            <span
+                              className={`font-black px-2.5 py-1 rounded-full border text-xs flex items-center gap-1 ${
+                                tech.verificationStatus === "verified"
+                                  ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                                  : tech.verificationStatus === "expired"
+                                  ? "bg-red-100 text-red-900 border-red-300"
+                                  : "bg-amber-100 text-amber-900 border-amber-300"
+                              }`}
+                            >
+                              {tech.verificationStatus === "verified"
+                                ? "🟢 प्रमाणित मैकेनिक (Verified)"
+                                : tech.verificationStatus === "expired"
+                                ? "🔴 प्रमाणन समाप्त (Renewal Required)"
+                                : "🟡 सत्यापन प्रक्रियाधीन (Pending)"}
+                            </span>
+                          </div>
+
+                          {/* Equipment & Skills */}
+                          <div className="space-y-1 pt-1 border-t border-slate-200/80">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-slate-500">उपकरण (Equipment):</span>
+                              <span className="font-black text-slate-900 truncate max-w-[190px]">
+                                {tech.equipmentCategories?.join(" • ") || tech.skills.join(" • ")}
+                              </span>
+                            </div>
+                            {tech.technicalSkills && tech.technicalSkills.length > 0 && (
+                              <div className="flex justify-between items-center">
+                                <span className="font-bold text-slate-500">हुनर (Skills):</span>
+                                <span className="font-black text-slate-800 truncate max-w-[190px]">
+                                  {tech.technicalSkills.join(" • ")}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-slate-500">कार्य अनुभव:</span>
+                              <span className="font-black text-slate-900">
+                                {tech.experienceYears ? `${tech.experienceYears} वर्ष` : "3+ वर्ष"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Button to view certificate portfolio */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCredentialsModal(tech)}
+                            className="w-full mt-1 py-1.5 px-2 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-lg border border-slate-300 text-[11px] flex items-center justify-center gap-1.5 transition-colors"
+                          >
+                            <Award className="w-3.5 h-3.5 text-amber-600" />
+                            <span>प्रमाणन व प्रशिक्षण रिकॉर्ड देखें</span>
+                          </button>
+                        </div>
+
+                        {/* Route link if available */}
+                        {routeUrl && (
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => window.open(routeUrl, "_blank")}
+                              className="text-blue-700 hover:text-blue-900 flex items-center gap-1 font-bold text-xs bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
+                            >
+                              <Navigation className="w-3.5 h-3.5" />
+                              <span>रास्ता देखें (मैप)</span>
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Primary Button: "मैकेनिक चुनें" */}
+                        <button
+                          type="button"
+                          id={`select-tech-btn-${tech.id}`}
+                          onClick={() => handleSelectTechnician(tech)}
+                          disabled={!tech.available || isAssigningTechnician}
+                          className={`w-full font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 flex items-center justify-center gap-2.5 transition-transform active:scale-[0.98] ${
+                            tech.available && !isAssigningTechnician
+                              ? "bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-950"
+                              : "bg-slate-200 text-slate-500 border-slate-300 cursor-not-allowed"
+                          }`}
+                        >
+                          <UserCheck className="w-6 h-6 text-amber-300" />
+                          <span>
+                            {isAssigningTechnician
+                              ? "नियुक्त हो रहा है..."
+                              : tech.available
+                              ? "मैकेनिक चुनें"
+                              : "अभी व्यस्त हैं"}
+                          </span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* View my repair link */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentScreen("repair")}
+                  className="w-full py-3 text-base font-bold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1"
+                >
+                  <span>मेरी मरम्मत देखें ➔</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* ================= P2E & P2K: TECHNICIAN JOB CARD SCREEN ================= */}
+        {currentScreen === "technician_job_card" && currentJobCard && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                <ClipboardList className="w-6 h-6 text-emerald-700" />
+                <span>जॉब कार्ड व स्थिति</span>
+              </h2>
+              <span className="text-xs font-bold text-slate-500">{currentJobCard.jobId}</span>
+            </div>
+
+            {/* P2K Section 6: Technician Status Stepper (5 stages in simple Hindi) */}
+            <div className="bg-white border-3 border-emerald-500 rounded-3xl p-5 shadow-md space-y-3">
+              <div className="text-xs font-black text-slate-500 uppercase tracking-wide">
+                मैकेनिक ट्रैकिंग स्थिति:
+              </div>
+
+              {/* Status Display Text */}
+              <div className="text-2xl font-black text-emerald-900 flex items-center gap-2">
+                <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>
+                  {currentJobCard.status === "मैकेनिक को भेजा गया" ||
+                  currentJobCard.technicianWorkflowStatus === "assigned"
+                    ? "मैकेनिक नियुक्त हो गया है"
+                    : currentJobCard.status === "मैकेनिक रास्ते में है" ||
+                      currentJobCard.technicianWorkflowStatus === "on_the_way"
+                    ? "मैकेनिक रास्ते में है"
+                    : currentJobCard.status === "मैकेनिक पहुँच गया है" ||
+                      currentJobCard.technicianWorkflowStatus === "arrived"
+                    ? "मैकेनिक पहुँच गया है"
+                    : currentJobCard.status === "मरम्मत चल रही है" ||
+                      currentJobCard.status === "मरम्मत शुरू हो गई" ||
+                      currentJobCard.technicianWorkflowStatus === "repairing"
+                    ? "मरम्मत चल रही है"
+                    : currentJobCard.status === "मरम्मत पूरी हुई" ||
+                      currentJobCard.technicianWorkflowStatus === "completed"
+                    ? "मरम्मत पूरी हुई"
+                    : currentJobCard.status}
+                </span>
+              </div>
+
+              {/* Visual 5-Stage Stepper */}
+              {(() => {
+                const stages: Array<{
+                  key: TechnicianWorkflowStatus;
+                  label: string;
+                }> = [
+                  { key: "assigned", label: "नियुक्त" },
+                  { key: "on_the_way", label: "रास्ते में" },
+                  { key: "arrived", label: "पहुँच गए" },
+                  { key: "repairing", label: "मरम्मत" },
+                  { key: "completed", label: "पूरी हुई" },
+                ];
+
+                const currentStageKey: TechnicianWorkflowStatus =
+                  currentJobCard.technicianWorkflowStatus ||
+                  (currentJobCard.status === "मैकेनिक रास्ते में है"
+                    ? "on_the_way"
+                    : currentJobCard.status === "मैकेनिक पहुँच गया है"
+                    ? "arrived"
+                    : currentJobCard.status === "मरम्मत शुरू हो गई" ||
+                      currentJobCard.status === "मरम्मत चल रही है"
+                    ? "repairing"
+                    : currentJobCard.status === "मरम्मत पूरी हुई"
+                    ? "completed"
+                    : "assigned");
+
+                const currentStageIdx = stages.findIndex(
+                  (s) => s.key === currentStageKey
+                );
+
+                return (
+                  <div className="grid grid-cols-5 gap-1 pt-2 border-t border-slate-100">
+                    {stages.map((stage, idx) => {
+                      const isPast = idx < currentStageIdx;
+                      const isCurrent = idx === currentStageIdx;
+
+                      return (
+                        <div key={stage.key} className="text-center space-y-1">
+                          <div
+                            className={`w-full h-2 rounded-full ${
+                              isPast
+                                ? "bg-emerald-600"
+                                : isCurrent
+                                ? "bg-emerald-500 animate-pulse"
+                                : "bg-slate-200"
+                            }`}
+                          />
+                          <span
+                            className={`text-[11px] font-black block truncate ${
+                              isCurrent
+                                ? "text-emerald-900"
+                                : isPast
+                                ? "text-slate-700"
+                                : "text-slate-400"
+                            }`}
+                          >
+                            {stage.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* P2K Section 10: Mandatory Safety Warning for Hazardous Condition */}
+            {currentJobCard.safetyMessage && (
+              <div className="p-4 bg-red-50 border-3 border-red-500 rounded-2xl flex items-start gap-3 shadow-sm">
+                <ShieldAlert className="w-6 h-6 text-red-700 flex-shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <div className="text-base font-black text-red-950">
+                    {currentJobCard.safetyMessage}
+                  </div>
+                  <p className="text-xs font-bold text-red-800">
+                    सुरक्षा निर्देश: आग, धुआं, लीकेज या ओवरहीटिंग के समय मशीन को तुरंत बंद रखें। मैकेनिक के आने तक इसे चालू न करें।
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* P2K Section 5: Automatically prepared Job Card details */}
+            <div className="bg-white border-3 border-slate-300 rounded-3xl p-5 space-y-4 shadow-sm">
+              <div className="text-base font-black text-slate-700 border-b border-slate-100 pb-2 flex items-center justify-between">
+                <span>जॉब कार्ड विवरण</span>
+                <span className="text-xs font-bold text-slate-500">
+                  {new Date(currentJobCard.createdAt).toLocaleDateString("hi-IN")}
+                </span>
+              </div>
+
+              {/* Machine name/type */}
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                <span className="text-4xl p-2 bg-white rounded-xl shadow-sm">
+                  {currentJobCard.machineIcon}
+                </span>
+                <div>
+                  <div className="text-xl font-black text-slate-900">
+                    {currentJobCard.machine}
+                  </div>
+                  <div className="text-xs font-bold text-slate-500">मशीन का नाम / प्रकार</div>
+                </div>
+              </div>
+
+              {/* Farmer Complaint / Problem */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="text-xs font-bold text-slate-500 mb-1">किसान की शिकायत:</div>
+                <div className="text-base font-black text-slate-900">
+                  {currentJobCard.problem}
+                </div>
+              </div>
+
+              {/* Visual Evidence (Photo analysis & thumbnail) */}
+              {(currentJobCard.visualEvidence || currentJobCard.photoDataUrl) && (
+                <div className="p-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl space-y-2">
+                  <div className="text-xs font-black text-indigo-900 flex items-center gap-1.5">
+                    <Camera className="w-4 h-4 text-indigo-700" />
+                    <span>फोटो साक्ष्य (Visual Evidence):</span>
+                  </div>
+                  {currentJobCard.visualEvidence && (
+                    <div className="text-sm font-bold text-indigo-950">
+                      {currentJobCard.visualEvidence}
+                    </div>
+                  )}
+                  {currentJobCard.photoDataUrl && (
+                    <div className="w-24 h-24 rounded-lg overflow-hidden border border-indigo-300 shadow-sm mt-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={currentJobCard.photoDataUrl}
+                        alt="Visual Evidence"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* AI Diagnosis & Human Override */}
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-300 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>
+                      {currentJobCard.technicianOverrideDiagnosis
+                        ? "वास्तविक निदान (मैकेनिक द्वारा सत्यापित):"
+                        : "संभावित AI निदान:"}
+                    </span>
+                  </div>
+                  {currentJobCard.technicianOverrideDiagnosis && (
+                    <span className="text-[10px] font-black bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
+                      ✓ सत्यापित
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-base font-black text-slate-900">
+                  {currentJobCard.diagnosis}
+                </div>
+
+                {!isEditingDiagnosis ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTechOverrideDiagnosisInput(currentJobCard.diagnosis);
+                      setIsEditingDiagnosis(true);
+                    }}
+                    className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-emerald-300 shadow-xs"
+                  >
+                    <Wrench className="w-3.5 h-3.5" />
+                    <span>✏️ भौतिक निरीक्षण के बाद वास्तविक खराबी संशोधित करें (Human Override)</span>
+                  </button>
+                ) : (
+                  <div className="space-y-2 pt-1 border-t border-emerald-200">
+                    <label className="text-xs font-bold text-slate-700 block">
+                      निरीक्षण के बाद पुष्टि की गई वास्तविक समस्या:
+                    </label>
+                    <input
+                      type="text"
+                      value={techOverrideDiagnosisInput}
+                      onChange={(e) => setTechOverrideDiagnosisInput(e.target.value)}
+                      placeholder="उदा: फ्यूल सिस्टम में रुकावट की पुष्टि / हाइड्रोलिक वाल्व लीकेज"
+                      className="w-full text-sm font-bold text-slate-900 p-2.5 rounded-xl border-2 border-emerald-400 bg-white"
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSaveDiagnosisOverride}
+                        className="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs px-3 py-1.5 rounded-lg shadow-sm"
+                      >
+                        ✓ निदान अपडेट करें
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingDiagnosis(false)}
+                        className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs px-3 py-1.5 rounded-lg"
+                      >
+                        रद्द करें
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Urgency */}
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-sm font-bold text-slate-600">प्राथमिकता:</span>
+                <span className="text-base font-black text-slate-900">
+                  {currentJobCard.urgency}
+                </span>
+              </div>
+
+              {/* Farmer Location available for technician (safe, no personal info exposed) */}
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-2">
+                <MapPin className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-xs font-bold text-amber-800">
+                    कार्य स्थल (किसान की लोकेशन):
+                  </div>
+                  <div className="text-sm font-black text-amber-950">
+                    {currentJobCard.farmerLocationText || "लखनऊ ग्रामीण कृषि क्षेत्र (अनुमानित स्थान)"}
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-500 mt-0.5">
+                    (सुरक्षा कारणों से निजी पता गुप्त रखा गया है)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* P2K Section 7: Technician Card with Route / Directions */}
+            <div className="bg-emerald-50 border-3 border-emerald-500 rounded-3xl p-5 space-y-4 shadow-sm">
+              <div className="text-base font-black text-emerald-900 border-b border-emerald-200 pb-2 flex items-center justify-between">
+                <span>मैकेनिक विवरण</span>
+                <span className="text-xs font-bold text-emerald-700 bg-emerald-200 px-2.5 py-0.5 rounded-full">
+                  नियुक्त
+                </span>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-200 flex items-center justify-center text-3xl shrink-0 shadow-inner">
+                  👨‍🔧
+                </div>
+                <div>
+                  <div className="text-xl font-black text-slate-900">
+                    {currentJobCard.technicianNameHi}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="text-sm font-bold text-emerald-800">
+                      🔧 {currentJobCard.technicianSkillHi}
+                    </span>
+                    <span className="text-sm font-bold text-slate-700 bg-white/70 px-2 py-0.5 rounded">
+                      📍 {currentJobCard.approxDistanceText || `${currentJobCard.technicianDistanceKm} किमी`}
+                    </span>
+                    <span className="text-sm font-bold text-amber-800">
+                      ⭐ {currentJobCard.technicianRating}
+                    </span>
+                  </div>
+
+                  {/* P2O Step 3: Technician Verification & Trust Badge */}
+                  {(() => {
+                    const assignedTech = getTechnicianById(currentJobCard.technicianId) || mockTechnicians.find((t) => t.id === currentJobCard.technicianId);
+                    const vStatus = assignedTech?.verificationStatus || currentJobCard.technicianVerificationStatus || "verified";
+
+                    return (
+                      <div className="mt-2 space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${
+                              vStatus === "verified"
+                                ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                                : vStatus === "expired"
+                                ? "bg-red-100 text-red-900 border-red-300"
+                                : "bg-amber-100 text-amber-900 border-amber-300"
+                            }`}
+                          >
+                            {vStatus === "verified"
+                              ? "🟢 प्रमाणित मैकेनिक (Verified)"
+                              : vStatus === "expired"
+                              ? "🔴 प्रमाणन समाप्त (Renewal Required)"
+                              : "🟡 सत्यापन प्रक्रियाधीन (Pending)"}
+                          </span>
+                          {(assignedTech?.experienceYears || currentJobCard.technicianExperienceYears) && (
+                            <span className="text-xs font-bold text-slate-700 bg-white/80 px-2 py-0.5 rounded border border-emerald-200">
+                              अनुभव: {assignedTech?.experienceYears || currentJobCard.technicianExperienceYears} वर्ष
+                            </span>
+                          )}
+                        </div>
+
+                        {assignedTech && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCredentialsModal(assignedTech)}
+                            className="w-full bg-white hover:bg-emerald-100/70 text-emerald-950 font-black py-2 px-3 rounded-xl border border-emerald-300 text-xs flex items-center justify-center gap-2 shadow-sm transition-colors mt-1"
+                          >
+                            <Award className="w-4 h-4 text-emerald-700" />
+                            <span>प्रमाणन, हुनर व प्रशिक्षण विवरण देखें</span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* P2K Section 7: "रास्ता देखें" Route Button */}
+              {currentJobCard.routeUrl ? (
+                <button
+                  type="button"
+                  id="job-card-route-btn"
+                  onClick={() => window.open(currentJobCard.routeUrl, "_blank")}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 px-4 rounded-2xl text-base shadow-md flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
+                >
+                  <Navigation className="w-5 h-5 text-amber-300" />
+                  <span>रास्ता देखें (दिशा-निर्देश)</span>
+                </button>
+              ) : (
+                <div className="text-xs font-bold text-slate-600 bg-white/80 rounded-xl p-2.5 text-center border border-emerald-200">
+                  📍 मैकेनिक की दूरी: {currentJobCard.approxDistanceText || "लगभग 3.8 km दूर"}
+                </div>
+              )}
+            </div>
+
+            {/* P2K Section 6: Technician Workflow Status Progression Buttons */}
+            <div className="bg-white border-3 border-slate-300 rounded-3xl p-5 space-y-3 shadow-sm">
+              <div className="text-base font-black text-slate-700 border-b border-slate-100 pb-2">
+                कार्यवाही — स्थिति अपडेट करें
+              </div>
+              <p className="text-xs font-bold text-slate-500">
+                (प्रोटोटाइप परीक्षण: मैकेनिक की प्रगति अपडेट करें)
+              </p>
+
+              {/* Status = assigned -> Move to on_the_way */}
+              {(currentJobCard.status === "मैकेनिक को भेजा गया" ||
+                currentJobCard.status === "मैकेनिक नियुक्त हो गया है" ||
+                currentJobCard.technicianWorkflowStatus === "assigned") && (
+                <button
+                  type="button"
+                  id="tech-action-on-the-way-btn"
+                  onClick={() => handleAdvanceTechnicianStatus("on_the_way")}
+                  className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-emerald-950 flex items-center justify-center gap-2 transition-transform"
+                >
+                  <Navigation className="w-6 h-6 text-amber-300" />
+                  <span>मैकेनिक रास्ते में निकला ➔</span>
+                </button>
+              )}
+
+              {/* Status = on_the_way -> Move to arrived */}
+              {(currentJobCard.status === "मैकेनिक रास्ते में है" ||
+                currentJobCard.technicianWorkflowStatus === "on_the_way") && (
+                <button
+                  type="button"
+                  id="tech-action-arrived-btn"
+                  onClick={() => handleAdvanceTechnicianStatus("arrived")}
+                  className="w-full bg-indigo-700 hover:bg-indigo-800 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-indigo-950 flex items-center justify-center gap-2 transition-transform"
+                >
+                  <MapPin className="w-6 h-6 text-amber-300" />
+                  <span>मैकेनिक पहुँच गया ➔</span>
+                </button>
+              )}
+
+              {/* Status = arrived -> Move to repairing */}
+              {(currentJobCard.status === "मैकेनिक पहुँच गया है" ||
+                currentJobCard.technicianWorkflowStatus === "arrived") && (
+                <button
+                  type="button"
+                  id="tech-action-repairing-btn"
+                  onClick={() => handleAdvanceTechnicianStatus("repairing")}
+                  className="w-full bg-blue-700 hover:bg-blue-800 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-blue-950 flex items-center justify-center gap-2 transition-transform"
+                >
+                  <Wrench className="w-6 h-6 text-amber-300" />
+                  <span>मरम्मत शुरू करें ➔</span>
+                </button>
+              )}
+
+              {/* Status = repairing -> Move to completed */}
+              {(currentJobCard.status === "मरम्मत चल रही है" ||
+                currentJobCard.status === "मरम्मत शुरू हो गई" ||
+                currentJobCard.technicianWorkflowStatus === "repairing") && (
+                <div className="space-y-3">
+                  <div className="bg-blue-50 border-2 border-blue-400 rounded-2xl p-4 text-center">
+                    <div className="text-xl font-black text-blue-950">🔧 मरम्मत चल रही है...</div>
+                    <div className="text-sm font-bold text-blue-800 mt-1">
+                      {currentJobCard.verificationAttempt &&
+                      currentJobCard.verificationAttempt > 1
+                        ? `दोबारा मरम्मत (प्रयास #${currentJobCard.verificationAttempt}) प्रगति पर है।`
+                        : "किसान को सूचित किया गया है।"}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    id="tech-action-completed-btn"
+                    onClick={() => handleAdvanceTechnicianStatus("completed")}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-emerald-950 flex items-center justify-center gap-2 transition-transform"
+                  >
+                    <CheckCircle2 className="w-6 h-6 text-amber-300" />
+                    <span>मरम्मत पूरी हुई ➔</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Verification Pending */}
+              {currentJobCard.status === "verification_pending" && (
+                <div className="space-y-3">
+                  <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 text-center space-y-1">
+                    <div className="text-lg font-black text-amber-950">
+                      मरम्मत पूरी हो गई है। अब मशीन की जाँच करें।
+                    </div>
+                    <div className="text-sm font-bold text-amber-800">
+                      जाँच बाकी है — सुनिश्चित करें कि मशीन सही काम कर रही है।
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentScreen("repair_verification")}
+                    className="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-slate-950 font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-amber-700 flex items-center justify-center gap-2 transition-transform"
+                  >
+                    <span>मशीन की जाँच करें</span>
+                    <span>➔</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Re-repair required */}
+              {currentJobCard.status === "दोबारा मरम्मत की जरूरत" && (
+                <div className="space-y-3">
+                  <div className="bg-red-50 border-2 border-red-400 rounded-2xl p-4 text-center space-y-1">
+                    <div className="text-lg font-black text-red-950">
+                      समस्या अभी ठीक नहीं हुई है।
+                    </div>
+                    <div className="text-sm font-bold text-red-800">
+                      मैकेनिक को दोबारा जाँच के लिए भेजें।
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleReRepair}
+                    className="w-full bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-red-950 flex items-center justify-center gap-2 transition-transform"
+                  >
+                    <RotateCcw className="w-6 h-6 text-white" />
+                    <span>दोबारा मरम्मत कराएं</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Finally Completed (Verification Passed) */}
+              {currentJobCard.status === "मरम्मत पूरी हुई" && (
+                <div className="space-y-3">
+                  <div className="bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-4 text-center space-y-1">
+                    <div className="text-lg font-black text-emerald-950">
+                      मशीन की मरम्मत सफलतापूर्वक पूरी हो गई।
+                    </div>
+                    <div className="text-sm font-bold text-emerald-800">
+                      जाँच में मशीन पूरी तरह सही पाई गई है।
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentScreen("machines")}
+                    className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-emerald-950 flex items-center justify-center gap-2 transition-transform"
+                  >
+                    <span>मेरी मशीन देखें</span>
+                    <span>➔</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* ═══ P2F: SPARE PARTS SECTION ═══ */}
+            {(() => {
+              // Resolve part list: from currentJobCard.recommendedPartIds (persisted)
+              // or fall back to current in-session recommendation
+              const partIds = currentJobCard.recommendedPartIds && currentJobCard.recommendedPartIds.length > 0
+                ? currentJobCard.recommendedPartIds
+                : currentPartRecommendation?.recommendations.map((r) => r.part.id) || [];
+
+              if (partIds.length === 0) return null;
+
+              // Resolve full part objects
+              const parts = partIds
+                .map((id) => getSparePartById(id))
+                .filter((p): p is SparePart => p !== null);
+
+              // Summary text
+              const summaryHi = currentPartRecommendation?.summaryHi
+                || `${parts.length} संभावित पार्ट पहचाने गए हैं।`;
+
+              return (
+                <>
+                  {/* FARMER VIEW — simplified availability */}
+                  <div className="bg-white border-3 border-amber-300 rounded-3xl p-5 space-y-3 shadow-sm">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <span className="text-xl">🔧</span>
+                      <span className="text-base font-black text-slate-800">संभावित पार्ट</span>
+                    </div>
+                    <p className="text-sm font-bold text-amber-900 bg-amber-50 rounded-xl p-2.5 border border-amber-200">
+                      {summaryHi}
+                    </p>
+
+                    <div className="space-y-2">
+                      {parts.map((part) => (
+                        <div
+                          key={part.id}
+                          className={`flex items-center justify-between p-3 rounded-xl border-2 ${
+                            part.available
+                              ? "bg-emerald-50 border-emerald-300"
+                              : "bg-red-50 border-red-300"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-xl">🔧</span>
+                            <span className="text-base font-black text-slate-900">{part.nameHi}</span>
+                          </div>
+                          <span
+                            className={`text-xs font-black px-2.5 py-1.5 rounded-xl ${
+                              part.available
+                                ? "bg-emerald-200 text-emerald-900"
+                                : "bg-red-200 text-red-900"
+                            }`}
+                          >
+                            {part.available ? "मैकेनिक के लिए उपलब्ध" : "अभी उपलब्ध नहीं है"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* TECHNICIAN PART SELECTION */}
+                  <div className="bg-slate-50 border-3 border-slate-300 rounded-3xl p-5 space-y-3 shadow-sm">
+                    <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                      <ClipboardList className="w-5 h-5 text-slate-600" />
+                      <span className="text-base font-black text-slate-800">मैकेनिक — पार्ट चुनें</span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-500">
+                      (प्रोटोटाइप) नीचे बताएं कि कोनसा पार्ट चाहिए
+                    </p>
+
+                    <div className="space-y-2.5">
+                      {parts.map((part) => {
+                        const decision = getPartDecision(part.id);
+                        return (
+                          <div
+                            key={part.id}
+                            className={`rounded-2xl border-2 p-3.5 space-y-2.5 ${
+                              decision === "needed"
+                                ? "bg-emerald-50 border-emerald-400"
+                                : decision === "not_needed"
+                                ? "bg-slate-100 border-slate-300"
+                                : "bg-white border-slate-300"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-base font-black text-slate-900">{part.nameHi}</div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-xs font-bold text-slate-500">{part.partCode}</span>
+                                  {part.available ? (
+                                    <span className="text-xs font-bold text-emerald-700">• स्टॉक: {part.quantity}</span>
+                                  ) : (
+                                    <span className="text-xs font-bold text-red-700">• उपलब्ध नहीं</span>
+                                  )}
+                                </div>
+                              </div>
+                              {decision === "needed" && (
+                                <span className="text-xs font-black bg-emerald-200 text-emerald-900 px-2 py-1 rounded-lg">✓ चाहिए</span>
+                              )}
+                              {decision === "not_needed" && (
+                                <span className="text-xs font-black bg-slate-300 text-slate-700 px-2 py-1 rounded-lg">✕ जरूरत नहीं</span>
+                              )}
+                            </div>
+
+                            {/* Decision buttons — show if pending or allow change */}
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handlePartDecision(part.id, part.nameHi, "needed")}
+                                className={`flex-1 py-2.5 text-sm font-black rounded-xl border-2 transition-all active:scale-[0.98] ${
+                                  decision === "needed"
+                                    ? "bg-emerald-600 border-emerald-700 text-white"
+                                    : "bg-white border-emerald-400 text-emerald-800 hover:bg-emerald-50"
+                                }`}
+                              >
+                                ✓ पार्ट चाहिए
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handlePartDecision(part.id, part.nameHi, "not_needed")}
+                                className={`flex-1 py-2.5 text-sm font-black rounded-xl border-2 transition-all active:scale-[0.98] ${
+                                  decision === "not_needed"
+                                    ? "bg-slate-500 border-slate-600 text-white"
+                                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                                }`}
+                              >
+                                ✕ जरूरत नहीं
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+
+            {/* P2O Step 2: Technician Transparent Billing & Price Adjustment Section */}
+            {(() => {
+              const est = currentJobCard.estimatedCost || calculateEstimatedPricing({
+                machineType: currentJobCard.machine,
+                distanceKm: currentJobCard.technicianDistanceKm,
+                partSelections: currentJobCard.partSelections,
+              });
+
+              const currentPartsCost = calculatePartsCost({
+                partSelections: currentJobCard.partSelections,
+              });
+
+              const activeLabour = techLabourFeeOverride !== null
+                ? Math.max(0, techLabourFeeOverride)
+                : (currentJobCard.finalCost?.labourFee ?? est.labourFee);
+
+              const currentTotal = est.diagnosticFee + activeLabour + currentPartsCost + est.travelFee - est.discount;
+              const effectiveFinalTotal = currentJobCard.finalCost?.total ?? currentTotal;
+              const hasDiff = currentJobCard.priceAdjustment || (effectiveFinalTotal !== est.total);
+
+              return (
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-3 border-amber-400 rounded-3xl p-5 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-amber-200 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">💰</span>
+                      <div>
+                        <h4 className="text-xl font-black text-amber-950">पारदर्शी बिलिंग विवरण (Billing)</h4>
+                        <span className="text-xs font-bold text-amber-800">बिना कारण कोई अतिरिक्त शुल्क नहीं</span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-black bg-amber-200 text-amber-900 px-2.5 py-1 rounded-full border border-amber-300">
+                      प्रमाणित दर
+                    </span>
+                  </div>
+
+                  {/* 5 Cost Elements breakdown */}
+                  <div className="space-y-2 text-sm bg-white/80 p-3.5 rounded-2xl border border-amber-200">
+                    <div className="flex justify-between items-center text-slate-700 font-bold">
+                      <span>जांच शुल्क (Diagnostic Fee):</span>
+                      <span className="font-black text-slate-900">{formatCurrencyHi(est.diagnosticFee)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-700 font-bold">
+                      <span>मजदूरी शुल्क (Labour Fee):</span>
+                      <span className="font-black text-slate-900">{formatCurrencyHi(activeLabour)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-700 font-bold">
+                      <span>स्पेयर पार्ट्स (Parts Cost):</span>
+                      <span className="font-black text-slate-900">{formatCurrencyHi(currentPartsCost)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-700 font-bold">
+                      <span>घर पर आने का शुल्क (Travel Fee):</span>
+                      <span className="font-black text-slate-900">{formatCurrencyHi(est.travelFee)}</span>
+                    </div>
+                    {est.discount > 0 && (
+                      <div className="flex justify-between items-center text-emerald-700 font-bold">
+                        <span>छूट / सब्सिडी (Discount):</span>
+                        <span className="font-black text-emerald-800">-{formatCurrencyHi(est.discount)}</span>
+                      </div>
+                    )}
+
+                    <div className="pt-2 border-t-2 border-dashed border-amber-300 flex justify-between items-center">
+                      <span className="font-black text-base text-amber-950">अंतिम कुल मरम्मत राशि:</span>
+                      <span className="text-2xl font-black text-amber-950">
+                        {formatCurrencyHi(effectiveFinalTotal)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Difference display if final differs from estimate */}
+                  {hasDiff && (
+                    <div className="bg-amber-100/90 border-2 border-amber-300 rounded-2xl p-3.5 space-y-2 text-sm">
+                      <div className="font-black text-amber-950 text-base flex items-center gap-1.5">
+                        <span>⚠️</span>
+                        <span>लागत संशोधन विवरण (Cost Difference):</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center font-bold">
+                        <div className="bg-white p-2 rounded-xl border border-amber-200">
+                          <span className="text-[11px] font-bold text-slate-500 block">अनुमानित लागत</span>
+                          <span className="font-black text-slate-900 text-sm">{formatCurrencyHi(est.total)}</span>
+                        </div>
+                        <div className="bg-white p-2 rounded-xl border border-amber-200">
+                          <span className="text-[11px] font-bold text-slate-500 block">संशोधित लागत</span>
+                          <span className="font-black text-amber-950 text-sm">
+                            {formatCurrencyHi(effectiveFinalTotal)}
+                          </span>
+                        </div>
+                        <div className="bg-white p-2 rounded-xl border border-amber-200">
+                          <span className="text-[11px] font-bold text-slate-500 block">अंतर</span>
+                          <span className={`font-black text-sm ${(effectiveFinalTotal - est.total) > 0 ? "text-amber-800" : "text-emerald-700"}`}>
+                            {(effectiveFinalTotal - est.total) >= 0 ? "+" : ""}
+                            {formatCurrencyHi(effectiveFinalTotal - est.total)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Display recorded reason if already saved */}
+                      {currentJobCard.priceAdjustment && (
+                        <div className="pt-1 text-xs font-bold text-amber-900 flex items-center justify-between">
+                          <span>कारण: {currentJobCard.priceAdjustment.reason}</span>
+                          <span className="text-[10px] text-amber-800">
+                            {new Date(currentJobCard.priceAdjustment.adjustedAt).toLocaleTimeString("hi-IN", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Price adjustment controls: disallow silent unrecorded change */}
+                  <div className="space-y-3 pt-1">
+                    {!isEditingPrice ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTechLabourFeeOverride(currentJobCard.finalCost?.labourFee ?? est.labourFee);
+                          setIsEditingPrice(true);
+                        }}
+                        className="w-full bg-white hover:bg-amber-50 text-amber-950 font-black py-3 px-4 rounded-xl border-2 border-amber-400 text-sm flex items-center justify-center gap-2 shadow-sm transition-colors"
+                      >
+                        <span>✏️</span>
+                        <span>लागत / मजदूरी संशोधित करें (कारण के साथ)</span>
+                      </button>
+                    ) : (
+                      <div className="bg-white p-4 rounded-2xl border-2 border-amber-400 space-y-3 shadow-sm">
+                        <div className="text-sm font-black text-slate-900 border-b pb-2">
+                          लागत संशोधन प्रपत्र (मशीन जांच उपरांत):
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 block mb-1">
+                            संशोधित मजदूरी शुल्क (Labour Fee):
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-slate-700">₹</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={techLabourFeeOverride ?? est.labourFee}
+                              onChange={(e) => setTechLabourFeeOverride(Math.max(0, parseInt(e.target.value) || 0))}
+                              className="flex-1 border-2 border-slate-300 rounded-xl px-3 py-2 text-base font-black text-slate-900 focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 block mb-1">
+                            संशोधन का अनिवार्य कारण (Mandatory Reason):
+                          </label>
+                          <select
+                            value={priceAdjustmentReason}
+                            onChange={(e) => setPriceAdjustmentReason(e.target.value as PriceChangeReason)}
+                            className="w-full border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 bg-white focus:outline-none focus:border-amber-500"
+                          >
+                            {PRICE_CHANGE_REASONS.map((reason) => (
+                              <option key={reason} value={reason}>
+                                {reason}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {priceAdjustmentReason === "अन्य" && (
+                          <div>
+                            <label className="text-xs font-bold text-slate-600 block mb-1">
+                              कारण का विवरण लिखें:
+                            </label>
+                            <input
+                              type="text"
+                              value={customPriceNote}
+                              onChange={(e) => setCustomPriceNote(e.target.value)}
+                              placeholder="जैसे: अतिरिक्त वायरिंग बदली गई"
+                              className="w-full border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                        )}
+
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={handleSavePriceAdjustment}
+                            className="flex-1 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-slate-950 font-black py-2.5 px-3 rounded-xl text-sm border-2 border-amber-600 transition-all shadow-sm"
+                          >
+                            ✓ संशोधन सुरक्षित करें
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingPrice(false)}
+                            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm"
+                          >
+                            रद्द करें
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Navigate to repair timeline */}
+            <button
+              type="button"
+              onClick={() => setCurrentScreen("repair")}
+              className="w-full bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 text-slate-800 font-black py-4 px-4 rounded-2xl text-lg flex items-center justify-center gap-2 transition-colors"
+            >
+              <span>मेरी मरम्मत देखें</span>
+              <span>➔</span>
+            </button>
+          </div>
+        )}
+
+        {/* ================= P2F STEP 2: MACHINE VERIFICATION SCREEN ================= */}
+        {currentScreen === "repair_verification" && (() => {
+          const activeCard = currentJobCard || (latestRepair ? getJobCardByRepairId(latestRepair.id) : getLatestJobCard());
+
+          return (
+            <div className="space-y-4">
+              {/* Top Navigation */}
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setCurrentScreen(activeCard ? "technician_job_card" : "repair")}
+                  className="flex items-center gap-1.5 text-base font-bold text-slate-600 hover:text-slate-900"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>वापस</span>
+                </button>
+                <div className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                  {activeCard ? `जाँच प्रयास #${activeCard.verificationAttempt || 1}` : "जाँच प्रयास #1"}
+                </div>
+              </div>
+
+              {/* Title & Core Question */}
+              <div className="text-center space-y-1 py-1">
+                <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center text-3xl mx-auto shadow-sm">
+                  🔍
+                </div>
+                <h2 className="text-2xl font-black text-slate-900">
+                  {t("verification.title", currentLanguage)}
+                </h2>
+                <p className="text-xl font-black text-amber-900 bg-amber-50 rounded-xl py-3 px-4 border-2 border-amber-300">
+                  {t("verification.isMachineWorking", currentLanguage)}
+                </p>
+              </div>
+
+              {/* Context Summary Card */}
+              {activeCard && (
+                <div className="bg-white border-3 border-slate-300 rounded-3xl p-5 space-y-3 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl p-2 bg-slate-100 rounded-xl">{activeCard.machineIcon}</span>
+                    <div>
+                      <div className="text-xl font-black text-slate-900">{activeCard.machine}</div>
+                      <div className="text-sm font-bold text-slate-500">
+                        {t("recovery.technician", currentLanguage)}: {activeCard.technicianNameHi}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="text-xs font-bold text-slate-500 mb-0.5">{t("complaint.title", currentLanguage)}:</div>
+                    <div className="text-sm font-black text-slate-900">{activeCard.problem}</div>
+                  </div>
+
+                  {activeCard.diagnosis && (
+                    <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                      <div className="text-xs font-bold text-emerald-700 mb-0.5 flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5" /> {t("diagnosis.title", currentLanguage)}:
+                      </div>
+                      <div className="text-sm font-black text-slate-900">
+                        {localizeDiagnosisProblem(activeCard.diagnosis, currentLanguage)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Offline indicator */}
+              {!isOnline && (
+                <div className="p-3 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-center gap-2">
+                  <WifiOff className="w-5 h-5 text-amber-800 flex-shrink-0" />
+                  <span className="text-sm font-bold text-amber-950">
+                    {t("common.offlineNotice", currentLanguage)}
+                  </span>
+                </div>
+              )}
+
+              {/* 1. INITIAL / PENDING VERIFICATION STATE — TWO LARGE CHOICES */}
+              {(!activeCard?.verificationStatus || activeCard.verificationStatus === "pending") && (
+                <div className="space-y-4 pt-1">
+                  <div className="text-center p-3 bg-slate-50 rounded-2xl border-2 border-slate-200 text-sm font-bold text-slate-600">
+                    {t("verification.testInstructions", currentLanguage)}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3.5">
+                    {/* OPTION 1: PASS (GREEN) */}
+                    <button
+                      type="button"
+                      onClick={() => handleVerificationChoice(true)}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black py-5 px-6 rounded-3xl text-2xl shadow-lg border-3 border-emerald-950 flex items-center justify-center gap-3 transition-transform cursor-pointer"
+                    >
+                      <span className="text-3xl">✅</span>
+                      <span>{t("verification.machineFixed", currentLanguage)}</span>
+                    </button>
+
+                    {/* OPTION 2: FAIL (RED) */}
+                    <button
+                      type="button"
+                      onClick={() => handleVerificationChoice(false)}
+                      className="w-full bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-black py-5 px-6 rounded-3xl text-2xl shadow-lg border-3 border-red-950 flex items-center justify-center gap-3 transition-transform cursor-pointer"
+                    >
+                      <span className="text-3xl">❌</span>
+                      <span>{t("verification.issueRemains", currentLanguage)}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. VERIFICATION PASSED VIEW */}
+              {activeCard?.verificationStatus === "passed" && (
+                <div className="bg-emerald-50 border-3 border-emerald-500 rounded-3xl p-6 space-y-4 shadow-sm animate-in fade-in">
+                  <div className="text-center space-y-2">
+                    <div className="w-16 h-16 rounded-full bg-emerald-600 text-white flex items-center justify-center text-4xl mx-auto shadow-md">
+                      ✓
+                    </div>
+                    <h3 className="text-2xl font-black text-emerald-950">
+                      मशीन की मरम्मत सफलतापूर्वक पूरी हो गई।
+                    </h3>
+                    <p className="text-sm font-bold text-emerald-800">
+                      जाँच में मशीन पूरी तरह सही पाई गई है।
+                    </p>
+                  </div>
+
+                  {/* Summary of completed repair */}
+                  <div className="bg-white rounded-2xl p-4 border border-emerald-200 space-y-2.5">
+                    <div className="flex justify-between items-center py-1 border-b border-slate-100">
+                      <span className="text-sm font-bold text-slate-500">मशीन का नाम:</span>
+                      <span className="text-base font-black text-slate-900">{activeCard.machine}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-slate-100">
+                      <span className="text-sm font-bold text-slate-500">समस्या:</span>
+                      <span className="text-base font-black text-slate-900">{activeCard.problem}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-slate-100">
+                      <span className="text-sm font-bold text-slate-500">AI प्रारंभिक जाँच:</span>
+                      <span className="text-base font-black text-slate-900">{activeCard.diagnosis}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-slate-100">
+                      <span className="text-sm font-bold text-slate-500">मैकेनिक:</span>
+                      <span className="text-base font-black text-slate-900">{activeCard.technicianNameHi}</span>
+                    </div>
+                    <div className="py-1 border-b border-slate-100">
+                      <span className="text-sm font-bold text-slate-500">इस्तेमाल हुए पार्ट:</span>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {(() => {
+                          const partsUsed = (activeCard.partSelections || [])
+                            .filter((s) => s.decision === "needed")
+                            .map((s) => s.partNameHi);
+                          if (partsUsed.length === 0) {
+                            return <span className="text-sm font-bold text-slate-700">कोई नया पार्ट नहीं लगा</span>;
+                          }
+                          return partsUsed.map((name, i) => (
+                            <span key={i} className="text-xs font-black bg-emerald-100 text-emerald-900 px-2.5 py-1 rounded-lg border border-emerald-300">
+                              🔧 {name}
+                            </span>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center py-1">
+                      <span className="text-sm font-bold text-slate-500">पूर्ण होने की तारीख:</span>
+                      <span className="text-base font-black text-slate-900">
+                        {activeCard.verificationTime
+                          ? new Date(activeCard.verificationTime).toLocaleDateString("hi-IN")
+                          : new Date().toLocaleDateString("hi-IN")}
+                      </span>
+                    </div>
+                  </div>
+
+                  {!isOnline && (
+                    <div className="text-center text-xs font-black text-slate-500">
+                      🔒 जाँच का परिणाम फोन में सुरक्षित है।
+                    </div>
+                  )}
+
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentScreen("machines")}
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-emerald-950 flex items-center justify-center gap-2 transition-transform"
+                    >
+                      <span>मेरी मशीन देखें</span>
+                      <span>➔</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCurrentScreen("repair")}
+                      className="w-full bg-white hover:bg-slate-50 text-slate-800 font-bold py-3 px-4 rounded-xl text-base border-2 border-slate-300 flex items-center justify-center gap-2"
+                    >
+                      <span>मेरी मरम्मत देखें</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. VERIFICATION FAILED VIEW */}
+              {activeCard?.verificationStatus === "failed" && (
+                <div className="bg-red-50 border-3 border-red-500 rounded-3xl p-6 space-y-4 shadow-sm animate-in fade-in">
+                  <div className="text-center space-y-2">
+                    <div className="w-16 h-16 rounded-full bg-red-600 text-white flex items-center justify-center text-4xl mx-auto shadow-md">
+                      ✕
+                    </div>
+                    <h3 className="text-2xl font-black text-red-950">
+                      समस्या अभी है
+                    </h3>
+                    <p className="text-xl font-black text-red-900 bg-red-100 py-3 px-4 rounded-2xl border border-red-300">
+                      हम दोबारा मदद की व्यवस्था करेंगे।
+                    </p>
+                  </div>
+
+                  <div className="bg-white rounded-2xl p-4 border border-red-200 space-y-2 text-center">
+                    <div className="text-base font-black text-slate-900">
+                      जाँच प्रयास #{activeCard.verificationAttempt || 1} — समस्या बाकी है
+                    </div>
+                    <div className="text-sm font-bold text-slate-600">
+                      मूल मरम्मत रिकॉर्ड सुरक्षित रखा गया है। दोबारा मरम्मत कराने पर प्रयास संख्या बढ़ जाएगी।
+                    </div>
+                  </div>
+
+                  {!isOnline && (
+                    <div className="text-center text-xs font-black text-slate-500">
+                      🔒 जाँच का परिणाम फोन में सुरक्षित है।
+                    </div>
+                  )}
+
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleReRepair}
+                      className="w-full bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-red-950 flex items-center justify-center gap-2 transition-transform"
+                    >
+                      <RotateCcw className="w-6 h-6 text-white" />
+                      <span>मैकेनिक को दोबारा बुलाएं</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCurrentScreen("repair")}
+                      className="w-full bg-white hover:bg-slate-50 text-slate-800 font-bold py-3 px-4 rounded-xl text-base border-2 border-slate-300 flex items-center justify-center gap-2"
+                    >
+                      <span>मेरी मरम्मत देखें</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+      </main>
+
+      {/* ================= BOTTOM NAVIGATION ================= */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t-3 border-slate-200 py-2 shadow-2xl flex justify-center">
+        <div className="w-full max-w-md grid grid-cols-4 px-2">
+          {/* 🏠 Home */}
+          <button
+            onClick={() => setCurrentScreen("home")}
+            className={`py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer ${
+              getActiveTab() === "home"
+                ? "text-emerald-800 font-black bg-emerald-50 scale-105"
+                : "text-slate-600 font-bold hover:text-slate-900"
+            }`}
+          >
+            <span className="text-2xl">🏠</span>
+            <span className="text-xs sm:text-sm mt-0.5">{t("nav.home", currentLanguage)}</span>
+          </button>
+
+          {/* 🚜 Machines */}
+          <button
+            onClick={() => setCurrentScreen("machines")}
+            className={`py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer ${
+              getActiveTab() === "machines"
+                ? "text-emerald-800 font-black bg-emerald-50 scale-105"
+                : "text-slate-600 font-bold hover:text-slate-900"
+            }`}
+          >
+            <span className="text-2xl">🚜</span>
+            <span className="text-xs sm:text-sm mt-0.5">{t("nav.machines", currentLanguage)}</span>
+          </button>
+
+          {/* 🔧 Repairs */}
+          <button
+            onClick={() => setCurrentScreen("repair")}
+            className={`py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer ${
+              getActiveTab() === "repair"
+                ? "text-amber-800 font-black bg-amber-50 scale-105"
+                : "text-slate-600 font-bold hover:text-slate-900"
+            }`}
+          >
+            <span className="text-2xl">🔧</span>
+            <span className="text-xs sm:text-sm mt-0.5">{t("nav.repairs", currentLanguage)}</span>
+          </button>
+
+          {/* 📅 Service */}
+          <button
+            onClick={() => setCurrentScreen("service")}
+            className={`py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer ${
+              getActiveTab() === "service"
+                ? "text-blue-800 font-black bg-blue-50 scale-105"
+                : "text-slate-600 font-bold hover:text-slate-900"
+            }`}
+          >
+            <span className="text-2xl">📅</span>
+            <span className="text-xs sm:text-sm mt-0.5">{t("nav.service", currentLanguage)}</span>
+          </button>
+        </div>
+      </nav>
+    </div>
+  );
+}
