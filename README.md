@@ -187,4 +187,5 @@ AgriPulse includes a dedicated **1-Click Hackathon Demo Scenario** right on the 
 Developed for the **Nagpur RISE 2026 Hackathon** — *One-Stop Agricultural Equipment Repair Platform*.  
 Licensed under the MIT License.
 #   a g r i p u l s e - f a r m - r e p a i r  
+ #   a g r i p u l s e - a g r i c u l t u r a l - e q u i p m e n t - r e p a i r  
  
