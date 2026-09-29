@@ -337,6 +337,10 @@ export function localizeDiagnosisProblem(
 ): string {
   if (!hindiText) return t("diagnosis.possibleIssue", lang);
   if (lang === "hi") return hindiText;
+  // If the text is already in English, return it directly
+  if (lang === "en" && /^[A-Za-z0-9\s.,:;'"!?-]+$/.test(hindiText.trim())) {
+    return hindiText;
+  }
 
   const lower = hindiText.toLowerCase();
 

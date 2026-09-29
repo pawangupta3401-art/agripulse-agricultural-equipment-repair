@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { StructuredAIDiagnosisResponse } from "@/types";
+import { GeminiStructuredDiagnosis, StructuredAIDiagnosisResponse } from "@/types";
 
 /**
- * /api/diagnosis — Secure Server-Side Gemini AI Diagnosis Route
+ * /api/diagnosis — Intelligent Step-by-Step Gemini AI Diagnosis Route
  *
- * Accepts text complaints + optional base64 image.
- * Uses gemini-2.0-flash for text-only, gemini-2.0-flash for multimodal (image+text).
- * Returns structured JSON diagnosis. NEVER leaks API key to client.
- * Safety rules always run server-side before returning to farmer.
+ * Implements the intelligent agricultural equipment troubleshooting pipeline:
+ * INPUT -> UNDERSTAND -> CHECK INFORMATION QUALITY -> IDENTIFY MACHINE ->
+ * IDENTIFY PROBLEM -> CHECK SAFETY -> DECIDE IF MORE INFO NEEDED ->
+ * (ASK ONE SIMPLE QUESTION IF INSUFFICIENT) -> GENERATE POSSIBLE DIAGNOSIS ->
+ * GENERATE SAFE ACTIONS -> DECIDE NEXT STEP -> FARMER-FRIENDLY MULTILINGUAL RESPONSE
+ *
+ * Security:
+ * - Server-side only: GEMINI_API_KEY / AI_API_KEY is NEVER exposed to the client.
+ * - Always runs server-side safety checks before returning.
  */
 
 const MANDATORY_DANGER_WARNING = "⚠️ मशीन बंद रखें और सुरक्षित दूरी बनाए रखें।";
@@ -31,31 +36,36 @@ const LANGUAGE_NAMES: Record<string, string> = {
   raj: "Rajasthani / Marwari (राजस्थानी)",
 };
 
+/**
+ * Server-side deterministic danger check.
+ * Catches high-risk situations (smoke, fire, sparks, extreme overheating, fuel/oil leaks, electrical hazards).
+ */
 function checkDangerousCondition(text: string): boolean {
   if (!text) return false;
   const lower = text.toLowerCase();
   const dangerousKeywords = [
     "धुआं", "धुआ", "धुंआ", "smoke", "काला धुआं", "सफेद धुआं",
     "आग", "fire", "ज्वाला", "लपट", "चिनगारी", "spark", "sparking",
-    "ओवरहीट", "overheat", "overheating", "अत्यधिक गरम", "बहुत गरम",
+    "स्परकिंग", "ओवरहीट", "overheat", "overheating", "अत्यधिक गरम", "बहुत गरम",
     "ईंधन रिसाव", "fuel leak", "oil leak", "डीजल रिसाव", "पेट्रोल रिसाव",
     "बड़ा रिसाव", "वायरिंग", "शॉर्ट सर्किट", "electrical damage", "कटा तार", "शॉर्ट",
+    "ब्लास्ट", "फट", "गियर टूटा", "प्रेशर पाइप", "hydraulic burst",
   ];
   return dangerousKeywords.some((kw) => lower.includes(kw));
 }
 
 /**
- * Extract MIME type from a data URL or infer from base64 string.
+ * Extract MIME type from data URL or infer from base64 string.
  */
 function getImageMimeType(imageBase64: string): string {
   if (imageBase64.startsWith("data:image/png")) return "image/png";
   if (imageBase64.startsWith("data:image/webp")) return "image/webp";
   if (imageBase64.startsWith("data:image/gif")) return "image/gif";
-  return "image/jpeg"; // default
+  return "image/jpeg";
 }
 
 /**
- * Strip the data URL prefix and return raw base64 bytes.
+ * Strip the data URL prefix and return raw base64.
  */
 function stripDataUrlPrefix(imageBase64: string): string {
   const commaIdx = imageBase64.indexOf(",");
@@ -68,7 +78,11 @@ export async function POST(req: NextRequest) {
 
     if (!body || typeof body !== "object") {
       return NextResponse.json(
-        { success: false, fallback: true, message: "अभी सामान्य जाँच उपलब्ध है।" },
+        {
+          success: false,
+          fallback: true,
+          message: "अभी AI जांच उपलब्ध नहीं है। बुनियादी जांच के लिए यह तरीका देखें।",
+        },
         { status: 200 }
       );
     }
@@ -80,71 +94,132 @@ export async function POST(req: NextRequest) {
       detectedVisualIssue = "",
       urgency = "",
       recentHistory = "",
-      // New fields for Gemini Vision + language
-      imageBase64 = "",     // optional base64 image (data URL or raw base64)
-      language = "hi",      // LanguageCode from the app's i18n system
+      imageBase64 = "",
+      language = "hi",
+      conversationHistory = [],
     } = body;
 
     const hasImage = typeof imageBase64 === "string" && imageBase64.length > 200;
     const langName = LANGUAGE_NAMES[language] || LANGUAGE_NAMES["hi"];
 
-    // Server-side safety evaluation runs FIRST before any AI call
-    const isDangerous =
+    // ── 1. Check Server-side Danger Keywords First ──────────────────────────
+    const complaintDangerous =
       checkDangerousCondition(farmerComplaint) ||
       checkDangerousCondition(detectedVisualIssue);
 
-    // Read API key — supports both AI_API_KEY and GEMINI_API_KEY for flexibility
+    // Read API key
     const apiKey = (process.env.AI_API_KEY || process.env.GEMINI_API_KEY)?.trim();
 
     if (!apiKey) {
       return NextResponse.json(
-        { success: false, fallback: true, message: "अभी सामान्य जाँच उपलब्ध है।", isDangerous },
+        {
+          success: false,
+          fallback: true,
+          message: "अभी AI जांच उपलब्ध नहीं is। बुनियादी जांच के लिए यह तरीका देखें।",
+          isDangerous: complaintDangerous,
+        },
         { status: 200 }
       );
     }
 
-    // ─── Build Gemini Prompt ────────────────────────────────────────────────
+    // ── 2. Build Gemini System Prompt (Core Decision Pipeline) ──────────────
+    const systemPrompt = `You are AgriPulse, an expert, careful agricultural equipment troubleshooting assistant for Indian farmers.
+You diagnose farm equipment (tractors, power tillers, harvesters, water pumps, sprayers, rotavators, threshers, etc.).
 
-    const systemPrompt = `You are AgriPulse, a practical agricultural equipment troubleshooting assistant for Indian farmers.
+YOU MUST FOLLOW THIS STRICT DECISION PIPELINE:
+1. UNDERSTAND: Understand the machine, complaint, and any image provided.
+2. CHECK INFORMATION QUALITY:
+   - If a photo is attached:
+     * Is an agricultural machine or part visible? If NO (e.g. photo is of a person, animal, random object, ceiling): return status: "insufficient", next_action: "NEED_MORE_INFORMATION", question: "कृपया मशीन या खराब हिस्से की फोटो लें।" (in ${langName}).
+     * Is the photo blurry or unclear? If YES: return status: "insufficient", next_action: "NEED_MORE_INFORMATION", question: "फोटो साफ नहीं है। कृपया मशीन के खराब हिस्से की नजदीक से एक साफ फोटो लें।" (in ${langName}).
+     * Is the wrong part shown? If YES: return status: "insufficient", next_action: "NEED_MORE_INFORMATION", question: "समस्या वाले हिस्से की फोटो लें ताकि मैं बेहतर जांच कर सकूं।" (in ${langName}).
+3. IDENTIFY MACHINE:
+   - Use the provided machine if known. If completely unknown and necessary, ask "यह कौन सी मशीन है?" (in ${langName}).
+4. IDENTIFY PROBLEM & CHECK SUFFICIENCY:
+   - If the farmer gives incomplete or vague information (e.g., just "काम नहीं कर रहा" or "आवाज आ रही है" without details) and there is no clear photo:
+     DO NOT guess or hallucinate a specific failed component.
+     Set status: "insufficient", next_action: "NEED_MORE_INFORMATION".
+     Ask exactly ONE simple, specific question to narrow down the problem (e.g., "मशीन स्टार्ट करते समय कोई आवाज आती है क्या?" or "क्या मशीन से धुआं निकल रहा है?" or "क्या तेल नीचे टपक रहा है?").
+     DO NOT ask multiple questions. Ask ONLY ONE question at a time.
+5. SAFETY CHECK (CRITICAL):
+   - Check for danger: smoke, fire, sparks, severe overheating, fuel leakage, major oil leakage, exposed electrical wiring, hydraulic pressure burst, damaged spinning parts, uncontrolled movement.
+   - If ANY danger exists:
+     * severity MUST BE "danger"
+     * should_stop_machine MUST BE true
+     * mechanic_required MUST BE true
+     * self_check_allowed MUST BE false
+     * next_action MUST BE "STOP_MACHINE"
+     * immediate_actions: ["मशीन तुरंत बंद रखें", "सुरक्षित दूरी बनाएं", "मैकेनिक को बुलाएं"]
+     * message: "मशीन बंद रखें और मैकेनिक से जांच करवाएं।" (in ${langName})
+6. DIAGNOSIS (ONLY WHEN INFORMATION IS SUFFICIENT):
+   - Possible problem: simple farmer-friendly description.
+   - Possible causes: maximum 3 likely causes. Use humble wording like "संभावित कारण" or "हो सकता है".
+   - Self-check decision:
+     * If the problem can be safely inspected visually (e.g. loose belt, battery terminal loose, low oil level, air filter dirty):
+       self_check_allowed = true
+       next_action = "SELF_CHECK"
+       immediate_actions: maximum 3 simple, low-risk checks (e.g. "1. मशीन बंद करें।", "2. बैटरी कनेक्शन देखें।", "3. ईंधन स्तर जांचें।")
+     * If the problem involves high pressure, electrical rewiring, deep engine internals, or mechanical hazards:
+       self_check_allowed = false
+       mechanic_required = true
+       next_action = "GET_MECHANIC"
+       immediate_actions: ["मशीन चालू न करें", "योग्य मैकेनिक को दिखाएं"]
+7. LANGUAGE & TONE RULES:
+   - Output language MUST BE ${langName}. Every single text field MUST be in ${langName}.
+   - Farmer-friendly vocabulary only.
+   - ABSOLUTELY NEVER MENTION: Gemini, AI, API, model, confidence score, machine learning, prompt, backend, neural network, or developer terminology.
+   - If uncertain, be honest: say that the issue cannot be reliably identified yet and ask the next question.
 
-Your job is to help identify possible machine problems from the farmer's description and/or uploaded image.
-
-CRITICAL RULES:
-1. Respond ONLY in ${langName}. Every word of your response must be in ${langName}.
-2. Use simple, farmer-friendly language. Avoid all technical jargon.
-3. Do NOT claim certainty when the image or information is insufficient.
-4. NEVER mention: Gemini, AI model, API, machine learning, confidence score, internal reasoning, backend, prompt, or any AI terminology.
-5. SAFETY: If there is ANY indication of smoke, fire, sparks, severe overheating, or fuel/oil leakage, you MUST set severity to "danger", should_stop_machine to true, and mechanic_required to true.
-6. If the image is unclear or insufficient, explicitly state that the problem cannot be reliably identified and ask for a clearer photo or more information.
-7. Output ONLY a valid JSON object — no markdown, no code blocks, no extra text.
-
-Required JSON schema:
+OUTPUT FORMAT:
+Return ONLY a valid JSON object strictly matching this schema:
 {
-  "problem": "string — संभावित समस्या का नाम (in ${langName})",
-  "possible_causes": ["string", "string", "string"] — 2–4 causes (in ${langName}),
+  "status": "sufficient" | "insufficient" | "unsafe_to_diagnose",
+  "machine": "string (identified machine in ${langName})",
+  "problem": "string (clear issue title in ${langName})",
+  "problem_category": "string (e.g., Starting / Electrical / Engine / Hydraulic / Cooling / Fuel)",
   "severity": "safe" | "caution" | "danger" | "unknown",
-  "immediate_actions": ["string", "string"] — 2–4 safe steps farmer can take (in ${langName}),
+  "possible_causes": ["string"] (max 3 items in ${langName}, empty if insufficient),
+  "self_check_allowed": boolean,
+  "immediate_actions": ["string"] (max 3 simple steps in ${langName}),
   "should_stop_machine": boolean,
   "mechanic_required": boolean,
-  "message": "string — one short farmer-friendly summary sentence (in ${langName})"
+  "next_action": "SELF_CHECK" | "GET_MECHANIC" | "NEED_MORE_INFORMATION" | "STOP_MACHINE" | "GENERAL_GUIDANCE",
+  "question": "string (ONE simple follow-up question in ${langName} if status is insufficient, else empty string)",
+  "message": "string (short farmer-friendly summary message in ${langName})"
 }`;
 
+    // ── 3. Build User Prompt with Context & Multi-turn History ──────────────
+    let historyContext = "";
+    if (Array.isArray(conversationHistory) && conversationHistory.length > 0) {
+      historyContext = "\n--- पिछली बातचीत का संदर्भ (Conversation History) ---\n" +
+        conversationHistory
+          .map((m: { role: string; content: string }) =>
+            m.role === "farmer" ? `किसान: "${m.content}"` : `सहायक: "${m.content}"`
+          )
+          .join("\n") +
+        "\n--- अब इस नए इनपुट के साथ विश्लेषण करें ---";
+    }
+
     const userPrompt = `कृषि मशीन: ${machineType} ${machineModel}
-किसान की शिकायत: ${farmerComplaint || "मशीन में समस्या आ रही है"}
+किसान की वर्तमान शिकायत: "${farmerComplaint || "मशीन में समस्या आ रही है"}"
 कैमरा / दृश्य विश्लेषण: ${detectedVisualIssue || "उपलब्ध नहीं"}
-आवश्यकता / समय: ${urgency || "सामान्य"}
+समय / जरूरत: ${urgency || "सामान्य"}
 मशीन इतिहास: ${recentHistory || "उपलब्ध नहीं"}
-${hasImage ? "\n[Photo attached — please analyze the visible machine condition from the image.]" : ""}
+${hasImage ? "\n[📷 संलग्न फोटो उपलब्ध है — कृपया छवि में दिखाई दे रहे मशीन/पुर्जे की स्थिति, स्पष्टता और खराबी का विश्लेषण करें।]" : ""}
+${historyContext}
 
-कृपया ऊपर दी गई जानकारी के आधार पर सटीक JSON प्रारूप में जाँच रिपोर्ट दें। सभी उत्तर ${langName} में दें।`;
+कृपया ऊपर दी गई जानकारी का चरण-दर-चरण विश्लेषण करें।
+यदि जानकारी अधूरी या फोटो अस्पष्ट है तो केवल 1 सरल सवाल पूछें (status: "insufficient")।
+यदि खतरा है तो तुरंत रोकें (status: "unsafe_to_diagnose" या "danger")।
+सभी उत्तर ${langName} में दें। केवल JSON रिटर्न करें।`;
 
-    // ─── Build Gemini Request Body ──────────────────────────────────────────
+    // ── 4. Call Gemini with Model Fallback ──────────────────────────────────
+    const CANDIDATE_MODELS = [
+      "gemini-3.5-flash",
+      "gemini-3.8-flash",
+      "gemini-3.5-flash-lite",
+    ];
 
-    // Choose model: use flash for both text and vision (supports multimodal)
-    const geminiModel = "gemini-2.0-flash";
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
-
-    // Build the parts array — add image if present
     const userParts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [];
 
     if (hasImage) {
@@ -173,57 +248,60 @@ ${hasImage ? "\n[Photo attached — please analyze the visible machine condition
       generationConfig: {
         temperature: 0.2,
         responseMimeType: "application/json",
-        maxOutputTokens: 1024,
+        maxOutputTokens: 2048,
       },
     };
 
-    // ─── Call Gemini ────────────────────────────────────────────────────────
+    let candidateText = "";
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 9000); // 9s timeout for vision
+    for (const model of CANDIDATE_MODELS) {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 9500);
 
-    try {
-      const response = await fetch(geminiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify(requestBody),
-      });
+      try {
+        const response = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify(requestBody),
+        });
 
-      clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errText = await response.text().catch(() => "");
-        console.error("[AgriPulse /api/diagnosis] Gemini error:", response.status, errText.slice(0, 200));
-        return NextResponse.json(
-          { success: false, fallback: true, message: "अभी सामान्य जाँच उपलब्ध है।" },
-          { status: 200 }
-        );
+        if (response.ok) {
+          const rawJson = await response.json();
+          const text =
+            rawJson?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+          if (text) {
+            candidateText = text;
+            break;
+          }
+        } else {
+          console.warn(`[AgriPulse /api/diagnosis] Model ${model} returned ${response.status}, trying next model...`);
+        }
+      } catch {
+        clearTimeout(timeoutId);
+        // Continue to next model
       }
+    }
 
-      const rawJson = await response.json();
-      const candidateText =
-        rawJson?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    if (!candidateText) {
+      return NextResponse.json(
+        {
+          success: false,
+          fallback: true,
+          message: "अभी AI जांच उपलब्ध नहीं है। बुनियादी जांच के लिए यह तरीका देखें।",
+          isDangerous: complaintDangerous,
+        },
+        { status: 200 }
+      );
+    }
 
-      if (!candidateText) {
-        return NextResponse.json(
-          { success: false, fallback: true, message: "अभी सामान्य जाँच उपलब्ध है।" },
-          { status: 200 }
-        );
-      }
 
-      // ─── Parse Gemini's structured JSON output ──────────────────────────
 
-      let geminiOutput: {
-        problem: string;
-        possible_causes: string[];
-        severity: string;
-        immediate_actions: string[];
-        should_stop_machine: boolean;
-        mechanic_required: boolean;
-        message: string;
-      };
-
+      // ── 5. Parse Gemini Structured Output ────────────────────────────────
+      let geminiOutput: GeminiStructuredDiagnosis;
       try {
         const cleaned = candidateText
           .replace(/^```json\s*/i, "")
@@ -231,90 +309,102 @@ ${hasImage ? "\n[Photo attached — please analyze the visible machine condition
           .replace(/```$/m, "")
           .trim();
         geminiOutput = JSON.parse(cleaned);
-      } catch {
+      } catch (parseErr) {
+        console.error("[AgriPulse /api/diagnosis] JSON parse error:", parseErr);
         return NextResponse.json(
-          { success: false, fallback: true, message: "अभी सामान्य जाँच उपलब्ध है।" },
+          {
+            success: false,
+            fallback: true,
+            message: "अभी AI जांच उपलब्ध नहीं है। बुनियादी जांच के लिए यह तरीका देखें।",
+            isDangerous: complaintDangerous,
+          },
           { status: 200 }
         );
       }
 
-      // Validate required fields
-      if (!geminiOutput.problem || !Array.isArray(geminiOutput.immediate_actions)) {
-        return NextResponse.json(
-          { success: false, fallback: true, message: "अभी सामान्य जाँच उपलब्ध है।" },
-          { status: 200 }
-        );
-      }
-
-      // ─── Map Gemini output → StructuredAIDiagnosisResponse ─────────────
-
-      // Map severity from new schema to existing StructuredAIDiagnosisResponse schema
-      const severityMap: Record<string, "critical" | "high" | "medium" | "low"> = {
-        danger: "critical",
-        caution: "medium",
-        safe: "low",
-        unknown: "low",
-      };
-      const mappedSeverity = severityMap[geminiOutput.severity] || "low";
-
-      // Apply mandatory safety override for dangerous conditions
-      const finalSeverity =
-        isDangerous ||
+      // ── 6. Enforce Strict Safety Overrides ────────────────────────────────
+      const isDangerous =
+        complaintDangerous ||
+        geminiOutput.severity === "danger" ||
         geminiOutput.should_stop_machine ||
-        geminiOutput.severity === "danger"
-          ? "critical"
-          : mappedSeverity;
+        geminiOutput.next_action === "STOP_MACHINE";
 
-      const finalSafetyWarning =
-        finalSeverity === "critical" ? MANDATORY_DANGER_WARNING : null;
+      const finalSeverity: "critical" | "high" | "medium" | "low" = isDangerous
+        ? "critical"
+        : geminiOutput.severity === "caution"
+        ? "medium"
+        : geminiOutput.severity === "safe"
+        ? "low"
+        : "medium";
 
-      const finalAction =
-        finalSeverity === "critical"
-          ? (language === "en"
-              ? "Turn off the machine immediately and keep a safe distance. Do not operate under any circumstances. Contact a certified mechanic immediately."
-              : "मशीन तुरंत बंद रखें और सुरक्षित दूरी बनाए रखें। किसी भी परिस्थिति में मशीन चालू न करें और तुरंत प्रमाणित मैकेनिक को दिखाएं।")
-          : geminiOutput.immediate_actions.join(" | ");
+      const finalNextAction = isDangerous
+        ? "STOP_MACHINE"
+        : geminiOutput.next_action ||
+          (geminiOutput.status === "insufficient" ? "NEED_MORE_INFORMATION" : "SELF_CHECK");
 
+      const finalSafetyWarning = isDangerous
+        ? MANDATORY_DANGER_WARNING
+        : null;
+
+      // Recommended action text
+      let recommendedActionText = "";
+      if (isDangerous) {
+        recommendedActionText =
+          language === "en"
+            ? "Stop the machine immediately and keep a safe distance. Do not operate. Contact a mechanic."
+            : "मशीन तुरंत बंद रखें और सुरक्षित दूरी बनाए रखें। किसी भी सूरत में चालू न करें। मैकेनिक से जांच करवाएं।";
+      } else if (geminiOutput.question && geminiOutput.status === "insufficient") {
+        recommendedActionText = geminiOutput.question;
+      } else if (
+        Array.isArray(geminiOutput.immediate_actions) &&
+        geminiOutput.immediate_actions.length > 0
+      ) {
+        recommendedActionText = geminiOutput.immediate_actions.join(" • ");
+      } else {
+        recommendedActionText = geminiOutput.message || "सावधानीपूर्वक जांच करें।";
+      }
+
+      // Backward compatible StructuredAIDiagnosisResponse
       const parsedOutput: StructuredAIDiagnosisResponse = {
-        diagnosis: geminiOutput.problem,
-        confidence: finalSeverity === "critical" ? 0.92 : 0.82,
-        reasons: geminiOutput.possible_causes || [],
-        recommendedAction: finalAction,
+        diagnosis: geminiOutput.problem || "मशीन समस्या",
+        confidence: isDangerous ? 0.95 : geminiOutput.status === "sufficient" ? 0.88 : 0.65,
+        reasons: Array.isArray(geminiOutput.possible_causes)
+          ? geminiOutput.possible_causes.slice(0, 3)
+          : [],
+        recommendedAction: recommendedActionText,
         severity: finalSeverity,
         safetyWarning: finalSafetyWarning,
-      };
-
-      // Also include the richer Gemini fields for the frontend to use
-      const enrichedResult = {
-        ...parsedOutput,
-        immediate_actions: geminiOutput.immediate_actions,
-        should_stop_machine: geminiOutput.should_stop_machine || finalSeverity === "critical",
-        mechanic_required: geminiOutput.mechanic_required || finalSeverity === "critical",
-        farmer_message: geminiOutput.message,
-        has_image_analysis: hasImage,
-        language,
+        // Enriched step-by-step fields
+        sufficiencyStatus: geminiOutput.status || "sufficient",
+        machineIdentified: geminiOutput.machine || machineType,
+        problemCategory: geminiOutput.problem_category || "",
+        selfCheckAllowed: isDangerous ? false : !!geminiOutput.self_check_allowed,
+        immediateActions: isDangerous
+          ? ["मशीन तुरंत बंद रखें", "सुरक्षित दूरी बनाएं", "मैकेनिक बुलाएं"]
+          : Array.isArray(geminiOutput.immediate_actions)
+          ? geminiOutput.immediate_actions.slice(0, 3)
+          : [],
+        shouldStopMachine: isDangerous || !!geminiOutput.should_stop_machine,
+        mechanicRequired: isDangerous || !!geminiOutput.mechanic_required,
+        nextAction: finalNextAction,
+        question: geminiOutput.question || "",
+        farmerMessage: geminiOutput.message || "",
       };
 
       return NextResponse.json({
         success: true,
         fallback: false,
-        result: enrichedResult,
+        result: parsedOutput,
       });
-    } catch (fetchErr: unknown) {
-      clearTimeout(timeoutId);
-      // Timeout or network error → clean fallback
-      const isAbort = fetchErr instanceof Error && fetchErr.name === "AbortError";
-      if (!isAbort) {
-        console.error("[AgriPulse /api/diagnosis] Fetch error:", fetchErr);
-      }
-      return NextResponse.json(
-        { success: false, fallback: true, message: "अभी सामान्य जाँच उपलब्ध है।" },
-        { status: 200 }
-      );
-    }
-  } catch {
+
+  } catch (err) {
+    console.error("[AgriPulse /api/diagnosis] Unhandled route error:", err);
     return NextResponse.json(
-      { success: false, fallback: true, message: "अभी सामान्य जाँच उपलब्ध है।" },
+      {
+        success: false,
+        fallback: true,
+        message: "अभी AI जांच उपलब्ध नहीं है। बुनियादी जांच के लिए यह तरीका देखें।",
+      },
       { status: 200 }
     );
   }

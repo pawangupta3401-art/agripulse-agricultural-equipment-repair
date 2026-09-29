@@ -258,6 +258,35 @@ export interface PhotoAnalysisResult {
   safetyWarning?: string | null;
 }
 
+export type DiagnosisSufficiencyStatus = "sufficient" | "insufficient" | "unsafe_to_diagnose";
+export type DiagnosisNextAction =
+  | "SELF_CHECK"
+  | "GET_MECHANIC"
+  | "NEED_MORE_INFORMATION"
+  | "STOP_MACHINE"
+  | "GENERAL_GUIDANCE";
+
+export interface DiagnosisConversationMessage {
+  role: "farmer" | "assistant";
+  content: string;
+}
+
+export interface GeminiStructuredDiagnosis {
+  status: DiagnosisSufficiencyStatus;
+  machine: string;
+  problem: string;
+  problem_category: string;
+  severity: "safe" | "caution" | "danger" | "unknown";
+  possible_causes: string[];
+  self_check_allowed: boolean;
+  immediate_actions: string[];
+  should_stop_machine: boolean;
+  mechanic_required: boolean;
+  next_action: DiagnosisNextAction;
+  question: string;
+  message: string;
+}
+
 export interface StructuredAIDiagnosisResponse {
   diagnosis: string;
   confidence: number;
@@ -265,6 +294,17 @@ export interface StructuredAIDiagnosisResponse {
   recommendedAction: string;
   severity: "critical" | "high" | "medium" | "low";
   safetyWarning: string | null;
+  // Intelligent diagnosis extensions
+  sufficiencyStatus?: DiagnosisSufficiencyStatus;
+  machineIdentified?: string;
+  problemCategory?: string;
+  selfCheckAllowed?: boolean;
+  immediateActions?: string[];
+  shouldStopMachine?: boolean;
+  mechanicRequired?: boolean;
+  nextAction?: DiagnosisNextAction;
+  question?: string;
+  farmerMessage?: string;
 }
 
 export interface AIDiagnosisResult {
@@ -287,6 +327,18 @@ export interface AIDiagnosisResult {
   isFallback?: boolean;
   fallbackNote?: string | null;
   provider?: "cloud_ai" | "local_engine";
+  // Intelligent Step-by-Step Gemini Diagnosis Workflow
+  sufficiencyStatus?: DiagnosisSufficiencyStatus;
+  machineIdentified?: string;
+  problemCategory?: string;
+  selfCheckAllowed?: boolean;
+  immediateActions?: string[];
+  shouldStopMachine?: boolean;
+  mechanicRequired?: boolean;
+  nextAction?: DiagnosisNextAction;
+  question?: string;
+  farmerMessage?: string;
+  conversationHistory?: DiagnosisConversationMessage[];
 }
 
 export interface RepairRequest {

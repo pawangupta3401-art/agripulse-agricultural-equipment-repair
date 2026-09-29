@@ -1,15 +1,20 @@
 /**
- * AI Assistant Service — AgriPulse Gemini Integration
+ * AI Assistant Service — AgriPulse Intelligent Gemini Integration
  *
  * Secure client-side abstraction connecting the UI to the server-side Gemini API route.
  * - NEVER calls Gemini directly from the browser.
- * - Passes the farmer's selected language so Gemini responds in the right language.
- * - Passes the photo as base64 to the server for Gemini Vision analysis.
+ * - Passes the farmer's selected language for localized responses across 15 Indian languages.
+ * - Passes the photo as base64 for multimodal Gemini Vision analysis.
+ * - Supports multi-turn diagnosis conversation history.
  * - Preserves complete local/offline fallback via the deterministic diagnosis engine.
+ * - Strict safety sanitization: high-risk problems enforce critical stop-machine guidance.
  */
 
 import {
   AIDiagnosisResult,
+  DiagnosisConversationMessage,
+  DiagnosisNextAction,
+  DiagnosisSufficiencyStatus,
   DiagnosisUrgency,
   Machine,
   PhotoAnalysisResult,
@@ -30,6 +35,8 @@ export interface AIDiagnosisRequestParams {
   language?: LanguageCode;
   /** Raw base64 photo data URL for Gemini Vision — server strips prefix before sending to API */
   imageBase64?: string | null;
+  /** Multi-turn conversation history for step-by-step diagnostic reasoning */
+  conversationHistory?: DiagnosisConversationMessage[];
 }
 
 const MANDATORY_DANGER_WARNING = "⚠️ मशीन बंद रखें और सुरक्षित दूरी बनाए रखें।";
@@ -47,6 +54,7 @@ export function checkDangerousCondition(text: string): boolean {
     "स्परकिंग", "ओवरहीट", "overheat", "overheating", "अत्यधिक गरम", "बहुत गरम",
     "ईंधन रिसाव", "fuel leak", "oil leak", "डीजल रिसाव", "पेट्रोल रिसाव",
     "बड़ा रिसाव", "वायरिंग", "शॉर्ट सर्किट", "electrical damage", "कटा तार", "शॉर्ट",
+    "ब्लास्ट", "फट", "गियर टूटा", "प्रेशर पाइप", "hydraulic burst",
   ];
   return dangerousKeywords.some((kw) => lower.includes(kw));
 }
@@ -63,18 +71,31 @@ function applySafetySanitization(
     checkDangerousCondition(params.photoAnalysis?.detectedIssue || "") ||
     checkDangerousCondition(diag.possibleProblem) ||
     diag.severity === "critical" ||
+    diag.shouldStopMachine ||
+    diag.nextAction === "STOP_MACHINE" ||
     !!diag.safetyWarning;
 
   if (isDangerous) {
+    const isEn = params.language === "en";
     return {
       ...diag,
-      safetyWarning: MANDATORY_DANGER_WARNING,
-      safeAction:
-        "मशीन तुरंत बंद रखें और सुरक्षित दूरी बनाए रखें। किसी भी सूरत में मशीन चालू न करें और तुरंत प्रमाणित मैकेनिक को दिखाएं।",
+      safetyWarning: isEn
+        ? "⚠️ Keep machine stopped and maintain safe distance."
+        : MANDATORY_DANGER_WARNING,
+      safeAction: isEn
+        ? "Stop the machine immediately and maintain a safe distance. Do not attempt to run it. Contact a certified mechanic immediately."
+        : "मशीन तुरंत बंद रखें और सुरक्षित दूरी बनाए रखें। किसी भी सूरत में मशीन चालू न करें और तुरंत प्रमाणित मैकेनिक को दिखाएं।",
       urgencyLevel: "high",
-      urgencyText: "🔴 तुरंत मदद चाहिए",
+      urgencyText: isEn ? "🔴 Immediate Action Required" : "🔴 तुरंत मदद चाहिए",
       urgencyColor: "bg-red-100 text-red-900 border-red-300",
       severity: "critical",
+      shouldStopMachine: true,
+      mechanicRequired: true,
+      selfCheckAllowed: false,
+      nextAction: "STOP_MACHINE",
+      immediateActions: isEn
+        ? ["Stop machine immediately", "Keep safe distance", "Contact mechanic"]
+        : ["मशीन तुरंत बंद रखें", "सुरक्षित दूरी बनाएं", "मैकेनिक से जांच करवाएं"],
     };
   }
 
@@ -85,9 +106,9 @@ function applySafetySanitization(
  * Unified AI Diagnosis Request function.
  *
  * Flow:
- * 1. Offline → runs local deterministic engine immediately (no network call).
- * 2. Online  → calls /api/diagnosis (server-side Gemini, with language + optional image).
- * 3. If the cloud request fails → seamlessly falls back to the local engine.
+ * 1. Offline -> runs local deterministic engine immediately (no network call).
+ * 2. Online  -> calls /api/diagnosis (server-side Gemini, with language + optional image + history).
+ * 3. If cloud request fails -> seamlessly falls back to the local engine with friendly message.
  * 4. Safety rules always run client-side before returning the result to the UI.
  */
 export async function requestAIDiagnosis(
@@ -96,6 +117,11 @@ export async function requestAIDiagnosis(
 ): Promise<AIDiagnosisResult> {
   const isActuallyOnline =
     isOnline && (typeof navigator === "undefined" || navigator.onLine);
+
+  const fallbackMessage =
+    params.language === "en"
+      ? "AI inspection is currently offline. Basic inspection is shown below."
+      : "अभी AI जांच उपलब्ध नहीं है। बुनियादी जांच के लिए यह तरीका देखें।";
 
   // When offline, use the local deterministic engine — no network calls
   if (!isActuallyOnline) {
@@ -107,7 +133,18 @@ export async function requestAIDiagnosis(
     });
 
     return applySafetySanitization(
-      { ...localResult, provider: "local_engine", isFallback: true, fallbackNote: "अभी सामान्य जाँच उपलब्ध है।" },
+      {
+        ...localResult,
+        provider: "local_engine",
+        isFallback: true,
+        fallbackNote: fallbackMessage,
+        sufficiencyStatus: "sufficient",
+        selfCheckAllowed: true,
+        nextAction: localResult.urgencyLevel === "high" ? "GET_MECHANIC" : "SELF_CHECK",
+        immediateActions: [localResult.safeAction],
+        shouldStopMachine: localResult.severity === "critical",
+        mechanicRequired: localResult.urgencyLevel === "high",
+      },
       params
     );
   }
@@ -125,18 +162,21 @@ export async function requestAIDiagnosis(
       recentHistory: params.machine
         ? `चालू समय: ${params.machine.operatingHours || "0 घंटे"}, पिछली सर्विस: ${params.machine.lastService || "अज्ञात"}`
         : "",
-      // Pass language for localized Gemini response
       language: params.language || "hi",
+      conversationHistory: params.conversationHistory || [],
     };
 
-    // Include photo for Gemini Vision if available
-    // Only send if within a reasonable size limit (~3MB base64 ≈ ~2MB image)
-    if (params.imageBase64 && params.imageBase64.length > 200 && params.imageBase64.length < 4_000_000) {
+    // Include photo for Gemini Vision if available (~3MB limit)
+    if (
+      params.imageBase64 &&
+      params.imageBase64.length > 200 &&
+      params.imageBase64.length < 4_000_000
+    ) {
       payload.imageBase64 = params.imageBase64;
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s for vision requests
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const response = await fetch("/api/diagnosis", {
       method: "POST",
@@ -151,43 +191,34 @@ export async function requestAIDiagnosis(
       const data = await response.json().catch(() => null);
 
       if (data && data.success && data.result) {
-        const res = data.result as StructuredAIDiagnosisResponse & {
-          immediate_actions?: string[];
-          should_stop_machine?: boolean;
-          mechanic_required?: boolean;
-          farmer_message?: string;
-          has_image_analysis?: boolean;
-        };
+        const res = data.result as StructuredAIDiagnosisResponse;
 
         const confidenceVal = Math.round(
           res.confidence <= 1 ? res.confidence * 100 : res.confidence
         );
 
-        const urgencyLevel: DiagnosisUrgency =
-          res.severity === "critical" || res.severity === "high"
-            ? "high"
-            : res.severity === "medium"
-            ? "medium"
-            : "low";
+        const isHigh = res.severity === "critical" || res.severity === "high";
+        const isMed = res.severity === "medium";
 
-        const urgencyText =
-          urgencyLevel === "high"
-            ? "🔴 तुरंत मदद चाहिए"
-            : urgencyLevel === "medium"
-            ? "🟠 जल्द मरम्मत करें"
-            : "🟢 सामान्य जाँच";
+        const urgencyLevel: DiagnosisUrgency = isHigh ? "high" : isMed ? "medium" : "low";
 
-        const urgencyColor =
-          urgencyLevel === "high"
-            ? "bg-red-100 text-red-900 border-red-300"
-            : urgencyLevel === "medium"
-            ? "bg-amber-100 text-amber-900 border-amber-300"
-            : "bg-emerald-100 text-emerald-900 border-emerald-300";
+        const isEn = params.language === "en";
+        const urgencyText = isHigh
+          ? isEn ? "🔴 Very Urgent" : "🔴 तुरंत मदद चाहिए"
+          : isMed
+          ? isEn ? "🟠 Prompt Attention" : "🟠 जल्द मरम्मत करें"
+          : isEn ? "🟢 Normal" : "🟢 सामान्य जाँच";
 
-        // Build the recommended action — prefer immediate_actions list for richer display
+        const urgencyColor = isHigh
+          ? "bg-red-100 text-red-900 border-red-300"
+          : isMed
+          ? "bg-amber-100 text-amber-900 border-amber-300"
+          : "bg-emerald-100 text-emerald-900 border-emerald-300";
+
+        // Build safe action text from immediateActions or recommendedAction
         const safeAction =
-          res.immediate_actions && res.immediate_actions.length > 0
-            ? res.immediate_actions.join(" • ")
+          res.immediateActions && res.immediateActions.length > 0
+            ? res.immediateActions.join(" • ")
             : res.recommendedAction;
 
         const cloudResult: AIDiagnosisResult = {
@@ -200,21 +231,35 @@ export async function requestAIDiagnosis(
           urgencyLevel,
           urgencyText,
           urgencyColor,
-          disclaimer: "यह AI प्रारंभिक जाँच है। अंतिम पुष्टि मैकेनिक करेगा।",
-          matchedRule: res.has_image_analysis ? "gemini_vision" : "gemini_text",
+          disclaimer: isEn
+            ? "This is an AI preliminary inspection. Final confirmation will be done by the mechanic."
+            : "यह AI प्रारंभिक जाँच है। अंतिम पुष्टि मैकेनिक करेगा।",
+          matchedRule: params.imageBase64 ? "gemini_vision" : "gemini_text",
           timestamp: new Date().toISOString(),
           photoAnalysis: params.photoAnalysis,
           severity: res.severity as ProblemSeverity,
           safetyWarning: res.safetyWarning,
           isFallback: false,
           provider: "cloud_ai",
+          // Step-by-step intelligent diagnosis fields
+          sufficiencyStatus: res.sufficiencyStatus || "sufficient",
+          machineIdentified: res.machineIdentified,
+          problemCategory: res.problemCategory,
+          selfCheckAllowed: res.selfCheckAllowed,
+          immediateActions: res.immediateActions || [],
+          shouldStopMachine: res.shouldStopMachine,
+          mechanicRequired: res.mechanicRequired,
+          nextAction: res.nextAction || (isHigh ? "GET_MECHANIC" : "SELF_CHECK"),
+          question: res.question || "",
+          farmerMessage: res.farmerMessage || "",
+          conversationHistory: params.conversationHistory,
         };
 
         return applySafetySanitization(cloudResult, params);
       }
     }
 
-    // Server signaled fallback or network failure → use local engine
+    // Cloud failed or returned fallback -> local fallback
     return applySafetySanitization(
       {
         ...runDemoAIDiagnosis({
@@ -225,12 +270,15 @@ export async function requestAIDiagnosis(
         }),
         provider: "local_engine",
         isFallback: true,
-        fallbackNote: "अभी सामान्य जाँच उपलब्ध है।",
+        fallbackNote: fallbackMessage,
+        sufficiencyStatus: "sufficient",
+        selfCheckAllowed: true,
+        nextAction: "SELF_CHECK",
       },
       params
     );
   } catch {
-    // Fail-safe catch → local engine, never crash the UI
+    // Fail-safe catch -> local engine
     return applySafetySanitization(
       {
         ...runDemoAIDiagnosis({
@@ -241,7 +289,10 @@ export async function requestAIDiagnosis(
         }),
         provider: "local_engine",
         isFallback: true,
-        fallbackNote: "अभी सामान्य जाँच उपलब्ध है।",
+        fallbackNote: fallbackMessage,
+        sufficiencyStatus: "sufficient",
+        selfCheckAllowed: true,
+        nextAction: "SELF_CHECK",
       },
       params
     );

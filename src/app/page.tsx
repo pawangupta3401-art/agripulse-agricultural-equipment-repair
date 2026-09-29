@@ -43,6 +43,7 @@ import {
   UrgencyType,
   InputMethod,
   AIDiagnosisResult,
+  DiagnosisConversationMessage,
   JobCard,
   PartSelection,
   MachinePassportRecord,
@@ -287,6 +288,8 @@ export default function AgriPulseApp() {
   const [isDiagnosing, setIsDiagnosing] = useState<boolean>(false);
   const [showDiagnosisDetails, setShowDiagnosisDetails] = useState<boolean>(false);
   const [diagnosisOrigin, setDiagnosisOrigin] = useState<"breakdown" | "sahayak">("breakdown");
+  const [diagnosisConversationHistory, setDiagnosisConversationHistory] = useState<DiagnosisConversationMessage[]>([]);
+  const [followUpAnswerText, setFollowUpAnswerText] = useState<string>("");
 
   // Phase P2E: Technician Matching State
   const [techMatchResult, setTechMatchResult] = useState<TechnicianMatchResult | null>(null);
@@ -690,6 +693,123 @@ export default function AgriPulseApp() {
     setVoiceRecordedComplete(true);
   };
 
+  // Intelligent Step-by-Step Diagnosis: Follow-up voice recording for AI questions
+  const startFollowUpVoiceRecording = () => {
+    if (typeof window === "undefined") return;
+    const windowWithSpeech = window as unknown as {
+      SpeechRecognition?: any;
+      webkitSpeechRecognition?: any;
+    };
+    const SpeechRecognitionClass =
+      windowWithSpeech.SpeechRecognition || windowWithSpeech.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionClass) {
+      setSpeechUnsupportedMessage(
+        currentLanguage === "en"
+          ? "Voice input not supported on this browser. Please type."
+          : "आवाज़ की सुविधा इस फोन में उपलब्ध नहीं है। कृपया लिखकर बताएं।"
+      );
+      return;
+    }
+
+    try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // Safe fallback
+        }
+      }
+      const recognition = new SpeechRecognitionClass();
+      recognition.lang = getSpeechRecognitionCode(currentLanguage);
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        setIsVoiceRecording(true);
+        setVoiceStatusText("🎤 उत्तर सुन रहे हैं...");
+      };
+      recognition.onresult = (event: any) => {
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        if (transcript) {
+          setFollowUpAnswerText(transcript);
+        }
+      };
+      recognition.onerror = () => {
+        setIsVoiceRecording(false);
+        setVoiceStatusText("");
+      };
+      recognition.onend = () => {
+        setIsVoiceRecording(false);
+        setVoiceStatusText("");
+      };
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch {
+      setIsVoiceRecording(false);
+      setVoiceStatusText("");
+    }
+  };
+
+  // Intelligent Step-by-Step Diagnosis: Submit answer to follow-up question
+  const handleAnswerDiagnosisQuestion = async (
+    answerText: string,
+    newPhotoBase64?: string
+  ) => {
+    if (!answerText.trim() && !newPhotoBase64) return;
+
+    const existingHistory: DiagnosisConversationMessage[] = [
+      ...diagnosisConversationHistory,
+    ];
+    if (currentDiagnosis?.question) {
+      existingHistory.push({
+        role: "assistant",
+        content: currentDiagnosis.question,
+      });
+    }
+    existingHistory.push({
+      role: "farmer",
+      content: answerText.trim() || (newPhotoBase64 ? "मशीन की नई साफ फोटो संलग्न की है" : ""),
+    });
+    setDiagnosisConversationHistory(existingHistory);
+
+    setIsDiagnosing(true);
+
+    const machine =
+      diagnosisOrigin === "breakdown"
+        ? machines.find((m) => m.id === breakdownMachineId) || machines[0]
+        : machines.find((m) => m.id === "tractor") || machines[0];
+
+    const activePhoto =
+      newPhotoBase64 ||
+      (diagnosisOrigin === "breakdown" ? breakdownPhotoPreview : sahayakPhoto);
+
+    const combinedComplaint = `${breakdownDescription || sahayakDescription} | उत्तर: ${answerText.trim()}`;
+
+    const diag = await requestAIDiagnosis(
+      {
+        machine,
+        problemDescription: combinedComplaint,
+        hasPhoto: !!activePhoto,
+        photoAnalysis: currentDiagnosis?.photoAnalysis,
+        urgency: breakdownUrgency || sahayakUrgency || "today",
+        language: currentLanguage,
+        imageBase64: activePhoto || null,
+        conversationHistory: existingHistory,
+      },
+      isOnline
+    );
+
+    setCurrentDiagnosis(diag);
+    setFollowUpAnswerText("");
+    setTimeout(() => {
+      setIsDiagnosing(false);
+    }, 1200);
+  };
+
   // P2M Step 1: Sahayak Quick Prompts Handler
   const handleSahayakAskPrompt = (promptText: string) => {
     let answerText = "";
@@ -909,6 +1029,16 @@ export default function AgriPulseApp() {
         setPhotoVisionResult(photoResult);
       }
 
+      const initialHistory: DiagnosisConversationMessage[] = [
+        {
+          role: "farmer",
+          content:
+            breakdownDescription.trim() ||
+            (hasPhoto ? "मशीन की फोटो संलग्न है" : "मशीन में समस्या है"),
+        },
+      ];
+      setDiagnosisConversationHistory(initialHistory);
+
       const diag = await requestAIDiagnosis(
         {
           machine,
@@ -920,6 +1050,7 @@ export default function AgriPulseApp() {
           language: currentLanguage,
           // Gemini Vision: pass photo securely to the server-side Gemini route
           imageBase64: hasPhoto ? breakdownPhotoPreview : null,
+          conversationHistory: initialHistory,
         },
         isOnline
       );
@@ -1199,6 +1330,16 @@ export default function AgriPulseApp() {
         });
       }
 
+      const initialHistory: DiagnosisConversationMessage[] = [
+        {
+          role: "farmer",
+          content:
+            sahayakDescription.trim() ||
+            (hasPhoto ? "मशीन की फोटो संलग्न है" : "मशीन में समस्या है"),
+        },
+      ];
+      setDiagnosisConversationHistory(initialHistory);
+
       const diag = await requestAIDiagnosis(
         {
           machine,
@@ -1210,6 +1351,7 @@ export default function AgriPulseApp() {
           language: currentLanguage,
           // Gemini Vision: pass photo securely to the server-side Gemini route
           imageBase64: hasPhoto && sahayakPhoto ? sahayakPhoto : null,
+          conversationHistory: initialHistory,
         },
         isOnline
       );
@@ -4692,15 +4834,144 @@ export default function AgriPulseApp() {
                   </div>
 
                   {/* 4. अभी क्या करें */}
-                  <div className="bg-amber-50 border-3 border-amber-400 rounded-2xl p-4 space-y-1.5">
+                  <div className="bg-amber-50 border-3 border-amber-400 rounded-2xl p-4 space-y-2">
                     <div className="text-xl font-black text-amber-950 flex items-center gap-1.5">
                       <span>⚠️</span>
                       <span>{currentLanguage === "en" ? "What to do now" : "अभी क्या करें"}</span>
                     </div>
-                    <p className="text-lg font-black text-amber-900 leading-relaxed">
-                      {currentDiagnosis.safeAction}
-                    </p>
+                    {currentDiagnosis.immediateActions &&
+                    currentDiagnosis.immediateActions.length > 0 &&
+                    currentDiagnosis.selfCheckAllowed ? (
+                      <div className="space-y-2 pt-1">
+                        {currentDiagnosis.immediateActions.map((action, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-start gap-2.5 text-base font-black text-amber-950"
+                          >
+                            <span className="bg-amber-200 text-amber-950 rounded-full w-6 h-6 flex items-center justify-center shrink-0 text-sm font-black border border-amber-300">
+                              {idx + 1}
+                            </span>
+                            <span className="leading-snug mt-0.5">{action}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-lg font-black text-amber-900 leading-relaxed">
+                        {currentDiagnosis.safeAction}
+                      </p>
+                    )}
                   </div>
+
+                  {/* Multi-turn AI Follow-up Question Card */}
+                  {(currentDiagnosis.nextAction === "NEED_MORE_INFORMATION" ||
+                    (currentDiagnosis.question &&
+                      currentDiagnosis.question.trim().length > 0)) && (
+                    <div className="bg-emerald-50 border-3 border-emerald-500 rounded-2xl p-4 space-y-3 shadow-md">
+                      <div className="flex items-center gap-2 text-emerald-950 font-black text-lg">
+                        <span className="text-2xl">❓</span>
+                        <span>
+                          {currentLanguage === "en"
+                            ? "AI Question — Please answer to complete diagnosis:"
+                            : "जाँच पूरी करने के लिए एक सवाल का जवाब दें:"}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-white rounded-xl border-2 border-emerald-300 text-lg font-black text-slate-900 leading-snug">
+                        {currentDiagnosis.question}
+                      </div>
+
+                      <div className="space-y-2 pt-1">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={followUpAnswerText}
+                            onChange={(e) => setFollowUpAnswerText(e.target.value)}
+                            placeholder={
+                              currentLanguage === "en"
+                                ? "Speak or type your answer..."
+                                : "बोलकर या लिखकर उत्तर दें..."
+                            }
+                            className="flex-1 p-3 rounded-xl border-2 border-slate-300 text-base font-bold text-slate-900 bg-white focus:outline-none focus:border-emerald-600 shadow-inner"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && followUpAnswerText.trim()) {
+                                handleAnswerDiagnosisQuestion(followUpAnswerText);
+                              }
+                            }}
+                          />
+                          {/* Speak button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isVoiceRecording) {
+                                stopVoiceRecording();
+                              } else {
+                                startFollowUpVoiceRecording();
+                              }
+                            }}
+                            className={`px-4 py-3 rounded-xl border-2 font-black text-xl transition-all shadow-sm ${
+                              isVoiceRecording
+                                ? "bg-red-600 text-white border-red-700 animate-pulse"
+                                : "bg-amber-100 border-amber-400 text-amber-950 hover:bg-amber-200"
+                            }`}
+                            title={currentLanguage === "en" ? "Voice answer" : "बोलकर बताएं"}
+                          >
+                            🎤
+                          </button>
+                          {/* Photo button */}
+                          <label
+                            className="cursor-pointer px-4 py-3 rounded-xl border-2 bg-blue-100 border-blue-400 text-blue-950 hover:bg-blue-200 font-black text-xl flex items-center justify-center transition-all shadow-sm"
+                            title={currentLanguage === "en" ? "Take fresh photo" : "साफ फोटो लें"}
+                          >
+                            📷
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (ev) => {
+                                    const b64 = ev.target?.result as string;
+                                    handleAnswerDiagnosisQuestion(
+                                      followUpAnswerText ||
+                                        (currentLanguage === "en"
+                                          ? "New clear photo attached"
+                                          : "मशीन की नई साफ फोटो संलग्न की"),
+                                      b64
+                                    );
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+
+                        {/* Submit answer button */}
+                        <button
+                          type="button"
+                          disabled={!followUpAnswerText.trim()}
+                          onClick={() => handleAnswerDiagnosisQuestion(followUpAnswerText)}
+                          className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-3.5 px-4 rounded-xl text-lg flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.99]"
+                        >
+                          <span>⚡</span>
+                          <span>
+                            {currentLanguage === "en"
+                              ? "Send Answer & Continue Diagnosis ➔"
+                              : "उत्तर भेजें और पुनः जाँच करें ➔"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fallback Note if offline or fallback */}
+                  {currentDiagnosis.fallbackNote && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-900 text-center">
+                      {currentDiagnosis.fallbackNote}
+                    </div>
+                  )}
 
                   {/* Small Disclaimer */}
                   <div className="bg-slate-100 border border-slate-200 rounded-2xl p-3.5 text-center">
