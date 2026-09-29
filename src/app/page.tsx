@@ -916,6 +916,10 @@ export default function AgriPulseApp() {
           hasPhoto,
           photoAnalysis: photoResult,
           urgency: breakdownUrgency,
+          // Gemini integration: pass selected language for localized response
+          language: currentLanguage,
+          // Gemini Vision: pass photo securely to the server-side Gemini route
+          imageBase64: hasPhoto ? breakdownPhotoPreview : null,
         },
         isOnline
       );
@@ -1202,6 +1206,10 @@ export default function AgriPulseApp() {
           hasPhoto,
           photoAnalysis: photoResult,
           urgency: sahayakUrgency || "today",
+          // Gemini integration: pass selected language for localized response
+          language: currentLanguage,
+          // Gemini Vision: pass photo securely to the server-side Gemini route
+          imageBase64: hasPhoto && sahayakPhoto ? sahayakPhoto : null,
         },
         isOnline
       );
