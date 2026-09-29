@@ -165,7 +165,7 @@ export const mr: TranslationDictionary = {
   verification: {
     title: "दुरुस्ती पडताळणी (Farmer Verification)",
     question: "यंत्र चालू करून पाहिले का? समस्या पूर्णपणे सुटली आहे का?",
-    yesWorking: "होय, यंत्र अगदी योग्यरित्या काम करत आहे",
+    yesWorking: "होय, यंत्र व्यवस्थित चालू आहे",
     noIssueRemains: "नाही, समस्या अजूनही कायम आहे",
     reRepairBtn: "विनामूल्य पुन्हा दुरुस्तीची मागणी करा",
     viewMachineBtn: "मशीन पासपोर्टमध्ये नोंद पहा ➔",

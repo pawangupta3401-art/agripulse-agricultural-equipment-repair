@@ -115,7 +115,6 @@ async function runMultilingualTests() {
 
   // 5. Test Fallback Chain (Never return raw key)
   console.log("\n--- 5. Testing 3-Tier Fallback Chain ---");
-  // @ts-expect-error Testing non-existent key
   const missingKeyTest = t("non_existent.nested.key", "mr");
   assert(!missingKeyTest.includes("non_existent"), `Must not expose raw key path: got '${missingKeyTest}'`);
 

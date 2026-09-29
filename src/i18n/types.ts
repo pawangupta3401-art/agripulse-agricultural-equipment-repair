@@ -57,6 +57,12 @@ export interface TranslationDictionary {
     kilometers: string;
     hours: string;
     rupee: string;
+    view?: string;
+    dataSafeNotice?: string;
+    syncingNotice?: string;
+    offlineNotice?: string;
+    reset?: string;
+    total?: string;
   };
   nav: {
     home: string;
@@ -67,6 +73,8 @@ export interface TranslationDictionary {
     language: string;
     ivrPhone: string;
     assistedDesk: string;
+    service?: string;
+    help?: string;
   };
   welcome: {
     title: string;
@@ -75,6 +83,8 @@ export interface TranslationDictionary {
     popularLanguages: string;
     moreLanguages: string;
     continueBtn: string;
+    greeting?: string;
+    howCanIHelp?: string;
   };
   dashboard: {
     greeting: string;
@@ -89,6 +99,16 @@ export interface TranslationDictionary {
     oneClickDemoBtn: string;
     oneClickDemoSub: string;
     viewAllMachines: string;
+    myMachines?: string;
+    reportBreakdown?: string;
+    callMechanic?: string;
+    myRepairs?: string;
+    nextService?: string;
+    recoveryEngine?: string;
+    featurePhone?: string;
+    assistedDesk?: string;
+    kisanSahayak?: string;
+    askQuestion?: string;
   };
   machines: {
     myMachines: string;
@@ -105,6 +125,18 @@ export interface TranslationDictionary {
     machinePassport: string;
     viewPassport: string;
     totalServices: string;
+    title?: string;
+    selectType?: string;
+    machineName?: string;
+    addMachineBtn?: string;
+    operational?: string;
+    attentionNeeded?: string;
+    viewMachine?: string;
+  };
+  repair?: {
+    activeRepair?: string;
+    noRepairs?: string;
+    title?: string;
   };
   complaint: {
     reportTitle: string;
@@ -123,6 +155,7 @@ export interface TranslationDictionary {
     urgencyLater: string;
     criticalWindowNotice: string;
     submitBtn: string;
+    title?: string;
   };
   diagnosis: {
     title: string;
@@ -152,6 +185,7 @@ export interface TranslationDictionary {
     confirmPlanBtn: string;
     viewAllTechnicians: string;
     criticalWindowBanner: string;
+    technician?: string;
   };
   pricing: {
     title: string;
@@ -200,6 +234,10 @@ export interface TranslationDictionary {
     noIssueRemains: string;
     reRepairBtn: string;
     viewMachineBtn: string;
+    isMachineWorking?: string;
+    testInstructions?: string;
+    machineFixed?: string;
+    issueRemains?: string;
   };
   passport: {
     title: string;
@@ -211,6 +249,7 @@ export interface TranslationDictionary {
     maintenanceRecommendation: string;
     estimatedCostLabel: string;
     finalCostLabel: string;
+    nextMaintenance?: string;
   };
   preventive: {
     title: string;
@@ -219,6 +258,9 @@ export interface TranslationDictionary {
     preHarvestPkg: string;
     comprehensivePkg: string;
     bookBtn: string;
+    serviceDue?: string;
+    serviceOverdue?: string;
+    allMachinesHealthy?: string;
   };
   settings: {
     title: string;
