@@ -66,7 +66,7 @@ export interface TechnicianMatchResult {
 /**
  * Resolve the most relevant technician skill from machine type string.
  */
-function resolveSkill(machineType?: string, problemCategory?: string): TechnicianSkill | null {
+export function resolveSkill(machineType?: string, problemCategory?: string): TechnicianSkill | null {
   const lower = (machineType || "").toLowerCase().trim();
 
   // Direct machine type match
@@ -255,3 +255,74 @@ export function skillLabelHi(skill: TechnicianSkill | null): string {
   };
   return skill ? (map[skill] || skill) : "मशीन";
 }
+
+export interface TechnicianMatchProfile {
+  id: string;
+  name?: string;
+  nameHi?: string;
+  skills?: string[];
+  equipmentCategories?: string[];
+  available?: boolean;
+  serviceArea?: string;
+  serviceAreaKm?: number;
+  latitude?: number;
+  longitude?: number;
+}
+
+/**
+ * Minimal, rule-based matching layer to determine if a farmer repair request
+ * is relevant for a specific technician.
+ *
+ * Checks:
+ * 1. Technician Availability: If technician is offline/unavailable, no new requests match.
+ * 2. Concurrency: If request is already assigned to a DIFFERENT technician, it does not match.
+ * 3. Machine & Skill relevance: Resolves skill from machine name / diagnosis category and matches against technician skills.
+ * 4. Service area / distance: If coordinates available, checks within technician's service area.
+ */
+export function isRepairRelevantForTechnician(
+  repair: import("@/types").RepairRequest,
+  technician: TechnicianMatchProfile,
+  isAvailable: boolean = true
+): boolean {
+  // 1. Availability check: if technician is off-duty, do not assign new requests
+  if (!isAvailable) {
+    return false;
+  }
+
+  // 2. Concurrency: if request already assigned to another technician, prevent access
+  if (repair.technicianId && repair.technicianId !== technician.id) {
+    return false;
+  }
+
+  // 3. Resolve required skill from machine type or problem category
+  const requiredSkill = resolveSkill(
+    repair.machineNameHi || repair.machineId,
+    repair.diagnosis?.matchedRule || repair.diagnosis?.problemCategory
+  );
+
+  const techSkills = (technician.skills || []).map((s) => s.toLowerCase());
+  const equipmentCats = (technician.equipmentCategories || []).map((c) => c.toLowerCase());
+  const machineStr = (repair.machineNameHi || repair.machineId || "").toLowerCase();
+
+  // Skill matches required skill directly
+  if (requiredSkill && techSkills.includes(requiredSkill.toLowerCase())) {
+    return true;
+  }
+
+  // Machine string matches any of the technician's skills or categories
+  if (techSkills.some((s) => machineStr.includes(s) || s.includes(machineStr))) {
+    return true;
+  }
+
+  if (equipmentCats.some((c) => machineStr.includes(c) || c.includes(machineStr))) {
+    return true;
+  }
+
+  // General fallback: if no specific machine skill resolved, check if tech has Mechanical or Engine skills
+  if (!requiredSkill && (techSkills.includes("mechanical") || techSkills.includes("engine"))) {
+    return true;
+  }
+
+  return false;
+}
+

@@ -227,7 +227,7 @@ export default function NearbyMechanicsMap({
 
         {/* Permission request card */}
         <div className="bg-emerald-50 border-3 border-emerald-400 rounded-3xl p-6 space-y-5 text-center shadow-md">
-          <div className="w-20 h-20 rounded-full bg-emerald-100 border-4 border-emerald-400 flex items-center justify-center text-4xl mx-auto shadow-inner">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-100 border-4 border-emerald-400 flex items-center justify-center text-3xl sm:text-4xl mx-auto shadow-inner">
             📍
           </div>
           <div className="space-y-2">
@@ -354,7 +354,7 @@ export default function NearbyMechanicsMap({
             className="bg-white border-3 border-emerald-500 rounded-3xl p-5 shadow-lg space-y-4 animate-[fadeInUp_0.2s_ease-out]"
           >
             <div className="flex items-start gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-100 border-3 border-emerald-400 flex items-center justify-center text-3xl shadow-sm flex-shrink-0">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-100 border-3 border-emerald-400 flex items-center justify-center text-2xl sm:text-3xl shadow-sm flex-shrink-0">
                 👨‍🔧
               </div>
               <div className="flex-1">

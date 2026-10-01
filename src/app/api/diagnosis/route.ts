@@ -72,6 +72,13 @@ function stripDataUrlPrefix(imageBase64: string): string {
   return commaIdx !== -1 ? imageBase64.slice(commaIdx + 1) : imageBase64;
 }
 
+function getUnavailableMessage(language: string): string {
+  if (language === "en") {
+    return "AI inspection is not available right now. You can retake the photo or speak directly with a mechanic.";
+  }
+  return "अभी AI जांच उपलब्ध नहीं है। आप फोटो दोबारा भेज सकते हैं या मैकेनिक से बात कर सकते हैं।";
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
@@ -81,7 +88,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           fallback: true,
-          message: "अभी AI जांच उपलब्ध नहीं है। बुनियादी जांच के लिए यह तरीका देखें।",
+          message: getUnavailableMessage("hi"),
         },
         { status: 200 }
       );
@@ -115,77 +122,80 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           fallback: true,
-          message: "अभी AI जांच उपलब्ध नहीं is। बुनियादी जांच के लिए यह तरीका देखें।",
+          message: getUnavailableMessage(language),
           isDangerous: complaintDangerous,
         },
         { status: 200 }
       );
     }
 
-    // ── 2. Build Gemini System Prompt (Core Decision Pipeline) ──────────────
-    const systemPrompt = `You are AgriPulse, an expert, careful agricultural equipment troubleshooting assistant for Indian farmers.
+    // ── 2. Build Gemini System Prompt (Farmer-Friendly Decision Pipeline) ──
+    const systemPrompt = `You are AgriPulse, an expert, caring, and careful agricultural equipment troubleshooting assistant for Indian farmers.
 You diagnose farm equipment (tractors, power tillers, harvesters, water pumps, sprayers, rotavators, threshers, etc.).
 
-YOU MUST FOLLOW THIS STRICT DECISION PIPELINE:
-1. UNDERSTAND: Understand the machine, complaint, and any image provided.
-2. CHECK INFORMATION QUALITY:
-   - If a photo is attached:
-     * Is an agricultural machine or part visible? If NO (e.g. photo is of a person, animal, random object, ceiling): return status: "insufficient", next_action: "NEED_MORE_INFORMATION", question: "कृपया मशीन या खराब हिस्से की फोटो लें।" (in ${langName}).
-     * Is the photo blurry or unclear? If YES: return status: "insufficient", next_action: "NEED_MORE_INFORMATION", question: "फोटो साफ नहीं है। कृपया मशीन के खराब हिस्से की नजदीक से एक साफ फोटो लें।" (in ${langName}).
-     * Is the wrong part shown? If YES: return status: "insufficient", next_action: "NEED_MORE_INFORMATION", question: "समस्या वाले हिस्से की फोटो लें ताकि मैं बेहतर जांच कर सकूं।" (in ${langName}).
-3. IDENTIFY MACHINE:
-   - Use the provided machine if known. If completely unknown and necessary, ask "यह कौन सी मशीन है?" (in ${langName}).
-4. IDENTIFY PROBLEM & CHECK SUFFICIENCY:
-   - If the farmer gives incomplete or vague information (e.g., just "काम नहीं कर रहा" or "आवाज आ रही है" without details) and there is no clear photo:
-     DO NOT guess or hallucinate a specific failed component.
-     Set status: "insufficient", next_action: "NEED_MORE_INFORMATION".
-     Ask exactly ONE simple, specific question to narrow down the problem (e.g., "मशीन स्टार्ट करते समय कोई आवाज आती है क्या?" or "क्या मशीन से धुआं निकल रहा है?" or "क्या तेल नीचे टपक रहा है?").
-     DO NOT ask multiple questions. Ask ONLY ONE question at a time.
-5. SAFETY CHECK (CRITICAL):
-   - Check for danger: smoke, fire, sparks, severe overheating, fuel leakage, major oil leakage, exposed electrical wiring, hydraulic pressure burst, damaged spinning parts, uncontrolled movement.
-   - If ANY danger exists:
-     * severity MUST BE "danger"
-     * should_stop_machine MUST BE true
-     * mechanic_required MUST BE true
-     * self_check_allowed MUST BE false
-     * next_action MUST BE "STOP_MACHINE"
-     * immediate_actions: ["मशीन तुरंत बंद रखें", "सुरक्षित दूरी बनाएं", "मैकेनिक को बुलाएं"]
-     * message: "मशीन बंद रखें और मैकेनिक से जांच करवाएं।" (in ${langName})
-6. DIAGNOSIS (ONLY WHEN INFORMATION IS SUFFICIENT):
-   - Possible problem: simple farmer-friendly description.
-   - Possible causes: maximum 3 likely causes. Use humble wording like "संभावित कारण" or "हो सकता है".
-   - Self-check decision:
-     * If the problem can be safely inspected visually (e.g. loose belt, battery terminal loose, low oil level, air filter dirty):
-       self_check_allowed = true
-       next_action = "SELF_CHECK"
-       immediate_actions: maximum 3 simple, low-risk checks (e.g. "1. मशीन बंद करें।", "2. बैटरी कनेक्शन देखें।", "3. ईंधन स्तर जांचें।")
-     * If the problem involves high pressure, electrical rewiring, deep engine internals, or mechanical hazards:
-       self_check_allowed = false
-       mechanic_required = true
-       next_action = "GET_MECHANIC"
-       immediate_actions: ["मशीन चालू न करें", "योग्य मैकेनिक को दिखाएं"]
-7. LANGUAGE & TONE RULES:
-   - Output language MUST BE ${langName}. Every single text field MUST be in ${langName}.
-   - Farmer-friendly vocabulary only.
-   - ABSOLUTELY NEVER MENTION: Gemini, AI, API, model, confidence score, machine learning, prompt, backend, neural network, or developer terminology.
-   - If uncertain, be honest: say that the issue cannot be reliably identified yet and ask the next question.
+IMPORTANT RULES FOR FARMER EXPERIENCE:
+- Output MUST be in very simple, natural, conversational, farmer-friendly language.
+- The language MUST BE strictly ${langName}. Every field including voice_summary must be in ${langName}.
+- NO technical AI terminology (never say AI, Gemini, API, model, neural, prompt, algorithm, dataset).
+- NO technical mechanics jargon unless simplified into everyday farmer words.
+- NEVER present an unconfirmed diagnosis as a certain fact. Use humble, cautious phrasing:
+  In Hindi: "लगता है...", "संभावित समस्या...", "जांच की जरूरत है..." (NEVER "यह निश्चित रूप से खराब है")
+  In English: "It seems...", "Potential issue...", "Needs inspection..." (NEVER "This is definitely broken")
 
-OUTPUT FORMAT:
-Return ONLY a valid JSON object strictly matching this schema:
+SAFETY IS PARAMOUNT (DO NOT GIVE DANGEROUS INSTRUCTIONS):
+- Do NOT instruct the farmer to:
+  * open dangerous engine components (like pressurized radiator caps, high pressure fuel lines)
+  * touch moving machinery or belts
+  * work near rotating parts (PTO shaft, blades, pulleys)
+  * handle exposed electrical wiring or battery shorting
+  * handle fuel dangerously near heat
+  * perform complex or hazardous internal repairs
+- If ANY dangerous condition is detected (smoke, sparks, fire, strong overheating, fuel leakage, electrical damage, loud knocking):
+  * Urgently instruct the farmer to turn off the machine, maintain a safe distance, and call a qualified mechanic immediately.
+
+DECISION PIPELINE:
+1. CHECK PHOTO & INFO QUALITY:
+   - If photo is unrelated to machine/part or too blurry to see anything:
+     status: "insufficient", question: "कृपया मशीन या खराब हिस्से की एक साफ फोटो लें।" (in ${langName}).
+2. CHECK SUFFICIENCY:
+   - If complaint is too vague (e.g. just "चल नहीं रहा") and no clear photo:
+     status: "insufficient", ask ONLY ONE simple question (e.g. "क्या मशीन स्टार्ट करते समय कोई आवाज आती है?").
+3. DIAGNOSIS (WHEN SUFFICIENT):
+   Formulate a simple 5-part farmer guidance:
+   1. WHAT IS THE PROBLEM? ("problem": simple clear explanation of what seems to be the issue)
+   2. EXPLANATION: ("explanation": simple reason why this might be happening)
+   3. WHAT TO DO NOW: ("steps": 2-3 simple numbered steps the farmer can safely do, e.g. "पहला कदम: मशीन बंद रखें।", "दूसरा कदम: ईंधन और फिल्टर देखें।", "तीसरा कदम: मैकेनिक से जांच करवाएं।")
+   4. WHAT NOT TO DO: ("avoid": 1-2 important precautions, e.g. ["मशीन को बार-बार स्टार्ट करने की कोशिश न करें।"])
+   5. WHEN TO CALL A MECHANIC: ("when_to_call_mechanic": clear threshold, e.g. "अगर मशीन स्टार्ट नहीं हो रही है या धुआँ निकल रहा है, तो मैकेनिक को बुलाएं।")
+   6. URGENCY: ("urgency": "low" | "medium" | "high" | "critical", "urgency_explanation": e.g. "अभी मशीन चलाना ठीक नहीं है। पहले जांच करवाएं।")
+   7. VOICE SCRIPT: ("voice_summary": A warm, natural, spoken voice explanation addressing the farmer as "किसान जी" in Hindi or "Farmer friend" in English. Short, step-by-step, simple, natural, spoken style. Perfect for Text-to-Speech playback.)
+
+OUTPUT FORMAT (STRICT JSON ONLY):
+Return ONLY a valid JSON object matching this structure:
 {
   "status": "sufficient" | "insufficient" | "unsafe_to_diagnose",
   "machine": "string (identified machine in ${langName})",
-  "problem": "string (clear issue title in ${langName})",
-  "problem_category": "string (e.g., Starting / Electrical / Engine / Hydraulic / Cooling / Fuel)",
-  "severity": "safe" | "caution" | "danger" | "unknown",
-  "possible_causes": ["string"] (max 3 items in ${langName}, empty if insufficient),
-  "self_check_allowed": boolean,
-  "immediate_actions": ["string"] (max 3 simple steps in ${langName}),
-  "should_stop_machine": boolean,
+  "problem": "string (सरल भाषा में संभावित समस्या in ${langName})",
+  "explanation": "string (समस्या क्यों हो सकती है in ${langName})",
+  "steps": [
+    "string (पहला आसान कदम in ${langName})",
+    "string (दूसरा आसान कदम in ${langName})",
+    "string (तीसरा आसान कदम in ${langName})"
+  ],
+  "avoid": [
+    "string (क्या नहीं करना चाहिए in ${langName})"
+  ],
+  "when_to_call_mechanic": "string (मैकेनिक को कब बुलाएं in ${langName})",
   "mechanic_required": boolean,
-  "next_action": "SELF_CHECK" | "GET_MECHANIC" | "NEED_MORE_INFORMATION" | "STOP_MACHINE" | "GENERAL_GUIDANCE",
-  "question": "string (ONE simple follow-up question in ${langName} if status is insufficient, else empty string)",
-  "message": "string (short farmer-friendly summary message in ${langName})"
+  "urgency": "low" | "medium" | "high" | "critical",
+  "urgency_explanation": "string (मशीन चलाने की स्थिति in ${langName})",
+  "voice_summary": "string (किसान जी... ऑडियो के लिए सरल व स्पष्ट संदेश in ${langName})",
+  "question": "string (ONE simple follow-up question if insufficient, else empty string)",
+  "problem_category": "string (e.g. Engine / Electrical / Fuel / Cooling / Starting)",
+  "severity": "safe" | "caution" | "danger",
+  "self_check_allowed": boolean,
+  "should_stop_machine": boolean,
+  "next_action": "SELF_CHECK" | "GET_MECHANIC" | "NEED_MORE_INFORMATION" | "STOP_MACHINE"
 }`;
 
     // ── 3. Build User Prompt with Context & Multi-turn History ──────────────
@@ -291,14 +301,12 @@ ${historyContext}
         {
           success: false,
           fallback: true,
-          message: "अभी AI जांच उपलब्ध नहीं है। बुनियादी जांच के लिए यह तरीका देखें।",
+          message: getUnavailableMessage(language),
           isDangerous: complaintDangerous,
         },
         { status: 200 }
       );
     }
-
-
 
       // ── 5. Parse Gemini Structured Output ────────────────────────────────
       let geminiOutput: GeminiStructuredDiagnosis;
@@ -315,7 +323,7 @@ ${historyContext}
           {
             success: false,
             fallback: true,
-            message: "अभी AI जांच उपलब्ध नहीं है। बुनियादी जांच के लिए यह तरीका देखें।",
+            message: getUnavailableMessage(language),
             isDangerous: complaintDangerous,
           },
           { status: 200 }
@@ -327,15 +335,16 @@ ${historyContext}
         complaintDangerous ||
         geminiOutput.severity === "danger" ||
         geminiOutput.should_stop_machine ||
-        geminiOutput.next_action === "STOP_MACHINE";
+        geminiOutput.next_action === "STOP_MACHINE" ||
+        geminiOutput.urgency === "critical";
 
       const finalSeverity: "critical" | "high" | "medium" | "low" = isDangerous
         ? "critical"
-        : geminiOutput.severity === "caution"
+        : geminiOutput.urgency === "high" || geminiOutput.severity === "danger"
+        ? "high"
+        : geminiOutput.urgency === "medium" || geminiOutput.severity === "caution"
         ? "medium"
-        : geminiOutput.severity === "safe"
-        ? "low"
-        : "medium";
+        : "low";
 
       const finalNextAction = isDangerous
         ? "STOP_MACHINE"
@@ -343,7 +352,7 @@ ${historyContext}
           (geminiOutput.status === "insufficient" ? "NEED_MORE_INFORMATION" : "SELF_CHECK");
 
       const finalSafetyWarning = isDangerous
-        ? MANDATORY_DANGER_WARNING
+        ? (language === "en" ? "⚠️ Keep machine stopped and maintain safe distance." : MANDATORY_DANGER_WARNING)
         : null;
 
       // Recommended action text
@@ -356,21 +365,72 @@ ${historyContext}
       } else if (geminiOutput.question && geminiOutput.status === "insufficient") {
         recommendedActionText = geminiOutput.question;
       } else if (
+        Array.isArray(geminiOutput.steps) &&
+        geminiOutput.steps.length > 0
+      ) {
+        recommendedActionText = geminiOutput.steps.join(" • ");
+      } else if (
         Array.isArray(geminiOutput.immediate_actions) &&
         geminiOutput.immediate_actions.length > 0
       ) {
         recommendedActionText = geminiOutput.immediate_actions.join(" • ");
       } else {
-        recommendedActionText = geminiOutput.message || "सावधानीपूर्वक जांच करें।";
+        recommendedActionText = geminiOutput.message || (language === "en" ? "Inspect with care." : "सावधानीपूर्वक जांच करें।");
       }
+
+      // Safe farmer steps
+      const farmerSteps = isDangerous
+        ? (language === "en"
+            ? ["Step 1: Keep machine stopped immediately.", "Step 2: Maintain a safe distance and do not restart.", "Step 3: Call a certified mechanic immediately."]
+            : ["पहला कदम: मशीन को तुरंत बंद रखें।", "दूसरा कदम: सुरक्षित दूरी बनाए रखें और दोबारा चालू न करें।", "तीसरा कदम: तुरंत मैकेनिक से जांच करवाएं।"])
+        : Array.isArray(geminiOutput.steps) && geminiOutput.steps.length > 0
+        ? geminiOutput.steps
+        : Array.isArray(geminiOutput.immediate_actions) && geminiOutput.immediate_actions.length > 0
+        ? geminiOutput.immediate_actions
+        : language === "en"
+        ? ["Step 1: Keep the machine turned off.", "Step 2: Check around the machine for any unusual noise or leakage.", "Step 3: If issue persists, have a mechanic inspect it."]
+        : ["पहला कदम: मशीन को बंद रखें।", "दूसरा कदम: मशीन के पास से आवाज़ या रिसाव ध्यान से देखें।", "तीसरा कदम: अगर समस्या बनी रहती है तो मैकेनिक से जांच करवाएं।"];
+
+      // Safe farmer avoid instructions
+      const farmerAvoid = isDangerous
+        ? (language === "en"
+            ? ["Do not attempt to restart the machine.", "Do not touch hot parts, wiring, or moving components."]
+            : ["मशीन को बार-बार स्टार्ट करने की कोशिश न करें।", "गर्म हिस्सों, तारों या घूमने वाले पुर्जों को हाथ न लगाएं।"])
+        : Array.isArray(geminiOutput.avoid) && geminiOutput.avoid.length > 0
+        ? geminiOutput.avoid
+        : language === "en"
+        ? ["Do not repeatedly try to start the machine.", "Do not open pressurized or dangerous engine components."]
+        : ["मशीन को बार-बार स्टार्ट करने की कोशिश न करें।", "दबाव वाले या खतरनाक पुर्जों को खुद न खोलें।"];
+
+      // When to call mechanic
+      const whenToCallMechanic = geminiOutput.when_to_call_mechanic ||
+        (language === "en"
+          ? "If the machine does not start, makes unusual sounds, or smoke appears, call a mechanic."
+          : "अगर मशीन स्टार्ट नहीं हो रही है, अजीब आवाज या धुआँ निकल रहा है, तो मैकेनिक को बुलाएं।");
+
+      // Urgency explanation
+      const urgencyExplanation = isDangerous
+        ? (language === "en"
+            ? "Operating the machine right now is unsafe. Get it inspected first."
+            : "अभी मशीन चलाना ठीक नहीं है। पहले जांच करवाएं।")
+        : geminiOutput.urgency_explanation ||
+          (finalSeverity === "high"
+            ? (language === "en" ? "Urgent attention recommended before running machine." : "मशीन चलाने से पहले तुरंत जांच करवाएं।")
+            : (language === "en" ? "Condition is normal, low risk of stoppage. Inspect safely." : "अभी सामान्य स्थिति है। पहले सुरक्षित जांच करवाएं।"));
+
+      // Voice summary script
+      const voiceSummary = geminiOutput.voice_summary ||
+        (language === "en"
+          ? `Farmer friend, your machine seems to need inspection. Please do not repeatedly restart the machine. ${farmerSteps.join(" ")} ${whenToCallMechanic}`
+          : `किसान जी, आपकी मशीन में सामान्य जांच की जरूरत लग रही है। अभी मशीन को बार-बार स्टार्ट न करें। ${farmerSteps.join(" ")} ${whenToCallMechanic}`);
 
       // Backward compatible StructuredAIDiagnosisResponse
       const parsedOutput: StructuredAIDiagnosisResponse = {
-        diagnosis: geminiOutput.problem || "मशीन समस्या",
+        diagnosis: geminiOutput.problem || (language === "en" ? "Possible Machine Issue" : "संभावित मशीन समस्या"),
         confidence: isDangerous ? 0.95 : geminiOutput.status === "sufficient" ? 0.88 : 0.65,
-        reasons: Array.isArray(geminiOutput.possible_causes)
+        reasons: Array.isArray(geminiOutput.possible_causes) && geminiOutput.possible_causes.length > 0
           ? geminiOutput.possible_causes.slice(0, 3)
-          : [],
+          : geminiOutput.explanation ? [geminiOutput.explanation] : [],
         recommendedAction: recommendedActionText,
         severity: finalSeverity,
         safetyWarning: finalSafetyWarning,
@@ -379,16 +439,20 @@ ${historyContext}
         machineIdentified: geminiOutput.machine || machineType,
         problemCategory: geminiOutput.problem_category || "",
         selfCheckAllowed: isDangerous ? false : !!geminiOutput.self_check_allowed,
-        immediateActions: isDangerous
-          ? ["मशीन तुरंत बंद रखें", "सुरक्षित दूरी बनाएं", "मैकेनिक बुलाएं"]
-          : Array.isArray(geminiOutput.immediate_actions)
-          ? geminiOutput.immediate_actions.slice(0, 3)
-          : [],
+        immediateActions: farmerSteps,
         shouldStopMachine: isDangerous || !!geminiOutput.should_stop_machine,
         mechanicRequired: isDangerous || !!geminiOutput.mechanic_required,
         nextAction: finalNextAction,
         question: geminiOutput.question || "",
         farmerMessage: geminiOutput.message || "",
+        // Farmer-Friendly Natural Structured Fields
+        farmerProblem: geminiOutput.problem || (language === "en" ? "Possible machine inspection needed" : "आपकी मशीन में जांच की आवश्यकता हो सकती है"),
+        farmerExplanation: geminiOutput.explanation || (language === "en" ? "Normal wear and tear or routine inspection needed." : "नियमित संचालन या घिसाव के कारण जांच की जरूरत हो सकती है।"),
+        farmerSteps,
+        farmerAvoid,
+        whenToCallMechanic,
+        urgencyExplanation,
+        voiceSummary,
       };
 
       return NextResponse.json({
@@ -403,7 +467,7 @@ ${historyContext}
       {
         success: false,
         fallback: true,
-        message: "अभी AI जांच उपलब्ध नहीं है। बुनियादी जांच के लिए यह तरीका देखें।",
+        message: getUnavailableMessage("hi"),
       },
       { status: 200 }
     );

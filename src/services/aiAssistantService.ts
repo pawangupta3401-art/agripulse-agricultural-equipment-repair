@@ -77,6 +77,36 @@ function applySafetySanitization(
 
   if (isDangerous) {
     const isEn = params.language === "en";
+    const dangerSteps = isEn
+      ? [
+          "Step 1: Keep the machine stopped immediately.",
+          "Step 2: Maintain a safe distance and do not restart.",
+          "Step 3: Call a certified mechanic immediately."
+        ]
+      : [
+          "पहला कदम: मशीन को तुरंत बंद रखें।",
+          "दूसरा कदम: सुरक्षित दूरी बनाए रखें और दोबारा चालू न करें।",
+          "तीसरा कदम: तुरंत मैकेनिक से जांच करवाएं।"
+        ];
+    const dangerAvoid = isEn
+      ? [
+          "Do not repeatedly try to start the machine.",
+          "Do not touch hot parts, bare wires, or moving components."
+        ]
+      : [
+          "मशीन को बार-बार स्टार्ट करने की कोशिश न करें।",
+          "गर्म हिस्सों, खुले तारों या घूमने वाले पुर्जों को हाथ न लगाएं।"
+        ];
+    const dangerMechanic = isEn
+      ? "Call a mechanic immediately. Do not operate the machine."
+      : "तुरंत मैकेनिक को बुलाएं। मशीन को बिल्कुल न चलाएं।";
+    const dangerUrgency = isEn
+      ? "Operating the machine right now is unsafe. Get it inspected first."
+      : "अभी मशीन चलाना ठीक नहीं है। पहले जांच करवाएं।";
+    const dangerVoice = isEn
+      ? "Farmer friend, a serious safety issue is detected with your machine. Please keep the machine stopped immediately and do not restart. Keep a safe distance and call a certified mechanic right away."
+      : "किसान जी, मशीन में गंभीर समस्या या खतरे का संकेत है। मशीन को तुरंत बंद रखें और बार-बार स्टार्ट न करें। सुरक्षित दूरी बनाएं और तुरंत मैकेनिक से जांच करवाएं।";
+
     return {
       ...diag,
       safetyWarning: isEn
@@ -93,9 +123,12 @@ function applySafetySanitization(
       mechanicRequired: true,
       selfCheckAllowed: false,
       nextAction: "STOP_MACHINE",
-      immediateActions: isEn
-        ? ["Stop machine immediately", "Keep safe distance", "Contact mechanic"]
-        : ["मशीन तुरंत बंद रखें", "सुरक्षित दूरी बनाएं", "मैकेनिक से जांच करवाएं"],
+      immediateActions: dangerSteps,
+      farmerSteps: dangerSteps,
+      farmerAvoid: dangerAvoid,
+      whenToCallMechanic: dangerMechanic,
+      urgencyExplanation: dangerUrgency,
+      voiceSummary: dangerVoice,
     };
   }
 
@@ -120,8 +153,8 @@ export async function requestAIDiagnosis(
 
   const fallbackMessage =
     params.language === "en"
-      ? "AI inspection is currently offline. Basic inspection is shown below."
-      : "अभी AI जांच उपलब्ध नहीं है। बुनियादी जांच के लिए यह तरीका देखें।";
+      ? "AI inspection is not available right now. You can retake the photo or speak directly with a mechanic."
+      : "अभी AI जांच उपलब्ध नहीं है। आप फोटो दोबारा भेज सकते हैं या मैकेनिक से बात कर सकते हैं।";
 
   // When offline, use the local deterministic engine — no network calls
   if (!isActuallyOnline) {
@@ -130,6 +163,7 @@ export async function requestAIDiagnosis(
       problemDescription: params.problemDescription,
       hasPhoto: params.hasPhoto,
       photoAnalysis: params.photoAnalysis,
+      language: params.language,
     });
 
     return applySafetySanitization(
@@ -221,9 +255,38 @@ export async function requestAIDiagnosis(
             ? res.immediateActions.join(" • ")
             : res.recommendedAction;
 
+        const farmerSteps = Array.isArray(res.farmerSteps) && res.farmerSteps.length > 0
+          ? res.farmerSteps
+          : Array.isArray(res.immediateActions) && res.immediateActions.length > 0
+          ? res.immediateActions
+          : isEn
+          ? ["Step 1: Keep the machine turned off.", "Step 2: Check around the machine for unusual signs.", "Step 3: Have a mechanic inspect it."]
+          : ["पहला कदम: मशीन को बंद रखें।", "दूसरा कदम: मशीन के पास से आवाज़ या रिसाव ध्यान से देखें।", "तीसरा कदम: मैकेनिक से जांच करवाएं।"];
+
+        const farmerAvoid = Array.isArray(res.farmerAvoid) && res.farmerAvoid.length > 0
+          ? res.farmerAvoid
+          : isEn
+          ? ["Do not repeatedly try to start the machine."]
+          : ["मशीन को बार-बार स्टार्ट करने की कोशिश न करें।"];
+
+        const whenToCallMechanic = res.whenToCallMechanic ||
+          (isEn
+            ? "If the machine does not start or smoke appears, call a mechanic."
+            : "अगर मशीन स्टार्ट नहीं हो रही है या धुआँ निकल रहा है, तो मैकेनिक को बुलाएं।");
+
+        const urgencyExplanation = res.urgencyExplanation ||
+          (isHigh
+            ? (isEn ? "Operating the machine right now is unsafe. Get it inspected first." : "अभी मशीन चलाना ठीक नहीं है। पहले जांच करवाएं।")
+            : (isEn ? "Operating condition is normal. Inspect safely." : "अभी सामान्य स्थिति है। पहले जांच करवाएं।"));
+
+        const voiceSummary = res.voiceSummary ||
+          (isEn
+            ? `Farmer friend, your machine seems to need an inspection. Please do not repeatedly restart the machine. ${farmerSteps.join(" ")} ${whenToCallMechanic}`
+            : `किसान जी, आपकी मशीन में सामान्य जांच की जरूरत लग रही है। अभी मशीन को बार-बार स्टार्ट न करें। ${farmerSteps.join(" ")} ${whenToCallMechanic}`);
+
         const cloudResult: AIDiagnosisResult = {
           id: `diag-gemini-${Date.now()}`,
-          possibleProblem: res.diagnosis,
+          possibleProblem: res.farmerProblem || res.diagnosis,
           confidence: `${confidenceVal}%`,
           confidenceValue: confidenceVal,
           reasons: Array.isArray(res.reasons) ? res.reasons : [res.diagnosis],
@@ -246,13 +309,21 @@ export async function requestAIDiagnosis(
           machineIdentified: res.machineIdentified,
           problemCategory: res.problemCategory,
           selfCheckAllowed: res.selfCheckAllowed,
-          immediateActions: res.immediateActions || [],
+          immediateActions: farmerSteps,
           shouldStopMachine: res.shouldStopMachine,
           mechanicRequired: res.mechanicRequired,
           nextAction: res.nextAction || (isHigh ? "GET_MECHANIC" : "SELF_CHECK"),
           question: res.question || "",
           farmerMessage: res.farmerMessage || "",
           conversationHistory: params.conversationHistory,
+          // Farmer-Friendly Natural Structured Fields
+          farmerProblem: res.farmerProblem || res.diagnosis,
+          farmerExplanation: res.farmerExplanation || (res.reasons && res.reasons[0]) || "",
+          farmerSteps,
+          farmerAvoid,
+          whenToCallMechanic,
+          urgencyExplanation,
+          voiceSummary,
         };
 
         return applySafetySanitization(cloudResult, params);
@@ -267,6 +338,7 @@ export async function requestAIDiagnosis(
           problemDescription: params.problemDescription,
           hasPhoto: params.hasPhoto,
           photoAnalysis: params.photoAnalysis,
+          language: params.language,
         }),
         provider: "local_engine",
         isFallback: true,
@@ -286,6 +358,7 @@ export async function requestAIDiagnosis(
           problemDescription: params.problemDescription,
           hasPhoto: params.hasPhoto,
           photoAnalysis: params.photoAnalysis,
+          language: params.language,
         }),
         provider: "local_engine",
         isFallback: true,

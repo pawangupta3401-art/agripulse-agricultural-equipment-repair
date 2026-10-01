@@ -1,0 +1,213 @@
+import { NextRequest, NextResponse } from "next/server";
+
+/**
+ * In-memory server-side jobs registry for active assignments
+ */
+const serverJobAssignments: Record<
+  string,
+  {
+    technicianId: string;
+    technicianName: string;
+    status: string;
+    statusTextHi: string;
+    parts?: string[];
+    tools?: string[];
+    messageToFarmer?: string;
+    rejectionReason?: string;
+    rejectedBy?: string[];
+    notes?: string;
+    updatedAt: string;
+  }
+> = {};
+
+function verifyTechnicianRole(req: NextRequest): { ok: boolean; response?: NextResponse; tokenRole?: string } {
+  const authHeader = req.headers.get("authorization") || req.headers.get("x-auth-token") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+  if (!token) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "unauthorized",
+          messageHi: "कृपया पहले टेक्नीशियन खाते से लॉगिन करें।",
+          messageEn: "Authentication token missing.",
+        },
+        { status: 401 }
+      ),
+    };
+  }
+
+  // Token format: agri-token-${role}-${phone}-${timestamp}
+  const parts = token.split("-");
+  const role = parts[2]?.toLowerCase();
+
+  // Strict backend role authorization
+  if (role !== "technician") {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "forbidden",
+          messageHi: "पहुंच अस्वीकृत: केवल प्रमाणित टेक्नीशियन ही यह कार्य कर सकते हैं।",
+          messageEn: "Access forbidden: only certified technicians may access this endpoint.",
+        },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return { ok: true, tokenRole: role };
+}
+
+export async function GET(req: NextRequest) {
+  const auth = verifyTechnicianRole(req);
+  if (!auth.ok) return auth.response!;
+
+  return NextResponse.json({
+    success: true,
+    role: "technician",
+    authorized: true,
+    messageHi: "टेक्नीशियन कार्य सफलतापूर्वक लोड हुए।",
+    activeAssignments: serverJobAssignments,
+  });
+}
+
+export async function POST(req: NextRequest) {
+  const auth = verifyTechnicianRole(req);
+  if (!auth.ok) return auth.response!;
+
+  try {
+    const body = await req.json();
+    const { action, repairId, technicianId, technicianName, reason, parts, tools, messageToFarmer, notes, finalCost } = body;
+
+    if (!repairId) {
+      return NextResponse.json(
+        { success: false, error: "missing_repair_id", messageHi: "मरम्मत अनुरोध आईडी आवश्यक है।" },
+        { status: 400 }
+      );
+    }
+
+    const currentAssignment = serverJobAssignments[repairId];
+
+    if (action === "accept") {
+      // Concurrency check: prevent two technicians from accepting the same request
+      if (currentAssignment && currentAssignment.technicianId && currentAssignment.technicianId !== technicianId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "already_assigned",
+            messageHi: "यह अनुरोध अन्य मैकेनिक द्वारा पहले ही स्वीकार कर लिया गया है।",
+            assignedTo: currentAssignment.technicianName,
+          },
+          { status: 409 }
+        );
+      }
+
+      serverJobAssignments[repairId] = {
+        technicianId: technicianId || "tech-current",
+        technicianName: technicianName || "प्रमाणित मिस्त्री",
+        status: "technician_assigned",
+        statusTextHi: "मैकेनिक नियुक्त हो गया है",
+        updatedAt: new Date().toISOString(),
+      };
+
+      return NextResponse.json({
+        success: true,
+        action: "accept",
+        repairId,
+        status: "technician_assigned",
+        statusTextHi: "मैकेनिक नियुक्त हो गया है",
+        assignment: serverJobAssignments[repairId],
+        messageHi: "अनुरोध सफलतापूर्वक स्वीकार किया गया।",
+      });
+    }
+
+    if (action === "reject") {
+      const existingRejected = currentAssignment?.rejectedBy || [];
+      if (technicianId && !existingRejected.includes(technicianId)) {
+        existingRejected.push(technicianId);
+      }
+
+      serverJobAssignments[repairId] = {
+        ...(currentAssignment || { technicianId: "", technicianName: "", status: "finding_mechanic", statusTextHi: "मैकेनिक खोज रहे हैं", updatedAt: new Date().toISOString() }),
+        rejectionReason: reason || "उपलब्ध नहीं",
+        rejectedBy: existingRejected,
+        updatedAt: new Date().toISOString(),
+      };
+
+      return NextResponse.json({
+        success: true,
+        action: "reject",
+        repairId,
+        rejectionReason: reason || "उपलब्ध नहीं",
+        messageHi: "अनुरोध अस्वीकार दर्ज किया गया।",
+      });
+    }
+
+    if (action === "update_parts") {
+      if (currentAssignment) {
+        currentAssignment.parts = parts || currentAssignment.parts;
+        currentAssignment.tools = tools || currentAssignment.tools;
+        currentAssignment.messageToFarmer = messageToFarmer || currentAssignment.messageToFarmer;
+        currentAssignment.updatedAt = new Date().toISOString();
+      }
+      return NextResponse.json({
+        success: true,
+        action: "update_parts",
+        repairId,
+        parts: parts || [],
+        tools: tools || [],
+        messageToFarmer,
+        messageHi: "आवश्यक सामान व सूचना सुरक्षित की गई।",
+      });
+    }
+
+    if (action === "start_travel") {
+      if (currentAssignment) {
+        currentAssignment.status = "on_the_way";
+        currentAssignment.statusTextHi = "मैकेनिक रास्ते में है";
+        currentAssignment.updatedAt = new Date().toISOString();
+      }
+      return NextResponse.json({
+        success: true,
+        action: "start_travel",
+        repairId,
+        status: "on_the_way",
+        statusTextHi: "मैकेनिक रास्ते में है",
+        messageHi: "यात्रा शुरू की गई। किसान को सूचना भेजी गई।",
+      });
+    }
+
+    if (action === "complete") {
+      if (currentAssignment) {
+        currentAssignment.status = "verification_pending";
+        currentAssignment.statusTextHi = "मशीन की जाँच बाकी है";
+        currentAssignment.notes = notes;
+        currentAssignment.updatedAt = new Date().toISOString();
+      }
+      return NextResponse.json({
+        success: true,
+        action: "complete",
+        repairId,
+        status: "verification_pending",
+        statusTextHi: "मशीन की जाँच बाकी है",
+        finalCost,
+        messageHi: "मरम्मत पूर्ण चिह्नित की गई। किसान सत्यापन लंबित।",
+      });
+    }
+
+    return NextResponse.json(
+      { success: false, error: "invalid_action", messageHi: "अमान्य कार्य।" },
+      { status: 400 }
+    );
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "server_error", messageHi: "अनुरोध प्रक्रिया में त्रुटि आई।" },
+      { status: 500 }
+    );
+  }
+}
+

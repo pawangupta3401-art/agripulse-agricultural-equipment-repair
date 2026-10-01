@@ -418,6 +418,7 @@ export function createRepairRequest(params: {
   diagnosis?: AIDiagnosisResult;
   farmerId?: string;
   estimatedCost?: PricingBreakdown;
+  farmerLocation?: RepairRequest["farmerLocation"];
 }): RepairRequest {
   const machines = getMachines();
   const machine = machines.find((m) => m.id === params.machineId) || machines[0];
@@ -448,6 +449,7 @@ export function createRepairRequest(params: {
     isOfflineCreated: isOffline,
     diagnosis: params.diagnosis,
     estimatedCost: params.estimatedCost,
+    farmerLocation: params.farmerLocation,
   };
 
   if (isStorageAvailable()) {
@@ -672,5 +674,79 @@ export function resetDemoData(): void {
     // Fail silently
   }
 }
+
+/**
+ * Create a realistic simulated demo repair request for Technician workflow demo.
+ * Farmer: Pawan Gupta | Machine: Tractor | Problem: Tractor start नहीं हो रहा
+ */
+export function createSimulatedDemoRepair(): RepairRequest {
+  return {
+    id: "rep-demo-pawan-tractor",
+    farmerId: "farmer-pawan-01",
+    farmerName: "Pawan Gupta",
+    farmerPhone: "9876543210",
+    machineId: "tractor",
+    machineNameHi: "Tractor (ट्रैक्टर)",
+    machineIcon: "🚜",
+    problemDescription: "Tractor start नहीं हो रहा",
+    inputMethod: "voice",
+    urgency: "today",
+    status: "finding_mechanic",
+    statusTextHi: "मैकेनिक खोज रहे हैं",
+    createdAt: new Date().toISOString(),
+    verificationStatus: "pending",
+    syncStatus: "synced",
+    isSimulatedDemo: true,
+    approxDistanceText: "3.2 किमी दूर",
+    routeUrl: "https://www.google.com/maps/dir/?api=1&destination=26.8467,80.9462",
+    farmerLocation: {
+      latitude: 26.8467,
+      longitude: 80.9462,
+      village: "शाहपुर",
+      district: "लखनऊ, उत्तर प्रदेश",
+    },
+    diagnosis: {
+      id: "diag-demo-starting-system",
+      possibleProblem: "Starting system में समस्या हो सकती है.",
+      confidence: "89% (उच्च)",
+      confidenceValue: 89,
+      reasons: [
+        "सेल्फ स्टार्टर मोटर या सोलनॉइड स्विच में खराबी हो सकती है।",
+        "बैटरी वोल्टेज पर्याप्त न होने पर स्टार्टर क्रैंक नहीं करता।",
+        "इग्निशन स्विच या रिले में वायरिंग ढीली हो सकती है।"
+      ],
+      safeAction: "मशीन तुरंत बंद रखें। बैटरी टर्मिनल चेक करें और मैकेनिक का इंतजार करें।",
+      urgencyLevel: "high",
+      urgencyText: "जरूरी",
+      urgencyColor: "bg-amber-100 text-amber-800 border-amber-300",
+      disclaimer: "AI की संभावित जांच • भौतिक निरीक्षण आवश्यक है",
+      matchedRule: "starter_system_diagnosis",
+      timestamp: new Date().toISOString(),
+      whenToCallMechanic: "यदि बैटरी टर्मिनल साफ होने पर भी क्रैंक न हो, तो तुरंत प्रमाणित मैकेनिक को बुलाएं।",
+    },
+    recommendedParts: ["Starter", "Battery"],
+  };
+}
+
+/**
+ * Ensure the simulated demo repair request is available for technician testing.
+ */
+export function ensureSimulatedDemoRequest(): RepairRequest {
+  const repairs = getRepairRequests();
+  const existing = repairs.find((r) => r.id === "rep-demo-pawan-tractor");
+  if (existing) return existing;
+
+  const newDemo = createSimulatedDemoRepair();
+  if (isStorageAvailable()) {
+    try {
+      const updated = [newDemo, ...repairs];
+      localStorage.setItem(REPAIRS_STORAGE_KEY, JSON.stringify(updated));
+    } catch {
+      // safe fallback
+    }
+  }
+  return newDemo;
+}
+
 
 

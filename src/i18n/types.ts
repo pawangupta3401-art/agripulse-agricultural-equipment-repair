@@ -170,6 +170,21 @@ export interface TranslationDictionary {
     safetyWarningTitle: string;
     technicianConfirmationNeeded: string;
     viewRecoveryOptionsBtn: string;
+    // Farmer-Friendly 5-Part Presentation & Voice UX
+    whatIsTheProblem?: string;
+    whatToDoNow?: string;
+    whatNotToDo?: string;
+    whenToCallMechanic?: string;
+    urgencyTitle?: string;
+    listenBtn?: string;
+    listenResponseBtn?: string;
+    pauseVoiceBtn?: string;
+    resumeVoiceBtn?: string;
+    stopVoiceBtn?: string;
+    replayVoiceBtn?: string;
+    speakingStatus?: string;
+    pausedStatus?: string;
+    aiUnavailableMessage?: string;
   };
   recovery: {
     title: string;

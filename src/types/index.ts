@@ -285,6 +285,14 @@ export interface GeminiStructuredDiagnosis {
   next_action: DiagnosisNextAction;
   question: string;
   message: string;
+  // Farmer-Friendly Natural Structured Fields
+  explanation?: string;
+  steps?: string[];
+  avoid?: string[];
+  when_to_call_mechanic?: string;
+  urgency?: "low" | "medium" | "high" | "critical" | string;
+  urgency_explanation?: string;
+  voice_summary?: string;
 }
 
 export interface StructuredAIDiagnosisResponse {
@@ -305,6 +313,14 @@ export interface StructuredAIDiagnosisResponse {
   nextAction?: DiagnosisNextAction;
   question?: string;
   farmerMessage?: string;
+  // Farmer-Friendly Natural Structured Fields
+  farmerProblem?: string;
+  farmerExplanation?: string;
+  farmerSteps?: string[];
+  farmerAvoid?: string[];
+  whenToCallMechanic?: string;
+  urgencyExplanation?: string;
+  voiceSummary?: string;
 }
 
 export interface AIDiagnosisResult {
@@ -339,6 +355,14 @@ export interface AIDiagnosisResult {
   question?: string;
   farmerMessage?: string;
   conversationHistory?: DiagnosisConversationMessage[];
+  // Farmer-Friendly Natural Structured Fields
+  farmerProblem?: string;
+  farmerExplanation?: string;
+  farmerSteps?: string[];
+  farmerAvoid?: string[];
+  whenToCallMechanic?: string;
+  urgencyExplanation?: string;
+  voiceSummary?: string;
 }
 
 export interface RepairRequest {
@@ -381,6 +405,15 @@ export interface RepairRequest {
   technicianWorkflowStatus?: TechnicianWorkflowStatus;
   approxDistanceText?: string;
   routeUrl?: string;
+  farmerLocation?: {
+    latitude: number;
+    longitude: number;
+    locationSource?: string;
+    locationUpdatedAt?: string;
+    accuracy?: number;
+    village?: string;
+    district?: string;
+  };
   // ─── P2O Step 2: Transparent Pricing ────────────────────────────────────
   estimatedCost?: PricingBreakdown;
   finalCost?: PricingBreakdown;
@@ -399,6 +432,13 @@ export interface RepairRequest {
   callerPhoneNumber?: string;
   assistedOperatorId?: string;
   assistedOperatorNameHi?: string;
+  // ─── Technician Repair Request Workflow fields ─────────────────────────
+  farmerName?: string;
+  farmerPhone?: string;
+  requiredTools?: string[];
+  technicianMessageToFarmer?: string;
+  rejectionReason?: string;
+  isSimulatedDemo?: boolean;
 }
 
 // ─── P2O Step 2: Transparent Pricing Interfaces ─────────────────────────────
