@@ -17,15 +17,17 @@ export async function GET(req: NextRequest) {
   }
 
   const parts = token.split("-");
-  const role = parts[2]?.toLowerCase();
+  const rawRole = parts[2]?.toLowerCase();
   const phone = parts[3];
 
-  if (!role || !phone) {
+  if (!rawRole || !phone) {
     return NextResponse.json(
       { success: false, error: "invalid_token", messageHi: "अमान्य सत्र टोकन।" },
       { status: 401 }
     );
   }
+
+  const normalizedRole = (rawRole === "technician" || rawRole === "tech") ? "technician" : "farmer";
 
   const globalStore = global as unknown as {
     __agripulse_users?: Map<string, ServerUserProfile>;
@@ -37,12 +39,12 @@ export async function GET(req: NextRequest) {
 
   // 2. Check users map by compound key
   if (!user && globalStore.__agripulse_users) {
-    const compound = `${phone}_${role}`;
+    const compound = `${phone}_${normalizedRole}`;
     user = globalStore.__agripulse_users.get(compound);
 
     if (!user) {
       for (const u of globalStore.__agripulse_users.values()) {
-        if (u.phone === phone && u.role.toLowerCase() === role) {
+        if (u.phone === phone && u.role.toLowerCase() === normalizedRole) {
           user = u;
           break;
         }
@@ -50,7 +52,11 @@ export async function GET(req: NextRequest) {
     }
 
     if (!user) {
-      user = globalStore.__agripulse_users.get(phone);
+      const candidate = globalStore.__agripulse_users.get(phone);
+      // Strictly enforce role match - never return a farmer profile when technician is requested
+      if (candidate && candidate.role.toLowerCase() === normalizedRole) {
+        user = candidate;
+      }
     }
   }
 
@@ -62,15 +68,16 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const normalizedRole = role === "technician" ? "technician" : "farmer";
   return NextResponse.json({
     success: true,
     user: {
-      id: `${role}-${phone}`,
+      id: `${normalizedRole}-${phone}`,
       phone,
       role: normalizedRole,
-      name: normalizedRole === "farmer" ? "Pawan Gupta" : "Rajesh Kumar",
-      nameHi: normalizedRole === "farmer" ? "Pawan Gupta" : "राजेश कुमार",
+      name: normalizedRole === "technician" ? "प्रमाणित टेक्नीशियन" : "किसान साथी",
+      nameHi: normalizedRole === "technician" ? "प्रमाणित टेक्नीशियन" : "किसान साथी",
+      villageOrArea: "नागपुर",
+      avatarIcon: normalizedRole === "technician" ? "🔧" : "🚜",
     },
     role: normalizedRole,
   });

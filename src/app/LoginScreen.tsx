@@ -203,20 +203,18 @@ export default function LoginScreen({
         return;
       }
       if (!villageOrCity.trim()) {
-        setErrorMessage("कृपया अपने गाँव या शहर का नाम दर्ज करें।");
+        setErrorMessage("कृपया अपना पता (गाँव या शहर) दर्ज करें।");
         return;
       }
+      // Auto-fill district and state if omitted
       if (!district.trim()) {
-        setErrorMessage("कृपया अपने ज़िले का नाम दर्ज करें।");
-        return;
+        setDistrict(villageOrCity.trim());
       }
       if (!stateName.trim()) {
-        setErrorMessage("कृपया अपने राज्य का नाम दर्ज करें।");
-        return;
+        setStateName("महाराष्ट्र");
       }
       if (selectedRole === "technician" && techSelectedSkills.length === 0) {
-        setErrorMessage("कृपया कम से कम एक उपकरण कौशल चुनें।");
-        return;
+        setTechSelectedSkills(["Tractor", "Mechanical"]);
       }
     }
 
@@ -296,6 +294,11 @@ export default function LoginScreen({
 
     setIsSubmitting(true);
     try {
+      const effectiveSkills =
+        selectedRole === "technician"
+          ? (techSelectedSkills.length > 0 ? techSelectedSkills : ["Tractor", "Mechanical"])
+          : undefined;
+
       const registrationDetails: RegistrationInput | undefined =
         authMode === "register"
           ? {
@@ -303,11 +306,11 @@ export default function LoginScreen({
               phone: cleanPhoneNumber(mobileNumber),
               address: {
                 villageOrCity: villageOrCity.trim() || "नागपुर",
-                district: district.trim() || "नागपुर",
+                district: district.trim() || villageOrCity.trim() || "नागपुर",
                 state: stateName.trim() || "महाराष्ट्र",
                 pinCode: pinCode.trim() || undefined,
               },
-              skills: selectedRole === "technician" ? techSelectedSkills : undefined,
+              skills: effectiveSkills,
               serviceArea:
                 selectedRole === "technician"
                   ? techServiceArea.trim() || villageOrCity.trim() || "नागपुर"

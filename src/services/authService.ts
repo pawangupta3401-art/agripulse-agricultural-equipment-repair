@@ -23,7 +23,8 @@ export type UserRole = "farmer" | "technician" | "FARMER" | "TECHNICIAN";
  */
 export function isTechnicianRole(role?: string): boolean {
   if (!role) return false;
-  return role.trim().toUpperCase() === "TECHNICIAN";
+  const upper = role.trim().toUpperCase();
+  return upper === "TECHNICIAN" || upper === "TECH";
 }
 
 /**
@@ -665,7 +666,7 @@ export async function registerNewTechnician(params: {
       localStorage.setItem(REGISTERED_USERS_STORAGE_KEY, JSON.stringify(filtered));
 
       // Also create session
-      const sessionToken = `agri-token-tech-${cleanPhone}-${Date.now()}`;
+      const sessionToken = `agri-token-technician-${cleanPhone}-${Date.now()}`;
       const session: AuthSession = {
         token: sessionToken,
         user,

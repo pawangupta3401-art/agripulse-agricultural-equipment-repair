@@ -24,6 +24,7 @@ import {
   UserCheck,
   Send,
   Info,
+  Home,
 } from "lucide-react";
 import {
   JobCard,
@@ -511,7 +512,7 @@ export default function TechnicianDashboard({
                   : "bg-red-500/20 border-red-400 text-red-300"
                 }`}
             >
-              {isAvailable ? "🟢 ऑन-ड्यूटी" : "🔴 ऑफ-ड्यूटी"}
+              {isAvailable ? "🟢 उपलब्ध" : "🔴 व्यस्त"}
             </button>
 
             <button
@@ -936,12 +937,12 @@ export default function TechnicianDashboard({
                   </div>
                 )}
 
-                {/* ================= SECTION 1: INCOMING REQUESTS (नया मरम्मत अनुरोध) ================= */}
-                <div className="space-y-3">
+                {/* ================= SECTION 1: INCOMING REQUESTS (नए मरम्मत अनुरोध) ================= */}
+                <div id="incomingRequestsSection" className="space-y-3">
                   <div className="flex items-center justify-between pb-1 border-b border-slate-200">
                     <h2 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
                       <AlertCircle className="w-5 h-5 text-amber-600" />
-                      <span>नया मरम्मत अनुरोध</span>
+                      <span>नए मरम्मत अनुरोध</span>
                     </h2>
                     <span className="text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 rounded-full">
                       {incomingRepairs.length} नया अनुरोध
@@ -1031,12 +1032,12 @@ export default function TechnicianDashboard({
                   )}
                 </div>
 
-                {/* ================= SECTION 2: ACTIVE REPAIRS (चल रहा मरम्मत काम) ================= */}
-                <div className="space-y-3 pt-2">
+                {/* ================= SECTION 2: ACTIVE REPAIRS (मेरे चल रहे काम) ================= */}
+                <div id="activeWorkSection" className="space-y-3 pt-2">
                   <div className="flex items-center justify-between pb-1 border-b border-slate-200">
                     <h2 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
                       <ClipboardList className="w-5 h-5 text-emerald-700" />
-                      <span>चल रहा मरम्मत काम</span>
+                      <span>मेरे चल रहे काम</span>
                     </h2>
                     <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">
                       {activeRepairs.length} सक्रिय कार्य
@@ -1281,34 +1282,51 @@ export default function TechnicianDashboard({
 
       {/* ================= BOTTOM NAVIGATION FOR TECHNICIAN ================= */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t-3 border-slate-200 py-2 shadow-2xl flex justify-center">
-        <div className="w-full max-w-md grid grid-cols-3 px-2">
-          {/* 📋 Work Orders */}
+        <div className="w-full max-w-md grid grid-cols-4 px-2">
+          {/* 🏠 Home */}
           <button
             type="button"
             onClick={() => {
               setActiveTab("jobs");
               setSelectedJobCardId(null);
+              window.scrollTo({ top: 0, behavior: "smooth" });
             }}
-            className={`py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer ${activeTab === "jobs"
+            className={`py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer ${activeTab === "jobs" && !selectedJobCardId
                 ? "text-emerald-800 font-black bg-emerald-50 scale-105"
                 : "text-slate-600 font-bold hover:text-slate-900"
               }`}
           >
-            <ClipboardList className="w-5 h-5 mb-0.5" />
-            <span className="text-xs">कार्य आदेश</span>
+            <Home className="w-5 h-5 mb-0.5" />
+            <span className="text-xs">होम</span>
           </button>
 
-          {/* 💰 Earnings */}
+          {/* 🔔 Requests */}
           <button
             type="button"
-            onClick={() => setActiveTab("earnings")}
-            className={`py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer ${activeTab === "earnings"
-                ? "text-amber-800 font-black bg-amber-50 scale-105"
-                : "text-slate-600 font-bold hover:text-slate-900"
-              }`}
+            onClick={() => {
+              setActiveTab("jobs");
+              setSelectedJobCardId(null);
+              const el = document.getElementById("incomingRequestsSection");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer text-slate-600 font-bold hover:text-slate-900"
           >
-            <DollarSign className="w-5 h-5 mb-0.5" />
-            <span className="text-xs">कमाई व बिल</span>
+            <AlertCircle className="w-5 h-5 mb-0.5 text-amber-600" />
+            <span className="text-xs">अनुरोध</span>
+          </button>
+
+          {/* 🔧 My Jobs */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("jobs");
+              const el = document.getElementById("activeWorkSection");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer text-slate-600 font-bold hover:text-slate-900"
+          >
+            <ClipboardList className="w-5 h-5 mb-0.5 text-emerald-700" />
+            <span className="text-xs">मेरे काम</span>
           </button>
 
           {/* 🎖️ Profile */}
@@ -1321,7 +1339,7 @@ export default function TechnicianDashboard({
               }`}
           >
             <Award className="w-5 h-5 mb-0.5" />
-            <span className="text-xs">प्रोफ़ाइल व हुनर</span>
+            <span className="text-xs">प्रोफाइल</span>
           </button>
         </div>
       </nav>

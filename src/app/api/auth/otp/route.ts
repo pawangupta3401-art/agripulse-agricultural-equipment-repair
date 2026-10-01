@@ -232,15 +232,18 @@ function findServerUser(phone: string, role?: string | null): ServerUserProfile 
     if (serverUsers.has(compound)) {
       return serverUsers.get(compound);
     }
-    // Search values by role and phone
+    // Search values strictly by role and phone
     for (const u of serverUsers.values()) {
       if (cleanPhone(u.phone) === cPhone && u.role.toLowerCase() === roleLower) {
         return u;
       }
     }
+    // If a role was specified and not found, strictly return undefined!
+    // Do NOT fall back to a user of a different role.
+    return undefined;
   }
 
-  // If no role or not found by role, search by phone
+  // Only if no role was specified, search by phone
   for (const u of serverUsers.values()) {
     if (cleanPhone(u.phone) === cPhone) {
       return u;
@@ -255,13 +258,14 @@ function findServerUser(phone: string, role?: string | null): ServerUserProfile 
 }
 
 /**
- * Persist user cleanly across compound key and phone index
+ * Persist user cleanly across compound key, ID, and phone index
  */
 function saveServerUser(user: ServerUserProfile): void {
   const cPhone = cleanPhone(user.phone);
   const compound = `${cPhone}_${user.role.toLowerCase()}`;
   serverUsers.set(compound, user);
   serverUsers.set(user.id, user);
+  serverUsers.set(`${user.role.toLowerCase()}_${cPhone}`, user);
   serverUsers.set(cPhone, user);
 }
 
@@ -345,7 +349,7 @@ export async function POST(req: NextRequest) {
         attemptsLeft: 5,
       });
 
-      const existingUser = findServerUser(phone, validatedRole) || findServerUser(phone);
+      const existingUser = findServerUser(phone, validatedRole);
       const isExistingUser = !!existingUser;
 
       return NextResponse.json({
@@ -455,10 +459,10 @@ export async function POST(req: NextRequest) {
       } else {
         const realName = (registrationDetails?.name || "").trim();
         if (!realName) {
-          // If no registration details, check if user exists under ANY role for returning user login
-          const anyUser = findServerUser(phone);
-          if (anyUser) {
-            user = anyUser;
+          // Returning user login: enforce stored database role to prevent spoofing
+          const existingAnyRole = findServerUser(phone);
+          if (existingAnyRole) {
+            user = existingAnyRole;
             user.updatedAt = new Date().toISOString();
             saveServerUser(user);
           } else {
