@@ -408,8 +408,8 @@ export default function LoginScreen({
             </div>
           </div>
 
-          {/* Action Items: AI Voice Help (🗣️✨), Speaker & Language */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Action Items: AI Voice Help (🗣️✨) & Language Selector */}
+          <div className="flex items-center gap-2.5 sm:gap-3.5">
             {/* Dedicated AI Voice Assistant Button (🗣️✨) */}
             <button
               id="voiceHelpTriggerBtn"
@@ -422,7 +422,7 @@ export default function LoginScreen({
                 }
                 setShowVoiceHelp((prev) => !prev);
               }}
-              className={`w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center relative rounded-xl border transition-all duration-150 cursor-pointer select-none active:scale-95 ${
+              className={`w-12 h-12 sm:w-[52px] sm:h-[52px] flex items-center justify-center relative rounded-[14px] border transition-all duration-150 cursor-pointer select-none active:scale-95 ${
                 showVoiceHelp
                   ? "bg-[#dcfce7] border-[#165420] ring-2 ring-[#165420]/25 shadow-xs"
                   : "bg-[#ecf8ee] border-[#bbf0bf] text-[#165420] hover:bg-[#e2f5e3] hover:border-[#86efac]"
@@ -431,36 +431,20 @@ export default function LoginScreen({
               aria-label="बोलकर AI मदद लें"
             >
               <div className="relative flex items-center justify-center pointer-events-none">
-                <span className="text-[25px] sm:text-[27px] leading-none select-none filter drop-shadow-2xs">
+                <span className="text-[28px] sm:text-[30px] leading-none select-none filter drop-shadow-2xs">
                   🗣️
                 </span>
-                <span className="text-[12px] sm:text-[13px] absolute -top-1 -right-2 leading-none filter drop-shadow-2xs">
+                <span className="text-[14px] sm:text-[15px] absolute -top-1.5 -right-2 leading-none filter drop-shadow-2xs">
                   ✨
                 </span>
               </div>
-            </button>
-
-            {/* Audio Assistance Button */}
-            <button
-              id="voiceNarratorBtn"
-              type="button"
-              onClick={handleToggleAudio}
-              className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl border active:scale-95 transition-all cursor-pointer ${
-                isSpeaking || showAudioBanner
-                  ? "border-[#165420] bg-[#eaf5eb] text-[#165420]"
-                  : "border-[#cbd5e1] bg-[#f8faf8] text-[#165420] hover:bg-[#eef5ee]"
-              }`}
-              title="आवाज़ में सुनें"
-              aria-label="आवाज़ में सुनें"
-            >
-              <Volume2 className={`w-4 h-4 sm:w-4.5 sm:h-4.5 flex-shrink-0 ${isSpeaking ? "animate-bounce" : ""}`} />
             </button>
 
             {/* Language Selector Trigger */}
             <button
               type="button"
               onClick={() => setShowLangModal(true)}
-              className="h-9 sm:h-10 flex items-center gap-1.5 px-2.5 sm:px-3 rounded-xl bg-[#165420] text-white text-xs sm:text-sm font-semibold border border-[#165420] active:scale-95 transition-all hover:bg-[#124219] cursor-pointer"
+              className="h-10 sm:h-11 flex items-center gap-1.5 px-3 sm:px-3.5 rounded-xl bg-[#165420] text-white text-xs sm:text-sm font-semibold border border-[#165420] active:scale-95 transition-all hover:bg-[#124219] cursor-pointer"
               title="भाषा चुनें / Select Language"
             >
               <Languages className="w-4 h-4 flex-shrink-0" />

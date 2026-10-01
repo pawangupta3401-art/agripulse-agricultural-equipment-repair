@@ -1,11 +1,11 @@
 import assert from "assert";
 import { VoiceHelpScreenContext } from "../types/voiceAssistant";
 import { POST as voiceHelpRouteHandler } from "../app/api/assistant/voice-help/route";
+import { POST as otpRouteHandler } from "../app/api/auth/otp/route";
 import { NextRequest } from "next/server";
-import { requestOtp, verifyOtp } from "../services/authService";
 
-function createMockRequest(body: unknown): NextRequest {
-  const url = "http://localhost:3000/api/assistant/voice-help";
+function createMockRequest(body: unknown, path = "/api/assistant/voice-help"): NextRequest {
+  const url = `http://localhost:3000${path}`;
   return new NextRequest(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -266,29 +266,20 @@ async function runTestSuite() {
   // 12. Existing login/registration authentication still works 100%
   await test("Scenario 12: Existing login/registration authentication is 100% intact", async () => {
     // Send OTP for Pawan Gupta (Farmer)
-    const sendRes = await fetch("http://localhost:3000/api/auth/otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "send",
-        phone: "9876543210",
-        role: "farmer",
-      }),
-    });
+    const sendReq = createMockRequest(
+      { action: "send", phone: "9876543210", role: "farmer" },
+      "/api/auth/otp"
+    );
+    const sendRes = await otpRouteHandler(sendReq);
     const sendData = await sendRes.json();
     assert(sendData.success === true, "Farmer OTP request should succeed");
 
     // Verify OTP
-    const verifyRes = await fetch("http://localhost:3000/api/auth/otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "verify",
-        phone: "9876543210",
-        otp: "123456",
-        role: "farmer",
-      }),
-    });
+    const verifyReq = createMockRequest(
+      { action: "verify", phone: "9876543210", otp: "123456", role: "farmer" },
+      "/api/auth/otp"
+    );
+    const verifyRes = await otpRouteHandler(verifyReq);
     const verifyData = await verifyRes.json();
     assert(verifyData.success === true, "Farmer verification should succeed");
     assert(verifyData.user?.name === "Pawan Gupta", "Should return correct farmer profile");
