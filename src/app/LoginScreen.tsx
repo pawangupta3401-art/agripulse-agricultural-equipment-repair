@@ -17,6 +17,7 @@ import {
   UserPlus,
   X,
   Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import {
   UserRole,
@@ -371,12 +372,12 @@ export default function LoginScreen({
     <div className="min-h-screen bg-[#fafaf8] text-[#0f172a] flex flex-col font-sans selection:bg-[#dcfce7] pb-24">
       {/* ================= TOP APP BAR ================= */}
       <header className="bg-white/95 backdrop-blur-xs w-full border-b border-[#e2e8f0] sticky top-0 z-40 shadow-2xs">
-        <div className="flex justify-between items-center w-full px-4 h-16 max-w-4xl mx-auto">
+        <div className="flex justify-between items-center w-full px-4 h-14 max-w-4xl mx-auto">
           {/* Leading Brand Identity */}
-          <div className="flex items-center gap-2.5">
-            <span className="text-2xl sm:text-3xl filter drop-shadow-2xs">🌾</span>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl filter drop-shadow-2xs">🌾</span>
             <div className="flex flex-col">
-              <span className="text-xl sm:text-2xl font-black text-[#165420] tracking-tight leading-tight">
+              <span className="text-xl font-bold text-[#165420] tracking-tight leading-tight">
                 AgriPulse
               </span>
               <span className="text-[11px] font-semibold text-[#475569] -mt-0.5 hidden xs:inline">
@@ -385,14 +386,14 @@ export default function LoginScreen({
             </div>
           </div>
 
-          {/* Action Items: Audio Help, Helpline & Language */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Action Items: Voice & Language */}
+          <div className="flex items-center gap-2">
             {/* Audio Assistance Button */}
             <button
               id="voiceNarratorBtn"
               type="button"
               onClick={handleToggleAudio}
-              className={`h-9 flex items-center gap-1.5 px-2.5 sm:px-3 rounded-lg border text-xs sm:text-sm font-semibold active:scale-[0.98] transition-all cursor-pointer ${
+              className={`h-9 w-9 sm:w-auto flex items-center justify-center gap-1.5 px-2 sm:px-3 rounded-lg border text-xs sm:text-sm font-semibold active:scale-[0.98] transition-all cursor-pointer ${
                 isSpeaking || showAudioBanner
                   ? "border-[#165420] bg-[#eaf5eb] text-[#165420]"
                   : "border-[#cbd5e1] bg-[#f8faf8] text-[#165420] hover:bg-[#eef5ee]"
@@ -401,29 +402,21 @@ export default function LoginScreen({
               aria-label="आवाज़ में सुनें"
             >
               <Volume2 className={`w-4 h-4 flex-shrink-0 ${isSpeaking ? "animate-bounce" : ""}`} />
-              <span className="hidden xs:inline">आवाज़ सुनें</span>
+              <span className="hidden sm:inline">आवाज़</span>
             </button>
-
-            {/* Toll-Free Helpline */}
-            <a
-              href="tel:18001204567"
-              className="h-9 flex items-center gap-1.5 px-2.5 sm:px-3 rounded-lg bg-[#f8faf8] border border-[#cbd5e1] text-[#1e293b] text-xs sm:text-sm font-semibold active:scale-[0.98] transition-all hover:bg-[#f1f5f9]"
-              title="टोल-फ्री किसान हेल्पलाइन: 1800 120 4567"
-            >
-              <PhoneCall className="w-4 h-4 text-[#165420] flex-shrink-0" />
-              <span className="hidden md:inline">1800 120 4567</span>
-            </a>
 
             {/* Language Selector Trigger */}
             <button
               type="button"
               onClick={() => setShowLangModal(true)}
-              className="h-9 flex items-center gap-1.5 px-2.5 sm:px-3 rounded-lg bg-[#165420] text-white text-xs sm:text-sm font-semibold border border-[#165420] active:scale-[0.98] transition-all hover:bg-[#124219] cursor-pointer"
+              className="h-9 flex items-center gap-1.5 px-3 rounded-lg bg-[#165420] text-white text-xs sm:text-sm font-semibold border border-[#165420] active:scale-[0.98] transition-all hover:bg-[#124219] cursor-pointer"
+              title="भाषा चुनें / Select Language"
             >
               <Languages className="w-4 h-4 flex-shrink-0" />
               <span>
                 {SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage)?.nativeName || "हिंदी"}
               </span>
+              <ChevronDown className="w-3.5 h-3.5 opacity-80 flex-shrink-0" />
             </button>
           </div>
         </div>
