@@ -394,7 +394,7 @@ export default function LoginScreen({
     <div className="min-h-screen bg-[#fafaf8] text-[#0f172a] flex flex-col font-sans selection:bg-[#dcfce7] pb-24">
       {/* ================= TOP APP BAR ================= */}
       <header className="bg-white/95 backdrop-blur-xs w-full border-b border-[#e2e8f0] sticky top-0 z-40 shadow-2xs">
-        <div className="flex justify-between items-center w-full px-4 h-14 max-w-4xl mx-auto">
+        <div className="flex justify-between items-center w-full px-3 sm:px-4 h-15 sm:h-16 max-w-4xl mx-auto">
           {/* Leading Brand Identity */}
           <div className="flex items-center gap-2">
             <span className="text-2xl filter drop-shadow-2xs">🌾</span>
@@ -408,9 +408,9 @@ export default function LoginScreen({
             </div>
           </div>
 
-          {/* Action Items: AI Voice Help, Speaker & Language */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* AI Voice Assistant Icon Button (Compact: Mic + Sparkles) */}
+          {/* Action Items: AI Voice Help (🗣️✨), Speaker & Language */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Dedicated AI Voice Assistant Button (🗣️✨) */}
             <button
               id="voiceHelpTriggerBtn"
               type="button"
@@ -422,17 +422,21 @@ export default function LoginScreen({
                 }
                 setShowVoiceHelp((prev) => !prev);
               }}
-              className={`h-9 w-9 flex items-center justify-center relative rounded-lg border active:scale-[0.98] transition-all cursor-pointer ${
+              className={`w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center relative rounded-xl border transition-all duration-150 cursor-pointer select-none active:scale-95 ${
                 showVoiceHelp
-                  ? "border-[#165420] bg-[#eaf5eb] text-[#165420] shadow-xs"
-                  : "border-[#cbd5e1] bg-[#f8faf8] text-[#165420] hover:bg-[#eef5ee] hover:border-[#a7f3d0]"
+                  ? "bg-[#dcfce7] border-[#165420] ring-2 ring-[#165420]/25 shadow-xs"
+                  : "bg-[#ecf8ee] border-[#bbf0bf] text-[#165420] hover:bg-[#e2f5e3] hover:border-[#86efac]"
               }`}
-              title={currentLanguage === "en" ? "AI Voice Help" : "AI आवाज़ से मदद"}
-              aria-label={currentLanguage === "en" ? "AI Voice Help" : "AI आवाज़ से मदद"}
+              title="बोलकर AI मदद लें"
+              aria-label="बोलकर AI मदद लें"
             >
-              <div className="relative flex items-center justify-center">
-                <Mic className="w-4 h-4 text-[#165420] flex-shrink-0" />
-                <Sparkles className="w-2.5 h-2.5 text-[#059669] absolute -top-1 -right-1.5" />
+              <div className="relative flex items-center justify-center pointer-events-none">
+                <span className="text-[25px] sm:text-[27px] leading-none select-none filter drop-shadow-2xs">
+                  🗣️
+                </span>
+                <span className="text-[12px] sm:text-[13px] absolute -top-1 -right-2 leading-none filter drop-shadow-2xs">
+                  ✨
+                </span>
               </div>
             </button>
 
@@ -441,7 +445,7 @@ export default function LoginScreen({
               id="voiceNarratorBtn"
               type="button"
               onClick={handleToggleAudio}
-              className={`h-9 w-9 flex items-center justify-center rounded-lg border active:scale-[0.98] transition-all cursor-pointer ${
+              className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl border active:scale-95 transition-all cursor-pointer ${
                 isSpeaking || showAudioBanner
                   ? "border-[#165420] bg-[#eaf5eb] text-[#165420]"
                   : "border-[#cbd5e1] bg-[#f8faf8] text-[#165420] hover:bg-[#eef5ee]"
@@ -449,14 +453,14 @@ export default function LoginScreen({
               title="आवाज़ में सुनें"
               aria-label="आवाज़ में सुनें"
             >
-              <Volume2 className={`w-4 h-4 flex-shrink-0 ${isSpeaking ? "animate-bounce" : ""}`} />
+              <Volume2 className={`w-4 h-4 sm:w-4.5 sm:h-4.5 flex-shrink-0 ${isSpeaking ? "animate-bounce" : ""}`} />
             </button>
 
             {/* Language Selector Trigger */}
             <button
               type="button"
               onClick={() => setShowLangModal(true)}
-              className="h-9 flex items-center gap-1.5 px-2.5 sm:px-3 rounded-lg bg-[#165420] text-white text-xs sm:text-sm font-semibold border border-[#165420] active:scale-[0.98] transition-all hover:bg-[#124219] cursor-pointer"
+              className="h-9 sm:h-10 flex items-center gap-1.5 px-2.5 sm:px-3 rounded-xl bg-[#165420] text-white text-xs sm:text-sm font-semibold border border-[#165420] active:scale-95 transition-all hover:bg-[#124219] cursor-pointer"
               title="भाषा चुनें / Select Language"
             >
               <Languages className="w-4 h-4 flex-shrink-0" />
