@@ -296,4 +296,15 @@ export interface TranslationDictionary {
     smsDrawerTitle: string;
     assistedDeskTitle: string;
   };
+  voiceHelp?: {
+    buttonLabel: string;
+    listening: string;
+    speaking: string;
+    thinking: string;
+    stop: string;
+    retry: string;
+    close: string;
+    micDenied: string;
+    unavailable: string;
+  };
 }

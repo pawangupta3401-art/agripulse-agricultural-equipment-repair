@@ -264,4 +264,15 @@ export const hi: TranslationDictionary = {
     smsDrawerTitle: "📩 किसान को प्राप्त SMS सूचनाएं",
     assistedDeskTitle: "🤝 FPO / ऑपरेटर सहायता डेस्क",
   },
+  voiceHelp: {
+    buttonLabel: "बोलकर मदद लें",
+    listening: "मैं सुन रहा हूँ...",
+    speaking: "बोल रहा हूँ...",
+    thinking: "सोच रहा हूँ...",
+    stop: "रोकें",
+    retry: "फिर से बोलें",
+    close: "बंद करें",
+    micDenied: "माइक्रोफोन की अनुमति नहीं मिली। आप चाहें तो नीचे दिए विकल्पों से आगे बढ़ सकते हैं।",
+    unavailable: "अभी मैं आपकी आवाज़ से मदद नहीं कर पा रहा हूँ। आप स्क्रीन पर दिए विकल्पों से आगे बढ़ सकते हैं।",
+  },
 };

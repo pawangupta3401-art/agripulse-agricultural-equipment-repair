@@ -264,4 +264,15 @@ export const en: TranslationDictionary = {
     smsDrawerTitle: "📩 Farmer SMS Notifications",
     assistedDeskTitle: "🤝 FPO Operator Assisted Desk",
   },
+  voiceHelp: {
+    buttonLabel: "Voice Help",
+    listening: "Listening...",
+    speaking: "Speaking...",
+    thinking: "Thinking...",
+    stop: "Stop",
+    retry: "Speak Again",
+    close: "Close",
+    micDenied: "Microphone permission not granted. You can proceed using the options on the screen.",
+    unavailable: "Currently unable to assist by voice. You can proceed using the options on screen.",
+  },
 };
