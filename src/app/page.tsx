@@ -41,6 +41,12 @@ import {
   LogOut,
   X,
   ShieldCheck,
+  User,
+  Home,
+  Tractor,
+  CalendarDays,
+  FileText,
+  Globe,
 } from "lucide-react";
 import {
   Machine,
@@ -136,6 +142,7 @@ import { DEMO_OIL_LEAK_PHOTO_DATA_URL, PRIMARY_DEMO_SCENARIO } from "@/services/
 import dynamic from "next/dynamic";
 import LoginScreen from "./LoginScreen";
 import TechnicianDashboard from "./TechnicianDashboard";
+import ProfileScreen from "./ProfileScreen";
 import {
   AuthSession,
   UserRole,
@@ -218,7 +225,8 @@ type ScreenType =
   | "technician_job_card"
   | "repair_verification"
   | "nearby_mechanics"
-  | "recovery_engine";
+  | "recovery_engine"
+  | "profile";
 
 type SyncState = "idle" | "syncing" | "synced";
 
@@ -290,7 +298,6 @@ export default function AgriPulseApp() {
   });
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
   const [showMoreLanguages, setShowMoreLanguages] = useState<boolean>(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
 
   // Network connectivity and sync state
   const [isOnline, setIsOnline] = useState<boolean>(true);
@@ -2341,6 +2348,7 @@ export default function AgriPulseApp() {
       currentScreen === "repair_verification"
     ) return "repair";
     if (currentScreen === "service") return "service";
+    if (currentScreen === "profile") return "profile";
     return "home";
   };
 
@@ -2417,116 +2425,118 @@ export default function AgriPulseApp() {
       />
 
       {/* ================= HEADER ================= */}
-      <header className="bg-emerald-800 text-white px-3 sm:px-5 py-2.5 sm:py-3 border-b-4 border-amber-500 shadow-md sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto space-y-2">
-          {/* TOP HEADER: Logo on Left | Language Selector & Settings on Right */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              {currentScreen !== "home" && (
-                <button
-                  onClick={() => {
-                    if (currentScreen === "diagnosis") {
-                      handleBackFromDiagnosis();
-                    } else if (currentScreen === "machine_detail") {
-                      setCurrentScreen("machines");
-                    } else if (currentScreen === "breakdown" && breakdownStep > 1) {
-                      setBreakdownStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
-                    } else if (
-                      currentScreen === "sahayak" &&
-                      (sahayakStep === "voice" || sahayakStep === "photo")
-                    ) {
-                      stopSahayakVoice();
-                      setSahayakStep("init");
-                    } else {
-                      setCurrentScreen("home");
-                    }
-                  }}
-                  className="bg-emerald-900 hover:bg-emerald-950 p-2 rounded-xl border border-emerald-600 text-white font-black flex items-center justify-center transition-colors active:scale-95 cursor-pointer shrink-0"
-                  aria-label={t("common.back", currentLanguage)}
-                >
-                  <ArrowLeft className={`w-5 h-5 ${isRTL(currentLanguage) ? "rotate-180" : ""}`} />
-                </button>
-              )}
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <span className="text-xl sm:text-2xl">🌾</span>
-                  <h1 className="text-xl sm:text-2xl font-black tracking-wide text-white">AgriPulse</h1>
+      {currentScreen !== "profile" && (
+        <header className="bg-emerald-800 text-white px-3 sm:px-5 py-2.5 sm:py-3 border-b border-emerald-900 sticky top-0 z-40">
+          <div className="max-w-6xl mx-auto space-y-2">
+            {/* TOP HEADER: Logo on Left | Language Selector & Profile on Right */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                {currentScreen !== "home" && (
+                  <button
+                    onClick={() => {
+                      if (currentScreen === "diagnosis") {
+                        handleBackFromDiagnosis();
+                      } else if (currentScreen === "machine_detail") {
+                        setCurrentScreen("machines");
+                      } else if (currentScreen === "breakdown" && breakdownStep > 1) {
+                        setBreakdownStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
+                      } else if (
+                        currentScreen === "sahayak" &&
+                        (sahayakStep === "voice" || sahayakStep === "photo")
+                      ) {
+                        stopSahayakVoice();
+                        setSahayakStep("init");
+                      } else {
+                        setCurrentScreen("home");
+                      }
+                    }}
+                    className="bg-emerald-900/90 hover:bg-emerald-900 p-2 rounded-md border border-emerald-700 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                    aria-label={t("common.back", currentLanguage)}
+                  >
+                    <ArrowLeft className={`w-4 h-4 ${isRTL(currentLanguage) ? "rotate-180" : ""}`} />
+                  </button>
+                )}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-lg sm:text-xl">🌾</span>
+                    <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">AgriPulse</h1>
+                  </div>
+                  <p className="hidden sm:block text-xs text-emerald-100/90 font-normal">
+                    From breakdown to back-in-field
+                  </p>
                 </div>
-                <p className="hidden sm:block text-xs text-emerald-100 font-medium tracking-tight">
-                  From breakdown to back-in-field.
-                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Language Selector */}
+                <button
+                  type="button"
+                  id="header-language-switcher-btn"
+                  onClick={() => setIsLanguageModalOpen(true)}
+                  title="अपनी भाषा चुनें / Choose Language"
+                  className="bg-emerald-900/90 hover:bg-emerald-900 text-emerald-50 border border-emerald-700 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                  aria-label="भाषा चुनें"
+                >
+                  <Globe className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>{SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage)?.nativeName || "English"}</span>
+                </button>
+
+                {/* Profile Button (Replaced Settings) */}
+                <button
+                  type="button"
+                  id="header-profile-btn"
+                  onClick={() => setCurrentScreen("profile")}
+                  title={currentLanguage === "en" ? "Profile" : "प्रोफ़ाइल (Profile)"}
+                  className="bg-emerald-900/90 hover:bg-emerald-900 text-emerald-50 border border-emerald-700 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                  aria-label={currentLanguage === "en" ? "Profile" : "प्रोफ़ाइल"}
+                >
+                  <User className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>{currentLanguage === "en" ? "Profile" : "प्रोफ़ाइल"}</span>
+                </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Language Selector */}
-              <button
-                type="button"
-                id="header-language-switcher-btn"
-                onClick={() => setIsLanguageModalOpen(true)}
-                title="अपनी भाषा चुनें / Choose Language"
-                className="bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black border-2 border-amber-600 px-3 py-1.5 rounded-full text-xs transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-                aria-label="भाषा चुनें"
-              >
-                <span className="text-sm">🌐</span>
-                <span>{SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage)?.nativeName || "English"}</span>
-              </button>
+            {/* SECONDARY / USER AREA: User Greeting on Left | Clean Security Status on Right */}
+            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-emerald-700/60 text-xs">
+              <div className="flex items-center gap-1.5 font-bold text-emerald-100 truncate min-w-0">
+                <span className="text-sm shrink-0">🚜</span>
+                <span className="truncate">
+                  नमस्ते, {authSession.user.nameHi || authSession.user.name} 👋
+                </span>
+              </div>
 
-              {/* Settings Button */}
-              <button
-                type="button"
-                id="header-settings-btn"
-                onClick={() => setIsSettingsModalOpen(true)}
-                title="सेटिंग्स (Settings)"
-                className="bg-emerald-900/90 hover:bg-emerald-950 active:scale-95 text-emerald-100 hover:text-white border border-emerald-600/80 px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-                aria-label="सेटिंग्स"
-              >
-                <Settings className="w-3.5 h-3.5 text-emerald-300" />
-                <span>{t("common.settings", currentLanguage) || "सेटिंग्स"}</span>
-              </button>
+              {/* Small Security / Status Indicator (neatly positioned so it does not compete visually) */}
+              <div className="shrink-0 flex items-center">
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 border shadow-2xs ${
+                    syncState === "syncing"
+                      ? "bg-blue-100 text-blue-900 border-blue-300 animate-pulse"
+                      : !isOnline
+                      ? "bg-amber-100 text-amber-950 border-amber-300"
+                      : "bg-emerald-900/80 text-emerald-100 border-emerald-600/70"
+                  }`}
+                  title="डेटा सुरक्षा स्थिति"
+                >
+                  <span className="text-xs">
+                    {syncState === "syncing"
+                      ? "🔄"
+                      : !isOnline
+                      ? "📴"
+                      : "🟢"}
+                  </span>
+                  <span>
+                    {syncState === "syncing"
+                      ? t("common.syncingNotice", currentLanguage)
+                      : !isOnline
+                      ? t("common.offlineNotice", currentLanguage)
+                      : t("common.dataSafeNotice", currentLanguage)}
+                  </span>
+                </span>
+              </div>
             </div>
           </div>
-
-          {/* SECONDARY / USER AREA: User Greeting on Left | Clean Security Status on Right */}
-          <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-emerald-700/60 text-xs">
-            <div className="flex items-center gap-1.5 font-bold text-emerald-100 truncate min-w-0">
-              <span className="text-sm shrink-0">🚜</span>
-              <span className="truncate">
-                नमस्ते, {authSession.user.nameHi || authSession.user.name} 👋
-              </span>
-            </div>
-
-            {/* Small Security / Status Indicator (neatly positioned so it does not compete visually) */}
-            <div className="shrink-0 flex items-center">
-              <span
-                className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 border shadow-2xs ${
-                  syncState === "syncing"
-                    ? "bg-blue-100 text-blue-900 border-blue-300 animate-pulse"
-                    : !isOnline
-                    ? "bg-amber-100 text-amber-950 border-amber-300"
-                    : "bg-emerald-900/80 text-emerald-100 border-emerald-600/70"
-                }`}
-                title="डेटा सुरक्षा स्थिति"
-              >
-                <span className="text-xs">
-                  {syncState === "syncing"
-                    ? "🔄"
-                    : !isOnline
-                    ? "📴"
-                    : "🟢"}
-                </span>
-                <span>
-                  {syncState === "syncing"
-                    ? t("common.syncingNotice", currentLanguage)
-                    : !isOnline
-                    ? t("common.offlineNotice", currentLanguage)
-                    : t("common.dataSafeNotice", currentLanguage)}
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* ================= OFFLINE / ONLINE INDICATOR BANNERS (Section 14) ================= */}
       {/* 1. Offline Banner */}
@@ -2561,137 +2571,7 @@ export default function AgriPulseApp() {
         </div>
       )}
 
-      {/* ================= SETTINGS MODAL ================= */}
-      {isSettingsModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-3 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden border-4 border-emerald-600 shadow-2xl">
-            {/* Modal Header */}
-            <div className="bg-emerald-800 text-white px-5 py-4 flex items-center justify-between border-b-2 border-emerald-700">
-              <div className="flex items-center gap-2">
-                <Settings className="w-5 h-5 text-amber-300" />
-                <h2 className="text-lg font-black tracking-wide">
-                  {t("settings.title", currentLanguage) || "सेटिंग्स व डेटा प्रबंधन"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsSettingsModalOpen(false)}
-                className="text-emerald-200 hover:text-white p-1 rounded-full hover:bg-emerald-700 transition-colors cursor-pointer"
-                aria-label="बंद करें"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Modal Body */}
-            <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-              {/* Authenticated Farmer Profile Card */}
-              <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-3.5 flex items-center justify-between">
-                <div className="min-w-0">
-                  <div className="text-xs font-black text-emerald-800 uppercase tracking-wider">
-                    किसान खाता (Farmer Account)
-                  </div>
-                  <div className="text-base font-black text-slate-900 truncate">
-                    {authSession.user.nameHi || authSession.user.name}
-                  </div>
-                  <div className="text-xs font-bold text-slate-600">
-                    📱 {authSession.user.phone}
-                    {authSession.user.address?.villageOrCity && ` • 📍 ${authSession.user.address.villageOrCity}`}
-                  </div>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-emerald-200 flex items-center justify-center text-xl shrink-0">
-                  🚜
-                </div>
-              </div>
-
-              {/* Setting Option 1: Change Language */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSettingsModalOpen(false);
-                  setIsLanguageModalOpen(true);
-                }}
-                className="w-full bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 hover:border-emerald-300 p-3.5 rounded-2xl text-left transition-all flex items-center justify-between cursor-pointer active:scale-98"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">🌐</span>
-                  <div>
-                    <div className="text-sm font-black text-slate-900">
-                      {t("settings.changeLanguage", currentLanguage) || "ऐप की भाषा बदलें"}
-                    </div>
-                    <div className="text-xs font-bold text-emerald-700">
-                      वर्तमान: {SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage)?.nativeName || "हिन्दी"}
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-slate-400" />
-              </button>
-
-              {/* Setting Option 2: Offline Data & Sync Status */}
-              <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                    <span className="text-sm font-black text-slate-900">
-                      {t("settings.offlineMode", currentLanguage) || "डेटा सुरक्षा व स्थिति"}
-                    </span>
-                  </div>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isOnline ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"}`}>
-                    {isOnline ? "🟢 ऑनलाइन" : "📴 ऑफलाइन"}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 font-medium">
-                  {t("common.dataSafeNotice", currentLanguage)} • शिकायतें व फोटो स्थानीय मेमोरी में सुरक्षित रहते हैं।
-                </p>
-                {isOnline && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerAutoSync();
-                      setFeedbackMessage("✓ डेटा सिंक शुरू किया गया");
-                      setTimeout(() => setFeedbackMessage(null), 2500);
-                    }}
-                    className="w-full mt-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 py-2 rounded-xl text-xs font-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <span>🔄</span>
-                    <span>{t("settings.syncNowBtn", currentLanguage) || "अभी सिंक करें (Sync Now)"}</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Setting Option 3: Helpline / Support */}
-              <div className="bg-amber-50/70 border border-amber-200 p-3 rounded-2xl flex items-center justify-between text-xs">
-                <div>
-                  <div className="font-black text-amber-950">📞 किसान हेल्पलाइन (Toll-Free)</div>
-                  <div className="text-amber-800 font-bold">1800-AGRI-HELP (1800-2474-4357)</div>
-                </div>
-                <a
-                  href="tel:180024744357"
-                  className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl font-bold transition-colors cursor-pointer"
-                >
-                  कॉल करें
-                </a>
-              </div>
-
-              {/* Logout Option (strictly moved INSIDE settings) */}
-              <div className="pt-2 border-t border-slate-200">
-                <button
-                  type="button"
-                  id="settings-logout-btn"
-                  onClick={() => {
-                    setIsSettingsModalOpen(false);
-                    handleLogout();
-                  }}
-                  className="w-full bg-rose-50 hover:bg-rose-100 border-2 border-rose-300 text-rose-700 hover:text-rose-900 py-3 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>लॉगआउट करें (Logout)</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ================= MULTILINGUAL: FIRST-LAUNCH & SETTINGS LANGUAGE SELECTION MODAL ================= */}
       {isLanguageModalOpen && (
@@ -3494,17 +3374,34 @@ export default function AgriPulseApp() {
         </div>
       )}
 
+      {/* ================= PROFILE SCREEN ================= */}
+      {currentScreen === "profile" && authSession?.user && (
+        <ProfileScreen
+          user={authSession.user}
+          currentLanguage={currentLanguage}
+          onBack={() => setCurrentScreen("home")}
+          onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
+          onLogout={handleLogout}
+          onNavigateToRepairs={() => setCurrentScreen("repair")}
+          onNavigateToMachines={() => setCurrentScreen("machines")}
+          onNavigateToServiceHistory={() => setCurrentScreen("service")}
+          onOpenHelp={() => setCurrentScreen("sahayak")}
+        />
+      )}
+
       {/* ================= MAIN CONTENT ================= */}
-      <main className="flex-1 p-4 max-w-md mx-auto w-full">
+      {currentScreen !== "profile" && (
+        <main className="flex-1 p-4 max-w-md mx-auto w-full">
         {/* ================= 1. HOME SCREEN (Section 2) ================= */}
         {currentScreen === "home" && (
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {/* Farmer Welcome Banner */}
-            <div className="bg-emerald-50 border-3 border-emerald-300 rounded-3xl p-5 shadow-sm">
-              <h2 className="text-2xl sm:text-3xl font-black text-emerald-950 flex items-center gap-2">
-                <span>🙏</span> नमस्ते, {authSession.user.nameHi || authSession.user.name} 👋
+            <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-2xs">
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
+                <span>नमस्ते,</span>
+                <span>{authSession.user.nameHi || authSession.user.name}</span>
               </h2>
-              <p className="text-xl font-extrabold text-emerald-900 mt-2 leading-snug">
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
                 {t("welcome.howCanIHelp", currentLanguage)}
               </p>
             </div>
@@ -3516,25 +3413,25 @@ export default function AgriPulseApp() {
               if (overdueList.length === 0 && dueList.length === 0) return null;
 
               return (
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {overdueList.map((m) => (
                     <div
                       key={`home-overdue-${m.id}`}
                       onClick={() => handleOpenMachineDetail(m)}
-                      className="cursor-pointer bg-red-50 border-3 border-red-400 text-red-950 p-4 rounded-2xl shadow-sm flex items-center justify-between active:scale-[0.99] transition-all"
+                      className="cursor-pointer bg-red-50/70 border border-red-200 text-red-950 p-3.5 rounded-lg flex items-center justify-between hover:bg-red-50 transition-colors"
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl sm:text-3xl p-2 bg-red-100 rounded-xl">{m.icon}</span>
-                        <div>
-                          <div className="text-lg font-black flex items-center gap-1.5 text-red-900">
-                            <span>🔔 {t("preventive.serviceDue", currentLanguage)}</span>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-xl p-2 bg-red-100 rounded-md shrink-0">{m.icon}</span>
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-red-900 flex items-center gap-1">
+                            <span>{t("preventive.serviceDue", currentLanguage)}</span>
                           </div>
-                          <div className="text-sm font-bold text-red-800">
+                          <div className="text-xs text-red-700 font-medium truncate mt-0.5">
                             {m.nameHi} — {t("passport.nextMaintenance", currentLanguage)}: {formatServiceDateHi(m.nextServiceDate)}
                           </div>
                         </div>
                       </div>
-                      <span className="text-sm font-black bg-red-700 text-white px-3 py-1.5 rounded-xl shrink-0">
+                      <span className="text-xs font-semibold bg-red-700 text-white px-2.5 py-1 rounded-md shrink-0">
                         {t("common.view", currentLanguage)} ➔
                       </span>
                     </div>
@@ -3544,20 +3441,20 @@ export default function AgriPulseApp() {
                     <div
                       key={`home-due-${m.id}`}
                       onClick={() => handleOpenMachineDetail(m)}
-                      className="cursor-pointer bg-amber-50 border-3 border-amber-400 text-amber-950 p-4 rounded-2xl shadow-sm flex items-center justify-between active:scale-[0.99] transition-all"
+                      className="cursor-pointer bg-amber-50/70 border border-amber-200 text-amber-950 p-3.5 rounded-lg flex items-center justify-between hover:bg-amber-50 transition-colors"
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl sm:text-3xl p-2 bg-amber-100 rounded-xl">{m.icon}</span>
-                        <div>
-                          <div className="text-lg font-black flex items-center gap-1.5 text-amber-900">
-                            <span>🔔 {t("preventive.serviceDue", currentLanguage)}</span>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-xl p-2 bg-amber-100 rounded-md shrink-0">{m.icon}</span>
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-amber-900 flex items-center gap-1">
+                            <span>{t("preventive.serviceDue", currentLanguage)}</span>
                           </div>
-                          <div className="text-sm font-bold text-amber-800">
+                          <div className="text-xs text-amber-800 font-medium truncate mt-0.5">
                             {m.nameHi} — {t("passport.nextMaintenance", currentLanguage)}: {formatServiceDateHi(m.nextServiceDate)}
                           </div>
                         </div>
                       </div>
-                      <span className="text-sm font-black bg-amber-700 text-white px-3 py-1.5 rounded-xl shrink-0">
+                      <span className="text-xs font-semibold bg-amber-700 text-white px-2.5 py-1 rounded-md shrink-0">
                         {t("common.view", currentLanguage)} ➔
                       </span>
                     </div>
@@ -3573,46 +3470,46 @@ export default function AgriPulseApp() {
                 type="button"
                 id="home-open-recovery-btn"
                 onClick={() => handleLaunchRecoveryEngine(machines[0], currentLanguage === "en" ? "Tractor hydraulic lift failure, emergency repair needed" : "ट्रैक्टर की हाइड्रोलिक लिफ्ट नहीं उठ रही, कल बुवाई शुरू करनी है")}
-                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border-2 border-emerald-300 rounded-2xl p-3 text-center space-y-1 shadow-xs transition-all active:scale-95 cursor-pointer"
+                className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 rounded-lg p-2.5 text-center space-y-1 transition-colors cursor-pointer"
               >
-                <span className="text-2xl block">⚡</span>
-                <span className="text-xs font-black block">{t("dashboard.recoveryEngine", currentLanguage)}</span>
+                <span className="text-xl block">⚡</span>
+                <span className="text-xs font-semibold block truncate">{t("dashboard.recoveryEngine", currentLanguage)}</span>
               </button>
               <button
                 type="button"
                 id="home-open-ivr-btn"
                 onClick={() => setIsFeaturePhoneModalOpen(true)}
-                className="bg-blue-50 hover:bg-blue-100 text-blue-950 border-2 border-blue-300 rounded-2xl p-3 text-center space-y-1 shadow-xs transition-all active:scale-95 cursor-pointer"
+                className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 rounded-lg p-2.5 text-center space-y-1 transition-colors cursor-pointer"
               >
-                <span className="text-2xl block">📞</span>
-                <span className="text-xs font-black block">{t("dashboard.featurePhone", currentLanguage)}</span>
+                <span className="text-xl block">📞</span>
+                <span className="text-xs font-semibold block truncate">{t("dashboard.featurePhone", currentLanguage)}</span>
               </button>
               <button
                 type="button"
                 id="home-open-assisted-btn"
                 onClick={() => setIsAssistedModalOpen(true)}
-                className="bg-amber-50 hover:bg-amber-100 text-amber-950 border-2 border-amber-300 rounded-2xl p-3 text-center space-y-1 shadow-xs transition-all active:scale-95 cursor-pointer"
+                className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 rounded-lg p-2.5 text-center space-y-1 transition-colors cursor-pointer"
               >
-                <span className="text-2xl block">🌾</span>
-                <span className="text-xs font-black block">{t("dashboard.assistedDesk", currentLanguage)}</span>
+                <span className="text-xl block">🌾</span>
+                <span className="text-xs font-semibold block truncate">{t("dashboard.assistedDesk", currentLanguage)}</span>
               </button>
             </div>
 
             {/* PRIORITY 1: 🚜 मेरी मशीनें (My Machines) */}
             <button
               onClick={() => setCurrentScreen("machines")}
-              className="w-full bg-white hover:bg-emerald-50 active:bg-emerald-100 border-3 border-emerald-300 rounded-3xl p-5 flex items-center justify-between text-left shadow-sm transition-all cursor-pointer"
+              className="w-full bg-white hover:bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between text-left transition-colors cursor-pointer shadow-2xs"
             >
-              <div className="flex items-center gap-4">
-                <span className="text-3xl sm:text-4xl p-2 sm:p-3 bg-emerald-100 rounded-2xl">🚜</span>
+              <div className="flex items-center gap-3.5">
+                <span className="text-2xl p-2.5 bg-emerald-50 rounded-md border border-emerald-100 text-emerald-800">🚜</span>
                 <div>
-                  <div className="text-2xl font-black text-slate-900">{t("dashboard.myMachines", currentLanguage)}</div>
-                  <div className="text-base font-bold text-slate-600 mt-0.5">
+                  <div className="text-base font-bold text-slate-900">{t("dashboard.myMachines", currentLanguage)}</div>
+                  <div className="text-xs font-medium text-slate-500 mt-0.5">
                     {machines.length} {t("machines.title", currentLanguage)}
                   </div>
                 </div>
               </div>
-              <span className="text-base sm:text-xl font-black text-emerald-800 bg-emerald-100 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl shrink-0 whitespace-nowrap">
+              <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md shrink-0">
                 {t("common.view", currentLanguage)} ➔
               </span>
             </button>
@@ -3620,20 +3517,20 @@ export default function AgriPulseApp() {
             {/* PRIORITY 2: 🔧 मशीन में समस्या है (PRIMARY ACTION CALLOUT) */}
             <button
               onClick={() => handleStartBreakdown()}
-              className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] transition-all text-white rounded-3xl p-6 shadow-xl border-4 border-emerald-950 flex items-center justify-between text-left ring-4 ring-emerald-200 cursor-pointer"
+              className="w-full bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 transition-colors text-white rounded-lg p-4 shadow-sm border border-emerald-800 flex items-center justify-between text-left cursor-pointer"
             >
-              <div className="flex items-center gap-4">
-                <span className="text-3xl sm:text-4xl p-2 sm:p-3 bg-emerald-800/90 rounded-2xl border border-emerald-500 shadow-inner">🔧</span>
+              <div className="flex items-center gap-3.5">
+                <span className="text-2xl p-2.5 bg-emerald-800 rounded-md text-white">🔧</span>
                 <div>
-                  <div className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                  <div className="text-base sm:text-lg font-bold text-white leading-tight">
                     {t("dashboard.reportBreakdown", currentLanguage)}
                   </div>
-                  <div className="text-base sm:text-lg text-amber-200 font-extrabold mt-0.5">
+                  <div className="text-xs text-emerald-100 font-medium mt-0.5">
                     {t("dashboard.callMechanic", currentLanguage)}
                   </div>
                 </div>
               </div>
-              <span className="text-2xl bg-emerald-900 px-4 py-2.5 rounded-2xl font-black border border-emerald-600">
+              <span className="text-sm bg-emerald-800 px-3 py-1.5 rounded-md font-bold text-white shrink-0">
                 ➔
               </span>
             </button>
@@ -3641,20 +3538,20 @@ export default function AgriPulseApp() {
             {/* PRIORITY 3: 📋 मेरी मरम्मत (My Repairs) */}
             <button
               onClick={() => setCurrentScreen("repair")}
-              className="w-full bg-white hover:bg-amber-50 active:bg-amber-100 border-3 border-amber-300 rounded-3xl p-5 flex items-center justify-between text-left shadow-sm transition-all cursor-pointer"
+              className="w-full bg-white hover:bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between text-left transition-colors cursor-pointer shadow-2xs"
             >
-              <div className="flex items-center gap-4">
-                <span className="text-3xl sm:text-4xl p-2 sm:p-3 bg-amber-100 rounded-2xl">📋</span>
+              <div className="flex items-center gap-3.5">
+                <span className="text-2xl p-2.5 bg-amber-50 rounded-md border border-amber-100 text-amber-700">📋</span>
                 <div>
-                  <div className="text-2xl font-black text-slate-900">{t("dashboard.myRepairs", currentLanguage)}</div>
-                  <div className="text-base font-bold text-amber-900 mt-0.5">
+                  <div className="text-base font-bold text-slate-900">{t("dashboard.myRepairs", currentLanguage)}</div>
+                  <div className="text-xs font-medium text-slate-500 mt-0.5">
                     {activeRepairs.length > 0
                       ? `${activeRepairs.length} ${t("repair.activeRepair", currentLanguage)} (${activeRepairs[0].machineNameHi})`
                       : t("repair.noRepairs", currentLanguage)}
                   </div>
                 </div>
               </div>
-              <span className="text-base sm:text-xl font-black text-amber-800 bg-amber-100 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl shrink-0 whitespace-nowrap">
+              <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md shrink-0">
                 {t("common.view", currentLanguage)} ➔
               </span>
             </button>
@@ -3668,9 +3565,9 @@ export default function AgriPulseApp() {
 
               let serviceStatusSummary = t("preventive.allMachinesHealthy", currentLanguage);
               if (overdueM) {
-                serviceStatusSummary = `${overdueM.nameHi}: ${t("preventive.serviceOverdue", currentLanguage)} 🔴`;
+                serviceStatusSummary = `${overdueM.nameHi}: ${t("preventive.serviceOverdue", currentLanguage)}`;
               } else if (dueM) {
-                serviceStatusSummary = `${dueM.nameHi}: ${t("preventive.serviceDue", currentLanguage)} 🟠`;
+                serviceStatusSummary = `${dueM.nameHi}: ${t("preventive.serviceDue", currentLanguage)}`;
               } else if (displayM) {
                 serviceStatusSummary = `${t("passport.nextMaintenance", currentLanguage)}: ${formatServiceDateHi(displayM.nextServiceDate)}`;
               }
@@ -3678,18 +3575,18 @@ export default function AgriPulseApp() {
               return (
                 <button
                   onClick={() => setCurrentScreen("service")}
-                  className="w-full bg-white hover:bg-blue-50 active:bg-blue-100 border-3 border-blue-300 rounded-3xl p-5 flex items-center justify-between text-left shadow-sm transition-all cursor-pointer"
+                  className="w-full bg-white hover:bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between text-left transition-colors cursor-pointer shadow-2xs"
                 >
-                  <div className="flex items-center gap-4">
-                    <span className="text-3xl sm:text-4xl p-2 sm:p-3 bg-blue-100 rounded-2xl">📅</span>
+                  <div className="flex items-center gap-3.5">
+                    <span className="text-2xl p-2.5 bg-blue-50 rounded-md border border-blue-100 text-blue-700">📅</span>
                     <div>
-                      <div className="text-2xl font-black text-slate-900">{t("dashboard.nextService", currentLanguage)}</div>
-                      <div className="text-base font-bold text-slate-600 mt-0.5">
+                      <div className="text-base font-bold text-slate-900">{t("dashboard.nextService", currentLanguage)}</div>
+                      <div className="text-xs font-medium text-slate-500 mt-0.5">
                         {serviceStatusSummary}
                       </div>
                     </div>
                   </div>
-                  <span className="text-base sm:text-xl font-black text-blue-800 bg-blue-100 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl shrink-0 whitespace-nowrap">
+                  <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md shrink-0">
                     {t("common.view", currentLanguage)} ➔
                   </span>
                 </button>
@@ -3704,18 +3601,18 @@ export default function AgriPulseApp() {
                 setSahayakUrgency(null);
                 setCurrentScreen("sahayak");
               }}
-              className="w-full bg-white hover:bg-amber-50 active:bg-amber-100 border-3 border-amber-300 rounded-3xl p-5 flex items-center justify-between text-left shadow-sm transition-all cursor-pointer"
+              className="w-full bg-white hover:bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between text-left transition-colors cursor-pointer shadow-2xs"
             >
-              <div className="flex items-center gap-4">
-                <span className="text-3xl sm:text-4xl p-2 sm:p-3 bg-amber-100 rounded-2xl">🤖</span>
+              <div className="flex items-center gap-3.5">
+                <span className="text-2xl p-2.5 bg-slate-100 rounded-md border border-slate-200 text-slate-700">🤖</span>
                 <div>
-                  <div className="text-2xl font-black text-slate-900">{t("dashboard.kisanSahayak", currentLanguage)}</div>
-                  <div className="text-base font-bold text-amber-900 mt-0.5">
+                  <div className="text-base font-bold text-slate-900">{t("dashboard.kisanSahayak", currentLanguage)}</div>
+                  <div className="text-xs font-medium text-slate-500 mt-0.5">
                     {t("dashboard.askQuestion", currentLanguage)}
                   </div>
                 </div>
               </div>
-              <span className="text-base sm:text-xl font-black text-amber-800 bg-amber-100 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl shrink-0 whitespace-nowrap">
+              <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md shrink-0">
                 {t("common.view", currentLanguage)} ➔
               </span>
             </button>
@@ -3740,10 +3637,10 @@ export default function AgriPulseApp() {
         {currentScreen === "machines" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <span>🚜</span> {t("machines.title", currentLanguage)}
               </h2>
-              <span className="text-sm font-black bg-slate-200 text-slate-800 px-3 py-1 rounded-full">
+              <span className="text-xs font-semibold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md border border-slate-200">
                 {t("common.total", currentLanguage)}: {machines.length}
               </span>
             </div>
@@ -3755,29 +3652,29 @@ export default function AgriPulseApp() {
                 setNewMachineName(currentLanguage === "en" ? "New Mahindra 575 Tractor" : "नया महिंद्रा 575 ट्रैक्टर");
                 setIsAddMachineModalOpen(true);
               }}
-              className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] transition-all text-white font-black py-4 px-4 rounded-2xl text-xl shadow-md border-3 border-emerald-950 flex items-center justify-center gap-2"
+              className="w-full bg-emerald-700 hover:bg-emerald-800 transition-colors text-white font-semibold py-3 px-4 rounded-lg text-sm flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
             >
-              <Plus className="w-6 h-6 stroke-[3]" />
+              <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>+ {t("machines.addMachineBtn", currentLanguage)}</span>
             </button>
 
             {/* Add Machine Modal / Panel */}
             {isAddMachineModalOpen && (
-              <div className="bg-emerald-50 border-3 border-emerald-500 rounded-3xl p-5 shadow-lg space-y-4 animate-fadeIn">
-                <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
-                  <h3 className="text-xl font-black text-emerald-950 flex items-center gap-2">
+              <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-4 animate-fadeIn">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                     <span>🚜</span> {currentLanguage === "en" ? "Register New Machine" : "नई मशीन पंजीकरण"}
                   </h3>
                   <button
                     onClick={() => setIsAddMachineModalOpen(false)}
-                    className="text-slate-500 hover:text-slate-800 font-black text-xl px-2 py-0.5 rounded-lg"
+                    className="text-slate-400 hover:text-slate-700 font-bold text-lg p-1 rounded-md cursor-pointer"
                   >
                     ✕
                   </button>
                 </div>
 
                 <div>
-                  <label className="block text-base font-bold text-slate-800 mb-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     {t("machines.selectType", currentLanguage)}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -3794,15 +3691,15 @@ export default function AgriPulseApp() {
                           setNewMachineType(opt.type);
                           setNewMachineName(currentLanguage === "en" ? `New ${opt.label}` : `नया ${opt.label}`);
                         }}
-                        className={`p-3 rounded-2xl border-2 text-left font-black transition-all ${
+                        className={`p-2.5 rounded-lg border text-left font-medium transition-colors cursor-pointer ${
                           newMachineType === opt.type
-                            ? "bg-emerald-700 text-white border-emerald-900 shadow-md"
-                            : "bg-white text-slate-800 border-slate-300 hover:bg-emerald-50"
+                            ? "bg-emerald-50 text-emerald-900 border-emerald-600"
+                            : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50"
                         }`}
                       >
-                        <div className="text-2xl mb-1">{opt.icon}</div>
-                        <div className="text-lg">{opt.label}</div>
-                        <div className={`text-xs ${newMachineType === opt.type ? "text-emerald-100" : "text-slate-500"}`}>
+                        <div className="text-xl mb-0.5">{opt.icon}</div>
+                        <div className="text-sm font-semibold">{opt.label}</div>
+                        <div className={`text-[11px] ${newMachineType === opt.type ? "text-emerald-700 font-medium" : "text-slate-500"}`}>
                           {currentLanguage === "en" ? "Service" : "सर्विस"}: {opt.interval}
                         </div>
                       </button>
@@ -3811,7 +3708,7 @@ export default function AgriPulseApp() {
                 </div>
 
                 <div>
-                  <label className="block text-base font-bold text-slate-800 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     {t("machines.machineName", currentLanguage)}
                   </label>
                   <input
@@ -3819,7 +3716,7 @@ export default function AgriPulseApp() {
                     value={newMachineName}
                     onChange={(e) => setNewMachineName(e.target.value)}
                     placeholder={currentLanguage === "en" ? "e.g. Mahindra 575 Tractor" : "उदा. महिंद्रा 575 ट्रैक्टर"}
-                    className="w-full p-3.5 rounded-xl border-2 border-slate-300 font-black text-lg text-slate-900 bg-white focus:outline-hidden focus:border-emerald-600"
+                    className="w-full p-2.5 rounded-md border border-slate-300 font-medium text-sm text-slate-900 bg-white focus:outline-none focus:border-emerald-600"
                   />
                 </div>
 
@@ -3827,14 +3724,14 @@ export default function AgriPulseApp() {
                   <button
                     type="button"
                     onClick={() => setIsAddMachineModalOpen(false)}
-                    className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-black py-3 px-4 rounded-xl text-lg transition-colors"
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-md text-sm transition-colors cursor-pointer border border-slate-200"
                   >
                     {t("common.cancel", currentLanguage)}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleRegisterMachineSubmit()}
-                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-3 px-4 rounded-xl text-lg shadow-md transition-colors"
+                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-md text-sm transition-colors cursor-pointer shadow-2xs"
                   >
                     ✓ {t("machines.addMachineBtn", currentLanguage)}
                   </button>
@@ -3843,7 +3740,7 @@ export default function AgriPulseApp() {
             )}
 
             {/* Machines List */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               {machines.map((machine) => {
                 const isIssue = machine.status === "issue";
                 const statusDisp = getMaintenanceStatusDisplay(machine.maintenanceStatus || "upcoming");
@@ -3851,71 +3748,71 @@ export default function AgriPulseApp() {
                 return (
                   <div
                     key={machine.id}
-                    className={`bg-white border-3 rounded-3xl p-5 shadow-sm transition-all ${
+                    className={`bg-white border rounded-lg p-4 shadow-2xs space-y-3 transition-colors ${
                       machine.maintenanceStatus === "overdue"
-                        ? "border-red-400"
+                        ? "border-red-300"
                         : machine.maintenanceStatus === "due"
-                        ? "border-amber-400"
-                        : "border-slate-300"
+                        ? "border-amber-300"
+                        : "border-slate-200"
                     }`}
                   >
                     {/* Overdue/Due Alert Box */}
                     {statusDisp.reminderMessageHi && (
                       <div
-                        className={`mb-3.5 p-3 rounded-2xl border flex items-center gap-2 text-base font-black ${
+                        className={`p-2.5 rounded-md border flex items-center gap-2 text-xs font-semibold ${
                           machine.maintenanceStatus === "overdue"
-                            ? "bg-red-50 text-red-900 border-red-300"
-                            : "bg-amber-50 text-amber-900 border-amber-300"
+                            ? "bg-red-50 text-red-900 border-red-200"
+                            : "bg-amber-50 text-amber-900 border-amber-200"
                         }`}
                       >
                         <span>{currentLanguage === "en" ? (machine.maintenanceStatus === "overdue" ? "⚠️ Service is overdue for this machine" : "🔔 Service is due soon for this machine") : statusDisp.reminderMessageHi}</span>
                       </div>
                     )}
 
-                    <div className="flex items-start gap-4">
-                      <span className="text-3xl sm:text-4xl p-2 sm:p-3 bg-slate-100 rounded-2xl border border-slate-200 shrink-0">
+                    <div className="flex items-start gap-3">
+                      <span className="w-12 h-12 bg-slate-100 rounded-md border border-slate-200 flex items-center justify-center text-2xl shrink-0">
                         {machine.icon}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-2xl font-black text-slate-900 truncate">
+                        <h3 className="text-base font-bold text-slate-900 truncate">
                           {currentLanguage === "en" ? machine.name : machine.nameHi}
                         </h3>
 
                         {/* Status Badges */}
-                        <div className="mt-2 flex flex-wrap gap-2">
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
                           {isIssue ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
-                              <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-200">
+                              <AlertCircle className="w-3 h-3 text-amber-700" />
                               {t("machines.attentionNeeded", currentLanguage)}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                               {t("machines.operational", currentLanguage)}
                             </span>
                           )}
 
                           {/* P2G Maintenance Tag */}
                           <span
-                            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border ${statusDisp.badgeClass}`}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${statusDisp.badgeClass}`}
                           >
-                            <span>{currentLanguage === "en" ? (machine.maintenanceStatus === "overdue" ? "🔴 Service Overdue" : machine.maintenanceStatus === "due" ? "🟠 Service Due" : "🟢 Healthy") : statusDisp.fullTagHi}</span>
+                            <span>{currentLanguage === "en" ? (machine.maintenanceStatus === "overdue" ? "🔴 Overdue" : machine.maintenanceStatus === "due" ? "🟠 Due" : "🟢 Healthy") : statusDisp.fullTagHi}</span>
                           </span>
                         </div>
 
                         {/* Next Service Date */}
-                        <div className="text-sm font-bold text-slate-800 mt-2.5 flex items-center gap-1.5">
-                          <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
-                          <span>{t("passport.nextMaintenance", currentLanguage)}: {currentLanguage === "en" ? machine.nextServiceDate : formatServiceDateHi(machine.nextServiceDate)}</span>
+                        <div className="text-xs font-medium text-slate-600 mt-2 flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>{t("passport.nextMaintenance", currentLanguage)}: <span className="font-semibold text-slate-800">{currentLanguage === "en" ? machine.nextServiceDate : formatServiceDateHi(machine.nextServiceDate)}</span></span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Large "मशीन देखें" Button */}
-                    <div className="mt-4 pt-3 border-t border-slate-200">
+                    {/* "मशीन देखें" Button */}
+                    <div className="pt-2 border-t border-slate-100">
                       <button
                         onClick={() => handleOpenMachineDetail(machine)}
-                        className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-4 px-4 rounded-2xl text-xl shadow-md flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
+                        className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 px-3 rounded-md text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <span>{t("machines.viewMachine", currentLanguage)}</span>
                         <span>➔</span>
@@ -3933,41 +3830,41 @@ export default function AgriPulseApp() {
           <div className="space-y-4">
             {/* Reminder Alert Banner */}
             {selectedMachine.maintenanceStatus === "overdue" && (
-              <div className="bg-red-100 border-3 border-red-500 text-red-950 p-4 rounded-3xl font-black text-xl shadow-sm flex items-center gap-3">
-                <span className="text-2xl sm:text-3xl shrink-0">⚠️</span>
+              <div className="bg-red-50 border border-red-200 text-red-900 p-3 rounded-lg font-semibold text-xs flex items-center gap-2.5">
+                <span className="text-base shrink-0">⚠️</span>
                 <span>{currentLanguage === "en" ? "Service is overdue for this machine." : "इस मशीन की सर्विस बाकी है।"}</span>
               </div>
             )}
             {selectedMachine.maintenanceStatus === "due" && (
-              <div className="bg-amber-100 border-3 border-amber-500 text-amber-950 p-4 rounded-3xl font-black text-xl shadow-sm flex items-center gap-3">
-                <span className="text-2xl sm:text-3xl shrink-0">🔔</span>
+              <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-lg font-semibold text-xs flex items-center gap-2.5">
+                <span className="text-base shrink-0">🔔</span>
                 <span>{currentLanguage === "en" ? "Service is due soon for this machine." : "इस मशीन की सर्विस जल्द करनी है।"}</span>
               </div>
             )}
 
-            <div className="bg-white border-3 border-emerald-400 rounded-3xl p-5 shadow-sm space-y-4">
+            <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-2xs space-y-4">
               <div className="flex items-center gap-3">
-                <span className="text-4xl sm:text-5xl p-2 sm:p-3 bg-emerald-50 rounded-2xl border border-emerald-200 shrink-0">
+                <span className="w-12 h-12 bg-emerald-50 rounded-md border border-emerald-200 flex items-center justify-center text-2xl shrink-0">
                   {selectedMachine.icon}
                 </span>
                 <div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
+                  <h2 className="text-lg font-bold text-slate-900">
                     {currentLanguage === "en" ? selectedMachine.name : selectedMachine.nameHi}
                   </h2>
-                  <p className="text-sm font-bold text-slate-500 uppercase tracking-wide">
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                     {selectedMachine.name} • {selectedMachine.type}
                   </p>
                 </div>
               </div>
 
               {/* Status */}
-              <div className="p-3 bg-slate-50 rounded-2xl border-2 border-slate-200 flex items-center justify-between">
-                <span className="text-base font-bold text-slate-700">{currentLanguage === "en" ? "Machine Status:" : "मशीन स्थिति:"}</span>
+              <div className="p-2.5 bg-slate-50 rounded-md border border-slate-200 flex items-center justify-between text-xs">
+                <span className="font-medium text-slate-600">{currentLanguage === "en" ? "Machine Status:" : "मशीन स्थिति:"}</span>
                 <span
-                  className={`text-base font-black px-3 py-1 rounded-xl ${
+                  className={`font-semibold px-2 py-0.5 rounded-md ${
                     selectedMachine.status === "issue"
-                      ? "bg-amber-100 text-amber-900 border border-amber-300"
-                      : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                      ? "bg-amber-50 text-amber-900 border border-amber-200"
+                      : "bg-emerald-50 text-emerald-800 border border-emerald-200"
                   }`}
                 >
                   {selectedMachine.status === "issue" ? t("machines.attentionNeeded", currentLanguage) : t("machines.operational", currentLanguage)}
@@ -3984,68 +3881,68 @@ export default function AgriPulseApp() {
 
                 return (
                   <div
-                    className={`rounded-3xl border-3 p-5 space-y-4 ${
+                    className={`rounded-lg border p-4 space-y-3.5 ${
                       selectedMachine.maintenanceStatus === "overdue"
-                        ? "bg-red-50/80 border-red-400"
+                        ? "bg-red-50/50 border-red-200"
                         : selectedMachine.maintenanceStatus === "due"
-                        ? "bg-amber-50/80 border-amber-400"
-                        : "bg-emerald-50/80 border-emerald-300"
+                        ? "bg-amber-50/50 border-amber-200"
+                        : "bg-slate-50/50 border-slate-200"
                     }`}
                   >
                     {/* Header: अगली सर्विस & Reminder */}
-                    <div className="flex items-center justify-between border-b pb-3 border-slate-200">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">📅</span>
-                        <span className="text-2xl font-black text-slate-900">
+                    <div className="flex items-center justify-between border-b pb-2.5 border-slate-200">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-base">📅</span>
+                        <span className="text-sm font-bold text-slate-900">
                           {selectedMachine.maintenanceStatus === "overdue" || selectedMachine.maintenanceStatus === "due"
-                            ? (currentLanguage === "en" ? "🔔 Service Is Due" : "🔔 सर्विस का समय आ गया है")
+                            ? (currentLanguage === "en" ? "Service Is Due" : "सर्विस का समय आ गया है")
                             : t("passport.nextMaintenance", currentLanguage)}
                         </span>
                       </div>
-                      <span className={`px-3 py-1 rounded-xl text-sm font-black border ${statusDisp.badgeClass}`}>
+                      <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${statusDisp.badgeClass}`}>
                         {currentLanguage === "en" ? (selectedMachine.maintenanceStatus === "overdue" ? "🔴 Overdue" : selectedMachine.maintenanceStatus === "due" ? "🟠 Due" : "🟢 Upcoming") : statusDisp.fullTagHi}
                       </span>
                     </div>
 
                     {/* Date */}
-                    <div className="p-4 bg-white rounded-2xl border border-slate-200 flex justify-between items-center shadow-xs">
+                    <div className="p-3 bg-white rounded-md border border-slate-200 flex justify-between items-center text-xs">
                       <div className="flex items-center gap-2">
-                        <Calendar className="w-6 h-6 text-emerald-700" />
-                        <span className="text-lg font-black text-slate-800">
+                        <Calendar className="w-4 h-4 text-emerald-700" />
+                        <span className="font-semibold text-slate-800">
                           {t("passport.nextMaintenance", currentLanguage)}: {currentLanguage === "en" ? selectedMachine.nextServiceDate : formatServiceDateHi(selectedMachine.nextServiceDate)}
                         </span>
                       </div>
                     </div>
 
-                    {/* Maintenance Checklist: सरल जाँच बिंदु */}
-                    <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-2.5">
-                      <div className="text-lg font-black text-slate-900 flex items-center gap-2">
+                    {/* Maintenance Checklist */}
+                    <div className="bg-white rounded-md p-3.5 border border-slate-200 space-y-2">
+                      <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                         <span>📋</span>
                         <span>{currentLanguage === "en" ? "What to check during service?" : "सर्विस में क्या देखें?"}</span>
                       </div>
-                      <p className="text-xs font-bold text-slate-500">
+                      <p className="text-[11px] text-slate-500 font-medium">
                         {currentLanguage === "en" ? "Check off each item when inspected:" : "जाँच पूरी होने पर टिक करें:"}
                       </p>
 
-                      <div className="space-y-2 pt-1">
+                      <div className="space-y-1.5 pt-0.5">
                         {checklistItems.map((item) => {
                           const isChecked = !!checkedChecklistItems[item];
                           return (
                             <div
                               key={item}
                               onClick={() => handleToggleChecklistItem(item)}
-                              className={`cursor-pointer p-3 rounded-xl border-2 flex items-center gap-3 transition-colors ${
+                              className={`cursor-pointer p-2.5 rounded-md border flex items-center gap-2.5 transition-colors text-xs ${
                                 isChecked
-                                  ? "bg-emerald-50 border-emerald-400 text-emerald-950 font-black"
-                                  : "bg-slate-50 border-slate-200 text-slate-800 font-bold hover:bg-slate-100"
+                                  ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-semibold"
+                                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                               }`}
                             >
                               {isChecked ? (
-                                <CheckSquare className="w-6 h-6 text-emerald-700 shrink-0" />
+                                <CheckSquare className="w-4 h-4 text-emerald-700 shrink-0" />
                               ) : (
-                                <Square className="w-6 h-6 text-slate-400 shrink-0" />
+                                <Square className="w-4 h-4 text-slate-400 shrink-0" />
                               )}
-                              <span className="text-lg">{item}</span>
+                              <span>{item}</span>
                             </div>
                           );
                         })}
@@ -4055,9 +3952,9 @@ export default function AgriPulseApp() {
                     {/* Service Completed Button */}
                     <button
                       onClick={() => handleCompleteService(selectedMachine.id)}
-                      className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] transition-all text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-3 border-emerald-950 flex items-center justify-center gap-2"
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 transition-colors text-white font-semibold py-2.5 px-4 rounded-md text-xs shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <CheckCircle2 className="w-6 h-6" />
+                      <CheckCircle2 className="w-4 h-4" />
                       <span>{currentLanguage === "en" ? "Mark Service as Completed" : "सर्विस पूरी हो गई"}</span>
                     </button>
                   </div>
@@ -4065,22 +3962,22 @@ export default function AgriPulseApp() {
               })()}
 
               {/* SECTION 11: मेरी मशीन की जानकारी (Machine Passport) */}
-              <div className="bg-white border-3 border-emerald-400 rounded-3xl p-5 space-y-4 shadow-sm">
-                <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
+              <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3.5 shadow-2xs">
+                <div className="border-b border-slate-100 pb-2.5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl sm:text-3xl">📖</span>
-                    <h3 className="text-2xl font-black text-slate-900">
+                    <span className="text-lg">📖</span>
+                    <h3 className="text-sm font-bold text-slate-900">
                       {t("machines.machinePassport", currentLanguage)}
                     </h3>
                   </div>
-                  <span className="text-xs font-black bg-emerald-100 text-emerald-900 px-3 py-1 rounded-full border border-emerald-300">
+                  <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-md border border-emerald-200">
                     {currentLanguage === "en" ? "Verified Records" : "सुरक्षित रिकॉर्ड"}
                   </span>
                 </div>
 
                 {/* 1. पिछली मरम्मत */}
-                <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 space-y-2">
-                  <div className="text-base font-black text-slate-900 flex items-center gap-2">
+                <div className="p-3 bg-slate-50 rounded-md border border-slate-200 space-y-2">
+                  <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                     <span>🔧</span>
                     <span>{t("passport.previousRepairs", currentLanguage)}</span>
                   </div>
@@ -4091,7 +3988,7 @@ export default function AgriPulseApp() {
 
                     if (completedMachineRepairs.length > 0) {
                       return (
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                           {completedMachineRepairs.map((rep) => {
                             const dateStr =
                               rep.passportData?.repairDate ||
@@ -4110,32 +4007,32 @@ export default function AgriPulseApp() {
                             return (
                               <div
                                 key={rep.id}
-                                className="p-3 bg-white rounded-xl border border-emerald-200 text-sm space-y-1"
+                                className="p-2.5 bg-white rounded-md border border-slate-200 text-xs space-y-1"
                               >
-                                <div className="flex justify-between font-black text-slate-900">
+                                <div className="flex justify-between font-semibold text-slate-900">
                                   <span>{rep.problemDescription}</span>
-                                  <span className="text-xs text-slate-500">📅 {dateStr}</span>
+                                  <span className="text-[11px] text-slate-500">📅 {dateStr}</span>
                                 </div>
-                                <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-100 flex-wrap gap-1">
-                                  <span className="text-slate-600 font-bold">
+                                <div className="flex justify-between items-center text-[11px] pt-1 border-t border-slate-100 flex-wrap gap-1">
+                                  <span className="text-slate-600 font-medium">
                                     {currentLanguage === "en" ? "Check" : "जाँच"}: {diagStr} • {t("recovery.technician", currentLanguage)}: {techStr}
                                     {rep.passportData?.serviceCentreNameHi && ` (${rep.passportData.serviceCentreNameHi})`}
                                   </span>
                                   <div className="flex items-center gap-1.5">
                                     {rep.passportData?.estimatedCost && (
-                                      <span className="text-[11px] text-slate-500 font-bold">
+                                      <span className="text-[11px] text-slate-500 font-medium">
                                         {currentLanguage === "en" ? "Estimate:" : "अनुमान:"} {formatCurrencyHi(rep.passportData.estimatedCost)}
                                       </span>
                                     )}
                                     {(rep.passportData?.finalCost || rep.finalCost?.total || rep.estimatedCost?.total) && (
-                                      <span className="font-black text-amber-950 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
+                                      <span className="font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                                         {t("pricing.finalCost", currentLanguage)}: {formatCurrencyHi(rep.passportData?.finalCost || rep.finalCost?.total || rep.estimatedCost?.total)}
                                       </span>
                                     )}
                                   </div>
                                 </div>
                                 {rep.passportData?.maintenanceRecommendation && (
-                                  <div className="text-[11px] font-bold text-emerald-800 bg-emerald-50 p-1.5 rounded-lg border border-emerald-200 mt-1">
+                                  <div className="text-[11px] font-medium text-emerald-800 bg-emerald-50 p-1.5 rounded border border-emerald-200 mt-1">
                                     💡 {currentLanguage === "en" ? "Preventive Advice:" : "निवारक सलाह:"} {rep.passportData.maintenanceRecommendation}
                                   </div>
                                 )}
@@ -4147,7 +4044,7 @@ export default function AgriPulseApp() {
                     }
 
                     return (
-                      <div className="text-sm font-bold text-slate-700">
+                      <div className="text-xs font-medium text-slate-600">
                         {selectedMachine.previousRepairs || (currentLanguage === "en" ? "No major repairs recorded" : "कोई बड़ी मरम्मत दर्ज नहीं")}
                       </div>
                     );
@@ -4155,8 +4052,8 @@ export default function AgriPulseApp() {
                 </div>
 
                 {/* 2. बदले गए पार्ट */}
-                <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 space-y-1.5">
-                  <div className="text-base font-black text-slate-900 flex items-center gap-2">
+                <div className="p-3 bg-slate-50 rounded-md border border-slate-200 space-y-1.5">
+                  <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                     <span>⚙️</span>
                     <span>{t("machines.partsReplaced", currentLanguage)}</span>
                   </div>
@@ -4185,11 +4082,11 @@ export default function AgriPulseApp() {
                       ];
                       const uniqueParts = Array.from(new Set(allParts));
                       return (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
+                        <div className="flex flex-wrap gap-1 pt-1">
                           {uniqueParts.map((part, idx) => (
                             <span
                               key={idx}
-                              className="bg-emerald-100 text-emerald-950 font-bold px-2.5 py-1 rounded-lg text-sm border border-emerald-300"
+                              className="bg-white text-slate-800 font-medium px-2 py-0.5 rounded text-xs border border-slate-200"
                             >
                               ⚙️ {part}
                             </span>
@@ -4199,7 +4096,7 @@ export default function AgriPulseApp() {
                     }
 
                     return (
-                      <div className="text-base font-bold text-slate-800">
+                      <div className="text-xs font-medium text-slate-600">
                         {selectedMachine.partsReplaced || (currentLanguage === "en" ? "No parts replaced yet" : "कोई नया पार्ट नहीं बदला गया")}
                       </div>
                     );
@@ -4207,15 +4104,15 @@ export default function AgriPulseApp() {
                 </div>
 
                 {/* 3. कुल सेवा रिकॉर्ड */}
-                <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 space-y-2">
-                  <div className="text-base font-black text-slate-900 flex items-center gap-2">
+                <div className="p-3 bg-slate-50 rounded-md border border-slate-200 space-y-2">
+                  <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                     <span>📋</span>
                     <span>{t("passport.serviceHistoryTotal", currentLanguage)}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                      <span className="text-xs text-slate-500 block">{currentLanguage === "en" ? "Total Usage:" : "कुल संचालन:"}</span>
-                      <span className="text-base font-black text-slate-900">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-white p-2 rounded-md border border-slate-200">
+                      <span className="text-[11px] text-slate-500 block">{currentLanguage === "en" ? "Total Usage:" : "कुल संचालन:"}</span>
+                      <span className="text-xs font-bold text-slate-900">
                         {currentLanguage === "en"
                           ? `${selectedMachine.operatingHours.replace("घंटे", "").trim()} hrs`
                           : selectedMachine.operatingHours.includes("घंटे")
@@ -4223,9 +4120,9 @@ export default function AgriPulseApp() {
                           : `${selectedMachine.operatingHours} घंटे`}
                       </span>
                     </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                      <span className="text-xs text-slate-500 block">{currentLanguage === "en" ? "Last Service:" : "पिछली सर्विस:"}</span>
-                      <span className="text-base font-black text-slate-900">
+                    <div className="bg-white p-2 rounded-md border border-slate-200">
+                      <span className="text-[11px] text-slate-500 block">{currentLanguage === "en" ? "Last Service:" : "पिछली सर्विस:"}</span>
+                      <span className="text-xs font-bold text-slate-900">
                         {currentLanguage === "en" ? (selectedMachine.lastServiceDate || selectedMachine.lastService) : (formatServiceDateHi(selectedMachine.lastServiceDate) || selectedMachine.lastService)}
                       </span>
                     </div>
@@ -4233,14 +4130,14 @@ export default function AgriPulseApp() {
                 </div>
 
                 {/* 4. अगली सर्विस */}
-                <div className="p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-300 flex items-center justify-between">
+                <div className="p-3 bg-emerald-50/70 rounded-md border border-emerald-200 flex items-center justify-between text-xs">
                   <div>
-                    <span className="text-xs font-bold text-emerald-800 block">{t("passport.nextMaintenance", currentLanguage)}:</span>
-                    <span className="text-xl font-black text-emerald-950">
+                    <span className="text-[11px] font-medium text-emerald-800 block">{t("passport.nextMaintenance", currentLanguage)}:</span>
+                    <span className="text-sm font-bold text-emerald-950">
                       {currentLanguage === "en" ? selectedMachine.nextServiceDate : formatServiceDateHi(selectedMachine.nextServiceDate)}
                     </span>
                   </div>
-                  <span className="text-2xl sm:text-3xl">📅</span>
+                  <span className="text-lg">📅</span>
                 </div>
               </div>
 
@@ -4248,9 +4145,9 @@ export default function AgriPulseApp() {
               <div className="pt-2">
                 <button
                   onClick={() => handleStartBreakdown(selectedMachine.id)}
-                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-5 px-4 rounded-3xl text-xl shadow-xl border-3 border-emerald-950 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-3 px-4 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
                 >
-                  <span className="text-2xl">🔧</span>
+                  <Wrench className="w-4 h-4" />
                   <span>{t("dashboard.reportBreakdown", currentLanguage)} - {t("dashboard.callMechanic", currentLanguage)}</span>
                 </button>
               </div>
@@ -4260,34 +4157,37 @@ export default function AgriPulseApp() {
 
         {/* ================= 4. REPORT BREAKDOWN SCREEN ================= */}
         {currentScreen === "breakdown" && (
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {/* Header with Step Indicator */}
-            <div className="bg-amber-50 border-3 border-amber-300 rounded-3xl p-4 flex items-center justify-between">
+            <div className="bg-white border border-slate-200 rounded-lg p-3.5 flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-black text-amber-950 flex items-center gap-2">
-                  <span>🔧</span> {t("complaint.title", currentLanguage)}
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
+                  <Wrench className="w-4 h-4 text-emerald-700" />
+                  <span>{t("complaint.title", currentLanguage)}</span>
                 </h2>
-                <p className="text-sm font-bold text-amber-900 mt-0.5">
-                  {currentLanguage === "en" ? `Step ${breakdownStep} / 4` : `चरण ${breakdownStep} / 4`}
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  {currentLanguage === "en" ? `Step ${breakdownStep} of 4` : `चरण ${breakdownStep} / 4`}
                 </p>
               </div>
-              <span className="text-base font-black bg-amber-200 text-amber-900 px-3 py-1 rounded-xl">
+              <span className="text-xs font-semibold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md border border-slate-200">
                 {currentLanguage === "en" ? `Step ${breakdownStep}` : `चरण ${breakdownStep}`}
               </span>
             </div>
 
             {/* STEP 1: कौन-सी मशीन खराब है? */}
             {breakdownStep === 1 && (
-              <div className="space-y-4">
-                <div className="bg-white border-3 border-slate-300 rounded-3xl p-5 space-y-3">
-                  <label className="block text-2xl font-black text-slate-900">
-                    {currentLanguage === "en" ? "Which machine has a problem?" : "कौन-सी मशीन खराब है?"}
-                  </label>
-                  <p className="text-sm font-bold text-slate-600">
-                    {currentLanguage === "en" ? "Select your broken machine:" : "अपनी खराब मशीन पर दबाएं:"}
-                  </p>
+              <div className="space-y-3.5">
+                <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div>
+                    <label className="block text-base font-bold text-slate-900">
+                      {currentLanguage === "en" ? "Which machine has a problem?" : "कौन-सी मशीन खराब है?"}
+                    </label>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      {currentLanguage === "en" ? "Select your machine to continue:" : "मरम्मत के लिए अपनी मशीन चुनें:"}
+                    </p>
+                  </div>
 
-                  <div className="space-y-3 pt-1">
+                  <div className="space-y-2 pt-1">
                     {machines.map((machine) => (
                       <button
                         key={machine.id}
@@ -4296,21 +4196,21 @@ export default function AgriPulseApp() {
                           setBreakdownMachineId(machine.id);
                           setBreakdownStep(2);
                         }}
-                        className={`w-full p-4 rounded-2xl border-3 flex items-center justify-between transition-all ${
+                        className={`w-full p-3 rounded-lg border flex items-center justify-between transition-colors cursor-pointer ${
                           breakdownMachineId === machine.id
-                            ? "bg-emerald-50 border-emerald-600 text-emerald-950 font-black shadow-md scale-[1.01]"
-                            : "bg-white border-slate-300 text-slate-800 font-bold hover:bg-slate-50"
+                            ? "bg-emerald-50 border-emerald-600 text-emerald-950 font-semibold"
+                            : "bg-white border-slate-200 text-slate-800 hover:bg-slate-50 font-medium"
                         }`}
                       >
-                        <div className="flex items-center gap-4">
-                          <span className="text-3xl sm:text-4xl p-2 bg-slate-100 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl p-2 bg-slate-50 rounded-md border border-slate-200">
                             {machine.icon}
                           </span>
-                          <span className="text-2xl font-black">
+                          <span className="text-base font-bold text-slate-900">
                             {currentLanguage === "en" ? machine.name : machine.nameHi}
                           </span>
                         </div>
-                        <span className="text-xl font-black text-emerald-800">
+                        <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">
                           {currentLanguage === "en" ? "Select ➔" : "चुनें ➔"}
                         </span>
                       </button>
@@ -4320,18 +4220,18 @@ export default function AgriPulseApp() {
               </div>
             )}
 
-            {/* STEP 2: समस्या बताएं (Voice, Photo, Text Capture - Section 3, 4, 5) */}
+            {/* STEP 2: समस्या बताएं (Voice, Photo, Text Capture) */}
             {breakdownStep === 2 && (
-              <div className="space-y-4">
-                <div className="bg-white border-3 border-slate-300 rounded-3xl p-5 space-y-4 shadow-sm">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="space-y-3.5">
+                <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3.5 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                     <div>
-                      <label className="block text-2xl font-black text-slate-900">
-                        {currentLanguage === "en" ? "Problem with machine" : "मशीन में समस्या है"}
+                      <label className="block text-base font-bold text-slate-900">
+                        {currentLanguage === "en" ? "Report Machine Problem" : "मशीन में समस्या बताएं"}
                       </label>
-                      <p className="text-base font-bold text-slate-600 mt-0.5">
-                        {currentLanguage === "en" ? "Machine: " : "मशीन: "}
-                        <span className="text-emerald-950 font-black text-lg">
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        {currentLanguage === "en" ? "Selected Machine: " : "चयनित उपकरण: "}
+                        <span className="text-slate-900 font-semibold">
                           {currentLanguage === "en" ? currentBreakdownMachine.name : currentBreakdownMachine.nameHi} {currentBreakdownMachine.icon}
                         </span>
                       </p>
@@ -4340,60 +4240,60 @@ export default function AgriPulseApp() {
 
                   {/* SECTION 3: 3 OBVIOUS CHOICES (फोटो लें, बोलकर बताएं, लिखकर बताएं) */}
                   <div className="space-y-1">
-                    <span className="text-sm font-bold text-slate-600 block mb-1">
+                    <span className="text-xs font-semibold text-slate-600 block mb-1.5">
                       {currentLanguage === "en" ? "Choose how to report problem:" : "समस्या बताने का तरीका चुनें:"}
                     </span>
                     <div className="grid grid-cols-3 gap-2">
-                      {/* Option 1: 📷 फोटो लें */}
+                      {/* Option 1: Photo */}
                       <button
                         type="button"
                         onClick={() => {
                           setActiveProblemMode("photo");
                           if (!breakdownPhotoPreview) photoInputRef.current?.click();
                         }}
-                        className={`p-3.5 rounded-2xl border-3 flex flex-col items-center justify-center gap-1.5 transition-all text-center ${
+                        className={`p-3 rounded-lg border flex flex-col items-center justify-center gap-1 transition-colors text-center cursor-pointer ${
                           activeProblemMode === "photo" || breakdownPhotoPreview
-                            ? "bg-blue-50 border-blue-600 text-blue-950 font-black shadow-md ring-2 ring-blue-200"
-                            : "bg-slate-50 border-slate-300 text-slate-700 font-bold hover:bg-slate-100"
+                            ? "bg-emerald-50 border-emerald-600 text-emerald-900 font-semibold"
+                            : "bg-white border-slate-200 text-slate-700 font-medium hover:bg-slate-50"
                         }`}
                       >
-                        <span className="text-2xl sm:text-3xl">📷</span>
-                        <span className="text-base font-black leading-tight">
+                        <Camera className="w-5 h-5" />
+                        <span className="text-xs font-semibold leading-tight">
                           {currentLanguage === "en" ? "Take Photo" : "फोटो लें"}
                         </span>
                       </button>
 
-                      {/* Option 2: 🎤 बोलकर बताएं */}
+                      {/* Option 2: Voice */}
                       <button
                         type="button"
                         onClick={() => {
                           setActiveProblemMode("voice");
                           if (!isVoiceRecording && !breakdownDescription.trim()) startVoiceRecording();
                         }}
-                        className={`p-3.5 rounded-2xl border-3 flex flex-col items-center justify-center gap-1.5 transition-all text-center ${
+                        className={`p-3 rounded-lg border flex flex-col items-center justify-center gap-1 transition-colors text-center cursor-pointer ${
                           activeProblemMode === "voice" || isVoiceRecording
-                            ? "bg-amber-50 border-amber-600 text-amber-950 font-black shadow-md ring-2 ring-amber-200"
-                            : "bg-slate-50 border-slate-300 text-slate-700 font-bold hover:bg-slate-100"
+                            ? "bg-emerald-50 border-emerald-600 text-emerald-900 font-semibold"
+                            : "bg-white border-slate-200 text-slate-700 font-medium hover:bg-slate-50"
                         }`}
                       >
-                        <span className="text-2xl sm:text-3xl">🎤</span>
-                        <span className="text-base font-black leading-tight">
+                        <Mic className="w-5 h-5" />
+                        <span className="text-xs font-semibold leading-tight">
                           {currentLanguage === "en" ? "Voice Note" : "बोलकर बताएं"}
                         </span>
                       </button>
 
-                      {/* Option 3: ⌨️ लिखकर बताएं */}
+                      {/* Option 3: Type Text */}
                       <button
                         type="button"
                         onClick={() => setActiveProblemMode("text")}
-                        className={`p-3.5 rounded-2xl border-3 flex flex-col items-center justify-center gap-1.5 transition-all text-center ${
+                        className={`p-3 rounded-lg border flex flex-col items-center justify-center gap-1 transition-colors text-center cursor-pointer ${
                           activeProblemMode === "text"
-                            ? "bg-emerald-50 border-emerald-600 text-emerald-950 font-black shadow-md ring-2 ring-emerald-200"
-                            : "bg-slate-50 border-slate-300 text-slate-700 font-bold hover:bg-slate-100"
+                            ? "bg-emerald-50 border-emerald-600 text-emerald-900 font-semibold"
+                            : "bg-white border-slate-200 text-slate-700 font-medium hover:bg-slate-50"
                         }`}
                       >
-                        <span className="text-2xl sm:text-3xl">⌨️</span>
-                        <span className="text-base font-black leading-tight">
+                        <FileText className="w-5 h-5" />
+                        <span className="text-xs font-semibold leading-tight">
                           {currentLanguage === "en" ? "Type Text" : "लिखकर बताएं"}
                         </span>
                       </button>
@@ -4402,57 +4302,54 @@ export default function AgriPulseApp() {
 
                   {/* SECTION 4: VOICE MODE */}
                   {activeProblemMode === "voice" && (
-                    <div className="space-y-3 pt-1">
-                      <div className="text-lg font-black text-slate-900">
+                    <div className="space-y-2.5 pt-1">
+                      <div className="text-xs font-semibold text-slate-600">
                         {currentLanguage === "en" ? "Speak machine problem" : "मशीन की समस्या बोलकर बताएं"}
                       </div>
 
-                      {/* Recording state: 🔴 रिकॉर्ड हो रहा है */}
+                      {/* Recording state */}
                       {isVoiceRecording ? (
-                        <div className="bg-red-50 border-3 border-red-500 rounded-2xl p-5 text-center space-y-3 shadow-md animate-pulse">
-                          <div className="flex items-center justify-center gap-2 text-2xl font-black text-red-950">
-                            <span className="w-4 h-4 rounded-full bg-red-600 animate-ping"></span>
-                            <span>{currentLanguage === "en" ? "🔴 Recording..." : "🔴 रिकॉर्ड हो रहा है"}</span>
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center space-y-2.5">
+                          <div className="flex items-center justify-center gap-2 text-base font-bold text-red-900">
+                            <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
+                            <span>{currentLanguage === "en" ? "Recording audio..." : "रिकॉर्ड हो रहा है..."}</span>
                           </div>
-                          <p className="text-base font-bold text-red-900">
+                          <p className="text-xs font-medium text-red-700">
                             {currentLanguage === "en" ? "Speak clearly. Press button below when done:" : "मुंह से साफ बोलें। बोलने के बाद नीचे बटन दबाएं:"}
                           </p>
                           <button
                             type="button"
                             onClick={stopVoiceRecording}
-                            className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-red-900 active:scale-[0.98] transition-transform"
+                            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-4 rounded-md text-sm transition-colors cursor-pointer"
                           >
-                            {currentLanguage === "en" ? "⏹️ Done Speaking" : "⏹️ बोलना पूरा हुआ"}
+                            {currentLanguage === "en" ? "Done Speaking" : "बोलना पूरा हुआ (Done)"}
                           </button>
                         </div>
                       ) : voiceRecordedComplete && breakdownDescription.trim() ? (
-                        /* Recording completed: "रिकॉर्डिंग पूरी हुई" with ▶️ सुनें & 🔄 फिर से रिकॉर्ड करें */
-                        <div className="bg-emerald-50 border-3 border-emerald-500 rounded-2xl p-4 space-y-3 shadow-sm">
-                          <div className="text-center">
-                            <div className="text-xl font-black text-emerald-950">
-                              {currentLanguage === "en" ? "✓ Recording Complete" : "✓ रिकॉर्डिंग पूरी हुई"}
-                            </div>
-                            <div className="text-sm font-bold text-emerald-800 mt-0.5">
-                              {currentLanguage === "en" ? "Your voice note is recorded" : "आपकी बात रिकॉर्ड कर ली गई है"}
+                        /* Recording completed */
+                        <div className="bg-emerald-50/60 border border-emerald-200 rounded-lg p-3.5 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs font-bold text-emerald-900">
+                              {currentLanguage === "en" ? "Voice Note Recorded" : "आवाज रिकॉर्ड हो गई है"}
                             </div>
                           </div>
 
-                          <div className="p-3 bg-white rounded-xl border border-emerald-300 text-lg font-bold text-slate-900">
+                          <div className="p-3 bg-white rounded-md border border-slate-200 text-sm font-medium text-slate-900">
                             &quot;{breakdownDescription}&quot;
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 pt-1">
-                            {/* ▶️ सुनें */}
+                          <div className="grid grid-cols-2 gap-2 pt-0.5">
+                            {/* Play */}
                             <button
                               type="button"
                               onClick={() => playAudioText(breakdownDescription)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white font-black py-3 px-3 rounded-xl text-lg flex items-center justify-center gap-2 shadow-sm transition-all"
+                              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold py-2 px-3 rounded-md text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                             >
-                              <span>▶️</span>
+                              <span>▶</span>
                               <span>{currentLanguage === "en" ? "Play" : "सुनें"}</span>
                             </button>
 
-                            {/* 🔄 फिर से रिकॉर्ड करें */}
+                            {/* Record Again */}
                             <button
                               type="button"
                               onClick={() => {
@@ -4460,9 +4357,9 @@ export default function AgriPulseApp() {
                                 setVoiceRecordedComplete(false);
                                 startVoiceRecording();
                               }}
-                              className="bg-amber-600 hover:bg-amber-700 text-white font-black py-3 px-3 rounded-xl text-lg flex items-center justify-center gap-2 shadow-sm transition-all"
+                              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold py-2 px-3 rounded-md text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                             >
-                              <span>🔄</span>
+                              <span>↺</span>
                               <span>{currentLanguage === "en" ? "Record Again" : "फिर से रिकॉर्ड करें"}</span>
                             </button>
                           </div>
@@ -4471,17 +4368,24 @@ export default function AgriPulseApp() {
                         <button
                           type="button"
                           onClick={startVoiceRecording}
-                          className="w-full bg-amber-500 hover:bg-amber-600 border-4 border-amber-800 text-white rounded-2xl p-5 text-left shadow-md flex items-center gap-4 active:scale-[0.98] transition-all"
+                          className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg p-3.5 text-left transition-colors flex items-center justify-between cursor-pointer"
                         >
-                          <span className="text-3xl sm:text-4xl p-2 sm:p-3 bg-amber-600 rounded-2xl">🎤</span>
-                          <div>
-                            <div className="text-2xl font-black text-white">
-                              {currentLanguage === "en" ? "Speak Problem" : "बोलकर समस्या बताएं"}
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-md bg-emerald-800 flex items-center justify-center text-white shrink-0">
+                              <Mic className="w-5 h-5" />
                             </div>
-                            <div className="text-sm font-bold text-amber-100 mt-0.5">
-                              {currentLanguage === "en" ? "Press and speak the machine issue" : "दबाएं और मुंह से बोलकर खराबी बताएं"}
+                            <div>
+                              <div className="text-sm font-bold text-white">
+                                {currentLanguage === "en" ? "Tap to Speak Problem" : "दबाएं और बोलकर समस्या बताएं"}
+                              </div>
+                              <div className="text-xs text-emerald-100 font-normal">
+                                {currentLanguage === "en" ? "Speak in Hindi or your local language" : "हिन्दी या अपनी क्षेत्रीय भाषा में बोलें"}
+                              </div>
                             </div>
                           </div>
+                          <span className="text-xs font-semibold bg-emerald-800 text-emerald-100 px-2 py-1 rounded-md">
+                            Mic
+                          </span>
                         </button>
                       )}
 
@@ -4695,30 +4599,30 @@ export default function AgriPulseApp() {
                         if (validationError) setValidationError(null);
                       }}
                       placeholder={currentLanguage === "en" ? "Your spoken or typed problem will appear here... (e.g. Tractor not starting, smoke coming out)" : "आपकी बोली या लिखी बात यहाँ दिखेगी... (जैसे: ट्रैक्टर स्टार्ट नहीं हो रहा है, धुआं निकल रहा है)"}
-                      className="w-full p-4 rounded-2xl border-3 border-slate-300 text-xl font-bold text-slate-900 bg-slate-50 focus:bg-white focus:border-emerald-600 focus:outline-none transition-colors"
+                      className="w-full p-3 rounded-md border border-slate-300 text-sm font-medium text-slate-900 bg-white focus:border-emerald-600 focus:outline-none transition-colors"
                     />
                   </div>
 
                   {/* Validation Error Message */}
                   {validationError && (
-                    <div className="p-3 bg-red-50 border-2 border-red-400 rounded-xl text-red-900 font-black text-base flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                    <div className="p-2.5 bg-red-50 border border-red-200 rounded-md text-red-800 font-semibold text-xs flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                       <span>{validationError}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Back / Next Navigation */}
-                <div className="flex gap-3">
+                <div className="flex gap-2.5">
                   <button
                     type="button"
                     onClick={() => {
                       if (isVoiceRecording) stopVoiceRecording();
                       setBreakdownStep(1);
                     }}
-                    className="flex-1 py-4 text-lg font-black text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-2xl flex items-center justify-center gap-1.5 transition-colors"
+                    className="flex-1 py-2.5 px-4 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    <ArrowLeft className="w-5 h-5" />
+                    <ArrowLeft className="w-4 h-4" />
                     <span>{currentLanguage === "en" ? "Change Machine" : "मशीन बदलें"}</span>
                   </button>
 
@@ -4728,7 +4632,7 @@ export default function AgriPulseApp() {
                       if (isVoiceRecording) stopVoiceRecording();
                       handleStep2Next();
                     }}
-                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-4 px-4 rounded-2xl text-xl text-center shadow-md transition-colors"
+                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-md text-xs text-center transition-colors cursor-pointer"
                   >
                     {currentLanguage === "en" ? "Continue ➔" : "आगे बढ़ें ➔"}
                   </button>
@@ -4738,51 +4642,57 @@ export default function AgriPulseApp() {
 
             {/* STEP 3: आज मशीन की जरूरत है? */}
             {breakdownStep === 3 && (
-              <div className="space-y-4">
-                <div className="bg-white border-3 border-slate-300 rounded-3xl p-5 space-y-3">
-                  <label className="block text-2xl font-black text-slate-900">
-                    {currentLanguage === "en" ? "Is machine needed today?" : "आज मशीन की जरूरत है?"}
-                  </label>
-                  <p className="text-sm font-bold text-slate-600">
-                    {currentLanguage === "en" ? "Specify work urgency:" : "काम की आवश्यकता बताएं:"}
-                  </p>
+              <div className="space-y-3.5">
+                <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
+                  <div>
+                    <label className="block text-base font-bold text-slate-900">
+                      {currentLanguage === "en" ? "Is machine needed today?" : "आज मशीन की जरूरत है?"}
+                    </label>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      {currentLanguage === "en" ? "Specify work urgency for technician dispatch:" : "काम की आवश्यकता बताएं:"}
+                    </p>
+                  </div>
 
-                  <div className="space-y-3 pt-1">
-                    {/* 🟢 हाँ, आज काम है */}
+                  <div className="space-y-2 pt-1">
+                    {/* Yes, needed today */}
                     <button
                       type="button"
                       onClick={() => {
                         setBreakdownUrgency("today");
                         setBreakdownStep(4);
                       }}
-                      className="w-full bg-emerald-50 hover:bg-emerald-100 border-3 border-emerald-600 rounded-2xl p-4 flex items-center gap-4 text-left shadow-sm"
+                      className="w-full bg-white hover:bg-slate-50 border border-slate-200 hover:border-emerald-600 rounded-lg p-3.5 flex items-center gap-3 text-left transition-colors cursor-pointer"
                     >
-                      <span className="text-3xl sm:text-4xl">🟢</span>
+                      <span className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold text-xs shrink-0">
+                        ✓
+                      </span>
                       <div>
-                        <div className="text-2xl font-black text-emerald-950">
-                          {currentLanguage === "en" ? "Yes, needed today" : "हाँ, आज काम है"}
+                        <div className="text-sm font-bold text-slate-900">
+                          {currentLanguage === "en" ? "Yes, needed today" : "हाँ, आज काम है (जरूरी)"}
                         </div>
-                        <div className="text-xs font-bold text-emerald-900">
+                        <div className="text-xs text-slate-500 font-medium mt-0.5">
                           {currentLanguage === "en" ? "Mechanic will be dispatched urgently" : "मैकेनिक को जल्द से जल्द भेजा जाएगा"}
                         </div>
                       </div>
                     </button>
 
-                    {/* ⚪ नहीं, बाद में भी चलेगा */}
+                    {/* No, can wait */}
                     <button
                       type="button"
                       onClick={() => {
                         setBreakdownUrgency("later");
                         setBreakdownStep(4);
                       }}
-                      className="w-full bg-slate-50 hover:bg-slate-100 border-3 border-slate-400 rounded-2xl p-4 flex items-center gap-4 text-left shadow-sm"
+                      className="w-full bg-white hover:bg-slate-50 border border-slate-200 rounded-lg p-3.5 flex items-center gap-3 text-left transition-colors cursor-pointer"
                     >
-                      <span className="text-3xl sm:text-4xl">⚪</span>
+                      <span className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs shrink-0">
+                        ⏱
+                      </span>
                       <div>
-                        <div className="text-2xl font-black text-slate-900">
+                        <div className="text-sm font-bold text-slate-900">
                           {currentLanguage === "en" ? "No, can wait" : "नहीं, बाद में भी चलेगा"}
                         </div>
-                        <div className="text-xs font-bold text-slate-600">
+                        <div className="text-xs text-slate-500 font-medium mt-0.5">
                           {currentLanguage === "en" ? "Normal schedule repair" : "सामान्य समय पर मरम्मत होगी"}
                         </div>
                       </div>
@@ -4793,9 +4703,9 @@ export default function AgriPulseApp() {
                 <button
                   type="button"
                   onClick={() => setBreakdownStep(2)}
-                  className="w-full py-3 text-base font-bold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1"
+                  className="w-full py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1 cursor-pointer"
                 >
-                  <ArrowLeft className="w-5 h-5" />
+                  <ArrowLeft className="w-4 h-4" />
                   <span>{currentLanguage === "en" ? "← Previous Question" : "← पिछला सवाल"}</span>
                 </button>
               </div>
@@ -4803,10 +4713,10 @@ export default function AgriPulseApp() {
 
             {/* STEP 4: मदद चाहिए (Final Verification) */}
             {breakdownStep === 4 && (
-              <div className="space-y-4">
-                <div className="bg-white border-3 border-emerald-400 rounded-3xl p-5 space-y-4 shadow-sm">
-                  <div className="text-2xl font-black text-slate-900 border-b border-slate-200 pb-2">
-                    {currentLanguage === "en" ? "Review Your Information:" : "आपकी जानकारी की जांच:"}
+              <div className="space-y-3.5">
+                <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3.5 shadow-2xs">
+                  <div className="text-base font-bold text-slate-900 border-b border-slate-100 pb-2">
+                    {currentLanguage === "en" ? "Review Your Information" : "दर्ज जानकारी की समीक्षा"}
                   </div>
 
                   <div className="space-y-2.5 text-base">
@@ -4977,7 +4887,7 @@ export default function AgriPulseApp() {
                   <button
                     type="button"
                     onClick={handleBreakdownSubmit}
-                    className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-3xl p-5 text-xl font-black shadow-xl border-4 border-emerald-950 flex items-center justify-center gap-3 transition-transform active:scale-[0.98]"
+                    className="w-full bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-lg py-3 px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                   >
                     <span>{currentLanguage === "en" ? "Confirm Service Request" : "सेवा की पुष्टि करें (मदद चाहिए)"}</span>
                     <span>➔</span>
@@ -4987,9 +4897,9 @@ export default function AgriPulseApp() {
                 <button
                   type="button"
                   onClick={() => setBreakdownStep(3)}
-                  className="w-full py-3 text-base font-bold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1"
+                  className="w-full py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1 cursor-pointer"
                 >
-                  <ArrowLeft className="w-5 h-5" />
+                  <ArrowLeft className="w-4 h-4" />
                   <span>{currentLanguage === "en" ? "← Previous Question" : "← पिछला सवाल"}</span>
                 </button>
               </div>
@@ -5120,261 +5030,244 @@ export default function AgriPulseApp() {
         {currentScreen === "diagnosis" && (
           <div className="space-y-4">
             {/* Header info */}
-            <div className="bg-white border-3 border-emerald-500 rounded-3xl p-5 shadow-sm space-y-2">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl sm:text-3xl p-2 bg-emerald-50 rounded-2xl border border-emerald-200">
+                  <span className="text-2xl p-2 bg-slate-50 rounded-md border border-slate-200">
                     {machines.find((m) => m.id === breakdownMachineId)?.icon || "🚜"}
                   </span>
                   <div>
-                    <h2 className="text-xl font-black text-slate-900">
+                    <h2 className="text-base font-bold text-slate-900">
                       {machines.find((m) => m.id === breakdownMachineId)?.[currentLanguage === "en" ? "name" : "nameHi"] || (currentLanguage === "en" ? "Machine" : "मशीन")}
                     </h2>
-                    <p className="text-xs font-bold text-slate-500">
+                    <p className="text-xs text-slate-500 font-medium">
                       {machines.find((m) => m.id === breakdownMachineId)?.name} • {machines.find((m) => m.id === breakdownMachineId)?.type}
                     </p>
                   </div>
                 </div>
-                <span className="bg-emerald-100 text-emerald-900 text-sm font-black px-3.5 py-1.5 rounded-full border border-emerald-300">
-                  {currentLanguage === "en" ? "🤖 Preliminary Inspection" : "🤖 मशीन की प्रारंभिक जाँच"}
+                <span className="bg-slate-100 text-slate-700 text-xs font-semibold px-2.5 py-1 rounded-md border border-slate-200">
+                  {currentLanguage === "en" ? "Diagnostic Assessment" : "प्रारंभिक तकनीकी जाँच"}
                 </span>
               </div>
             </div>
 
-            {/* 1. Progress indicator: "🔍 मशीन की जाँच हो रही है..." */}
+            {/* 1. Progress indicator: "मशीन की जाँच हो रही है..." */}
             {isDiagnosing ? (
-              <div className="bg-white border-3 border-emerald-400 rounded-3xl p-8 text-center space-y-6 shadow-md">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-100 flex items-center justify-center text-3xl sm:text-4xl mx-auto animate-bounce shadow-inner">
+              <div className="bg-white border border-slate-200 rounded-lg p-6 text-center space-y-4 shadow-2xs">
+                <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 text-xl mx-auto">
                   🔍
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-black text-slate-900">
-                    {currentLanguage === "en" ? "🔍 Inspecting machine..." : "🔍 मशीन की जाँच हो रही है..."}
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-slate-900">
+                    {currentLanguage === "en" ? "Inspecting machine..." : "मशीन की जाँच हो रही है..."}
                   </h3>
-                  <p className="text-base font-bold text-slate-600">
+                  <p className="text-xs text-slate-500">
                     {currentLanguage === "en" ? "Analyzing problem and machine status" : "आपकी समस्या एवं मशीन की स्थिति की जाँच की जा रही है"}
                   </p>
                 </div>
 
                 {/* Visual Progress Bar */}
-                <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden border border-slate-300 shadow-inner">
-                  <div className="bg-emerald-600 h-full rounded-full w-4/5 animate-pulse transition-all duration-700"></div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+                  <div className="bg-emerald-700 h-full rounded-full w-4/5 animate-pulse transition-all duration-700"></div>
                 </div>
 
-                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-sm font-bold text-emerald-900">
+                <div className="text-xs text-slate-500">
                   {currentLanguage === "en" ? "Data is safe • Instant on-device diagnosis" : "डेटा सुरक्षित है • फोन में ही त्वरित जाँच"}
                 </div>
               </div>
             ) : currentDiagnosis && (
-              /* 2. Diagnosis Result Card (Section 6 & 7) */
-              <div className="space-y-4">
-                {/* Safety rules run BEFORE displaying recommendation */}
+              /* 2. Structured Diagnostic Assessment Report */
+              <div className="space-y-3.5">
+                {/* Safety Warning (restrained alert callout) */}
                 {currentDiagnosis.safetyWarning && (
-                  <div className="bg-red-700 text-white p-4 rounded-3xl font-black text-xl shadow-lg border-3 border-red-950 flex items-center gap-3 animate-pulse">
-                    <span className="text-2xl sm:text-3xl shrink-0">⚠️</span>
+                  <div className="bg-amber-50 border border-amber-300 text-amber-950 p-3.5 rounded-lg text-sm font-semibold flex items-start gap-2.5">
+                    <span className="text-base shrink-0 mt-0.5">⚠️</span>
                     <span>{currentDiagnosis.safetyWarning}</span>
                   </div>
                 )}
 
-                {/* Result Main Card */}
-                <div className="bg-white border-3 border-emerald-500 rounded-3xl p-5 shadow-md space-y-4">
-                  {/* Top: Header */}
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <span className="text-sm font-black bg-emerald-100 text-emerald-950 border border-emerald-300 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-xs">
-                      <span>🤖</span>
-                      <span>{currentLanguage === "en" ? "Preliminary Inspection" : "मशीन की प्रारंभिक जाँच"}</span>
-                    </span>
+                {/* Main Diagnostic Report Card */}
+                <div className="bg-white border border-slate-200 rounded-lg shadow-2xs divide-y divide-slate-100 overflow-hidden">
+                  {/* Top: Header & Priority */}
+                  <div className="p-4 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        {currentLanguage === "en" ? "AI-Assisted Assessment" : "तकनीकी जाँच रिपोर्ट"}
+                      </div>
+                      <div className="text-xs text-slate-400 font-medium">
+                        {currentLanguage === "en" ? "Preliminary service evaluation" : "प्रारंभिक सेवा मूल्यांकन"}
+                      </div>
+                    </div>
                     <span
-                      className={`text-base font-black px-4 py-1.5 rounded-full border shadow-xs ${
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${
                         breakdownUrgency === "today" || currentDiagnosis.urgencyLevel === "high"
-                          ? "bg-red-100 text-red-950 border-red-300"
+                          ? "bg-red-50 text-red-700 border-red-200"
                           : currentDiagnosis.urgencyLevel === "medium"
-                          ? "bg-amber-100 text-amber-950 border-amber-300"
-                          : "bg-emerald-100 text-emerald-950 border-emerald-300"
+                          ? "bg-amber-50 text-amber-800 border-amber-200"
+                          : "bg-emerald-50 text-emerald-800 border-emerald-200"
                       }`}
                     >
                       {breakdownUrgency === "today" || currentDiagnosis.urgencyLevel === "high"
-                        ? (currentLanguage === "en" ? "🔴 Very Urgent" : "🔴 बहुत जरूरी")
+                        ? (currentLanguage === "en" ? "High Priority" : "अति आवश्यक")
                         : currentDiagnosis.urgencyLevel === "medium"
-                        ? (currentLanguage === "en" ? "🟠 Prompt Attention" : "🟠 जल्दी दिखाएं")
-                        : (currentLanguage === "en" ? "🟢 Normal" : "🟢 सामान्य")}
+                        ? (currentLanguage === "en" ? "Prompt Attention" : "जल्दी दिखाएं")
+                        : (currentLanguage === "en" ? "Normal" : "सामान्य")}
                     </span>
                   </div>
 
-                  {/* ─── VOICE OUTPUT CONTROLS (Web Speech API) ─── */}
-                  <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-2 border-emerald-400 rounded-2xl p-4 shadow-sm space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-2xl animate-pulse">🔊</span>
-                        <div>
-                          <div className="text-base font-black text-emerald-950 flex items-center gap-2">
-                            <span>{currentLanguage === "en" ? "Voice Explanation" : "आवाज में सुनें"}</span>
-                            {diagnosisVoiceState === "speaking" && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black bg-emerald-200 text-emerald-900 animate-pulse">
-                                ● {t("diagnosis.speakingStatus", currentLanguage)}
-                              </span>
-                            )}
-                            {diagnosisVoiceState === "paused" && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black bg-amber-200 text-amber-900">
-                                {t("diagnosis.pausedStatus", currentLanguage)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs font-bold text-slate-600">
-                            {currentLanguage === "en"
-                              ? "Simple audio explanation in your language"
-                              : "आपकी भाषा में सरल बोलती हुई जानकारी"}
-                          </div>
+                  {/* Clean Voice Controls Bar */}
+                  <div className="p-3 bg-slate-50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Volume2 className="w-4 h-4 text-slate-600 shrink-0" />
+                      <div className="truncate">
+                        <div className="text-xs font-semibold text-slate-800 truncate">
+                          {currentLanguage === "en" ? "Voice Explanation" : "आवाज में सुनें"}
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          {diagnosisVoiceState === "speaking"
+                            ? (currentLanguage === "en" ? "Playing audio..." : "ऑडियो चल रहा है...")
+                            : (currentLanguage === "en" ? "Listen to spoken assessment" : "जाँच रिपोर्ट बोलकर सुनें")}
                         </div>
                       </div>
                     </div>
 
-                    {/* Voice Controls: Listen, Pause, Resume, Stop, Replay */}
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {/* Prominent Listen button (if idle or autoplay blocked) */}
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {(diagnosisVoiceState === "blocked" || diagnosisVoiceState === "idle") && (
                         <button
                           type="button"
                           onClick={() => speakDiagnosisVoice(undefined, true)}
-                          className="flex-1 bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-black py-3 px-4 rounded-xl text-base flex items-center justify-center gap-2 shadow-md transition-all ring-2 ring-emerald-300"
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-1.5 px-3 rounded-md text-xs flex items-center gap-1 transition-colors cursor-pointer"
                         >
-                          <Volume2 className="w-5 h-5 text-white" />
-                          <span>
-                            {diagnosisVoiceState === "blocked"
-                              ? t("diagnosis.listenResponseBtn", currentLanguage)
-                              : t("diagnosis.listenBtn", currentLanguage)}
-                          </span>
+                          <Volume2 className="w-3.5 h-3.5" />
+                          <span>{currentLanguage === "en" ? "Listen" : "सुनें"}</span>
                         </button>
                       )}
-
-                      {/* Speaking state: Pause and Stop */}
                       {diagnosisVoiceState === "speaking" && (
                         <>
                           <button
                             type="button"
                             onClick={pauseDiagnosisVoice}
-                            className="flex-1 bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white font-black py-3 px-3 rounded-xl text-base flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                            className="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-1.5 px-2.5 rounded-md text-xs transition-colors cursor-pointer"
                           >
-                            <span>⏸️</span>
-                            <span>{t("diagnosis.pauseVoiceBtn", currentLanguage)}</span>
+                            ⏸
                           </button>
                           <button
                             type="button"
                             onClick={stopDiagnosisVoice}
-                            className="flex-1 bg-slate-700 hover:bg-slate-800 active:scale-[0.98] text-white font-black py-3 px-3 rounded-xl text-base flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                            className="bg-slate-700 hover:bg-slate-800 text-white font-semibold py-1.5 px-2.5 rounded-md text-xs transition-colors cursor-pointer"
                           >
-                            <span>⏹️</span>
-                            <span>{t("diagnosis.stopVoiceBtn", currentLanguage)}</span>
+                            ⏹
                           </button>
                         </>
                       )}
-
-                      {/* Paused state: Resume and Stop */}
                       {diagnosisVoiceState === "paused" && (
                         <>
                           <button
                             type="button"
                             onClick={resumeDiagnosisVoice}
-                            className="flex-1 bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-black py-3 px-3 rounded-xl text-base flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                            className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-1.5 px-2.5 rounded-md text-xs transition-colors cursor-pointer"
                           >
-                            <span>▶️</span>
-                            <span>{t("diagnosis.resumeVoiceBtn", currentLanguage)}</span>
+                            ▶
                           </button>
                           <button
                             type="button"
                             onClick={stopDiagnosisVoice}
-                            className="flex-1 bg-slate-700 hover:bg-slate-800 active:scale-[0.98] text-white font-black py-3 px-3 rounded-xl text-base flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                            className="bg-slate-700 hover:bg-slate-800 text-white font-semibold py-1.5 px-2.5 rounded-md text-xs transition-colors cursor-pointer"
                           >
-                            <span>⏹️</span>
-                            <span>{t("diagnosis.stopVoiceBtn", currentLanguage)}</span>
+                            ⏹
                           </button>
                         </>
                       )}
-
-                      {/* Replay Button */}
                       <button
                         type="button"
                         onClick={replayDiagnosisVoice}
-                        className="bg-white hover:bg-emerald-50 active:scale-[0.98] text-emerald-950 font-black py-3 px-3.5 rounded-xl text-base border-2 border-emerald-400 flex items-center justify-center gap-1.5 shadow-xs transition-all"
+                        className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold py-1.5 px-2 rounded-md text-xs transition-colors cursor-pointer"
                         title={t("diagnosis.replayVoiceBtn", currentLanguage)}
                       >
-                        <span>🔁</span>
-                        <span>{t("diagnosis.replayVoiceBtn", currentLanguage)}</span>
+                        ↺
                       </button>
                     </div>
                   </div>
 
-                  {/* Photo Analysis Evidence Card if photo exists */}
+                  {/* Photo Analysis Evidence */}
                   {(breakdownPhotoPreview || sahayakPhoto || currentDiagnosis.photoAnalysis) && (
-                    <div className="p-3.5 bg-blue-50 border-2 border-blue-300 rounded-2xl space-y-2 shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">📷</span>
-                          <span className="text-sm font-black text-blue-950">
-                            {currentLanguage === "en" ? "Machine Photo" : "मशीन की फोटो"}
-                          </span>
-                        </div>
-                        <span className="text-xs font-bold text-blue-800">
-                          {currentLanguage === "en" ? "Inspection Done" : "जाँच पूरी"}
-                        </span>
+                    <div className="p-4 space-y-1 bg-slate-50/50">
+                      <div className="text-xs font-semibold text-slate-500 uppercase">
+                        {currentLanguage === "en" ? "Photo Evidence Analysis" : "फोटो साक्ष्य विश्लेषण"}
                       </div>
-                      <div className="text-base font-black text-slate-900">
+                      <div className="text-sm font-semibold text-slate-900">
                         {currentDiagnosis.photoAnalysis?.isClear
                           ? (currentLanguage === "en" ? `Detection: ${currentDiagnosis.photoAnalysis.detectedIssue}` : `पहचान: ${currentDiagnosis.photoAnalysis.detectedIssue}`)
-                          : (currentLanguage === "en" ? "Issue not clear from photo. Mechanic inspection needed." : "फोटो से समस्या साफ़ नहीं दिख रही है। मैकेनिक की जाँच ज़रूरी है।")}
+                          : (currentLanguage === "en" ? "Issue not clear from photo. Mechanic physical inspection needed." : "फोटो से समस्या साफ़ नहीं दिख रही है। मैकेनिक की जाँच ज़रूरी है।")}
                       </div>
                     </div>
                   )}
 
-                  {/* ─── 1. WHAT IS THE PROBLEM? ─── */}
-                  <div className="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-4 space-y-1.5">
-                    <div className="text-xs font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <span>🔍</span>
-                      <span>{t("diagnosis.whatIsTheProblem", currentLanguage)}</span>
+                  {/* Section 1: Problem */}
+                  <div className="p-4 space-y-1">
+                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      {currentLanguage === "en" ? "Problem" : "पहचानी गई समस्या"}
                     </div>
-                    <div className="text-xl sm:text-2xl font-black text-slate-900 leading-snug">
+                    <div className="text-base font-bold text-slate-900 leading-snug">
                       {currentDiagnosis.farmerProblem || localizeDiagnosisProblem(currentDiagnosis.possibleProblem, currentLanguage)}
                     </div>
                     {currentDiagnosis.farmerExplanation && (
-                      <div className="text-sm font-bold text-slate-700 pt-1 border-t border-emerald-200">
+                      <p className="text-xs text-slate-600 mt-1">
                         {currentDiagnosis.farmerExplanation}
-                      </div>
+                      </p>
                     )}
                   </div>
 
-                  {/* ─── 2. WHAT SHOULD THE FARMER DO NOW? ─── */}
-                  <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 space-y-2.5">
-                    <div className="text-xs font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <span>🛠️</span>
-                      <span>{t("diagnosis.whatToDoNow", currentLanguage)}</span>
+                  {/* Section 2: Possible Cause & Confidence */}
+                  <div className="p-4 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        {currentLanguage === "en" ? "Possible Cause" : "संभावित कारण"}
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                        {currentLanguage === "en" ? `Confidence: ${currentDiagnosis.confidence}` : `विश्वास: ${currentDiagnosis.confidence}`}
+                      </span>
                     </div>
-                    <div className="space-y-2 pt-0.5">
+                    <div className="text-sm font-semibold text-slate-800">
+                      {currentDiagnosis.possibleProblem}
+                    </div>
+                    {currentDiagnosis.reasons && currentDiagnosis.reasons.length > 0 && (
+                      <ul className="list-disc pl-4 space-y-0.5 text-xs text-slate-600 pt-1">
+                        {currentDiagnosis.reasons.map((r, i) => (
+                          <li key={i}>{r}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Section 3: Recommended Action (What to do now) */}
+                  <div className="p-4 space-y-2">
+                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      {t("diagnosis.whatToDoNow", currentLanguage)}
+                    </div>
+                    <div className="space-y-1.5 pt-0.5">
                       {(currentDiagnosis.farmerSteps && currentDiagnosis.farmerSteps.length > 0
                         ? currentDiagnosis.farmerSteps
                         : (currentDiagnosis.immediateActions && currentDiagnosis.immediateActions.length > 0)
                         ? currentDiagnosis.immediateActions
                         : [currentDiagnosis.safeAction]
                       ).map((step, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-start gap-2.5 text-base font-black text-amber-950"
-                        >
-                          <span className="bg-amber-200 text-amber-950 rounded-full w-6 h-6 flex items-center justify-center shrink-0 text-sm font-black border border-amber-400 mt-0.5">
+                        <div key={idx} className="flex items-start gap-2 text-xs font-medium text-slate-800">
+                          <span className="w-4 h-4 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 text-[10px] font-bold border border-slate-300 mt-0.5">
                             {idx + 1}
                           </span>
-                          <span className="leading-snug">{step}</span>
+                          <span className="leading-relaxed">{step}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* ─── 3. WHAT NOT TO DO ─── */}
-                  <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-4 space-y-2">
-                    <div className="text-xs font-black text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <span>🚫</span>
-                      <span>{t("diagnosis.whatNotToDo", currentLanguage)}</span>
+                  {/* Section 4: What Not to Do */}
+                  <div className="p-4 space-y-1.5">
+                    <div className="text-xs font-semibold text-rose-700 uppercase tracking-wider">
+                      {t("diagnosis.whatNotToDo", currentLanguage)}
                     </div>
-                    <div className="space-y-1.5 pt-0.5">
+                    <div className="space-y-1">
                       {(currentDiagnosis.farmerAvoid && currentDiagnosis.farmerAvoid.length > 0
                         ? currentDiagnosis.farmerAvoid
                         : [
@@ -5383,59 +5276,31 @@ export default function AgriPulseApp() {
                               : "मशीन को बार-बार स्टार्ट करने की कोशिश न करें।"
                           ]
                       ).map((item, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-base font-bold text-rose-950">
-                          <span className="text-rose-600 font-black text-lg leading-none mt-0.5 shrink-0">✕</span>
+                        <div key={idx} className="flex items-start gap-2 text-xs font-medium text-rose-950">
+                          <span className="text-rose-600 font-bold leading-none mt-0.5 shrink-0">✕</span>
                           <span className="leading-snug">{item}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* ─── 4. WHEN TO CALL A MECHANIC ─── */}
-                  <div className="bg-blue-50 border-2 border-blue-300 rounded-2xl p-4 space-y-1.5">
-                    <div className="text-xs font-black text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <span>👨‍🔧</span>
-                      <span>{t("diagnosis.whenToCallMechanic", currentLanguage)}</span>
+                  {/* Section 5: Technician Required Assessment */}
+                  <div className="p-4 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        {currentLanguage === "en" ? "Technician Required" : "मैकेनिक की आवश्यकता"}
+                      </div>
+                      <div className="text-xs text-slate-600 font-medium mt-0.5">
+                        {currentDiagnosis.whenToCallMechanic || (
+                          currentLanguage === "en"
+                            ? "Professional repair recommended for field safety."
+                            : "खेत में सुरक्षा के लिए पेशेवर मरम्मत की सलाह दी जाती है।"
+                        )}
+                      </div>
                     </div>
-                    <div className="text-base font-black text-blue-950 leading-snug">
-                      {currentDiagnosis.whenToCallMechanic || (
-                        currentLanguage === "en"
-                          ? "If the machine does not start or smoke appears, call a mechanic."
-                          : "अगर मशीन स्टार्ट नहीं हो रही है या धुआँ निकल रहा है, तो मैकेनिक को बुलाएं।"
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ─── 5. URGENCY ─── */}
-                  <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-4 space-y-1.5">
-                    <div className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <span>⚡</span>
-                        <span>{t("diagnosis.urgencyTitle", currentLanguage)}</span>
-                      </span>
-                      <span
-                        className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${
-                          breakdownUrgency === "today" || currentDiagnosis.urgencyLevel === "high"
-                            ? "bg-red-100 text-red-950 border-red-300"
-                            : currentDiagnosis.urgencyLevel === "medium"
-                            ? "bg-amber-100 text-amber-950 border-amber-300"
-                            : "bg-emerald-100 text-emerald-950 border-emerald-300"
-                        }`}
-                      >
-                        {breakdownUrgency === "today" || currentDiagnosis.urgencyLevel === "high"
-                          ? (currentLanguage === "en" ? "🔴 Very Urgent" : "🔴 बहुत जरूरी")
-                          : currentDiagnosis.urgencyLevel === "medium"
-                          ? (currentLanguage === "en" ? "🟠 Prompt Attention" : "🟠 जल्दी दिखाएं")
-                          : (currentLanguage === "en" ? "🟢 Normal" : "🟢 सामान्य")}
-                      </span>
-                    </div>
-                    <div className="text-base font-black text-slate-900 leading-snug">
-                      {currentDiagnosis.urgencyExplanation || (
-                        breakdownUrgency === "today" || currentDiagnosis.urgencyLevel === "high"
-                          ? (currentLanguage === "en" ? "Operating the machine right now is unsafe. Get it inspected first." : "अभी मशीन चलाना ठीक नहीं है। पहले जांच करवाएं।")
-                          : (currentLanguage === "en" ? "Condition is normal, low risk of stoppage. Inspect safely." : "अभी सामान्य स्थिति है। पहले जांच करवाएं।")
-                      )}
-                    </div>
+                    <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md shrink-0">
+                      {currentLanguage === "en" ? "Yes (Recommended)" : "हाँ (अनुशंसित)"}
+                    </span>
                   </div>
 
                   {/* Multi-turn AI Follow-up Question Card */}
@@ -5634,36 +5499,36 @@ export default function AgriPulseApp() {
                     </div>
                   )}
 
-                  {/* 7. THREE BUTTONS: "मशीन रिकवरी योजना देखें", "पारंपरिक मैकेनिक खोजें" & "जानकारी देखें" */}
-                  <div className="space-y-2.5 pt-1">
-                    {/* Primary Button: मशीन रिकवरी योजना देखें */}
+                  {/* 7. Action Buttons */}
+                  <div className="space-y-2 pt-1">
+                    {/* Primary Button: View Recovery Plan */}
                     <button
                       type="button"
                       id="launch-recovery-engine-diag-btn"
                       onClick={() => handleLaunchRecoveryEngine()}
-                      className="w-full bg-gradient-to-r from-emerald-700 to-teal-800 hover:from-emerald-800 hover:to-teal-900 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-xl border-3 border-emerald-950 flex items-center justify-center gap-2.5 transition-transform ring-4 ring-emerald-200"
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-semibold py-3 px-4 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
                     >
-                      <span className="text-2xl">⚡</span>
+                      <span>⚡</span>
                       <span>{currentLanguage === "en" ? "View Machine Recovery Plan ➔" : "मशीन रिकवरी योजना देखें ➔"}</span>
                     </button>
 
-                    {/* Secondary Button: मैकेनिक बुलाएं (Direct matching) */}
+                    {/* Secondary Button: Mechanic list */}
                     <button
                       type="button"
                       onClick={handleContinueToRepair}
-                      className="w-full bg-white hover:bg-slate-50 active:scale-[0.98] text-emerald-950 font-black py-3.5 px-4 rounded-2xl text-lg border-2 border-emerald-600 flex items-center justify-center gap-2.5 transition-transform"
+                      className="w-full bg-white hover:bg-slate-50 text-slate-800 font-semibold py-2.5 px-4 rounded-lg text-xs border border-slate-300 flex items-center justify-center gap-2 transition-colors cursor-pointer"
                     >
-                      <Wrench className="w-5 h-5 text-emerald-700" />
+                      <Wrench className="w-4 h-4 text-emerald-700" />
                       <span>{currentLanguage === "en" ? "Go to Mechanics List Directly" : "सीधे मैकेनिक सूची में जाएं"}</span>
                     </button>
 
-                    {/* Button 3: जानकारी देखें */}
+                    {/* Button 3: Details toggle */}
                     <button
                       type="button"
                       onClick={() => setShowDiagnosisDetails(!showDiagnosisDetails)}
-                      className="w-full bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-800 font-bold py-3 px-4 rounded-2xl text-base border-2 border-slate-300 flex items-center justify-center gap-2 transition-colors"
+                      className="w-full bg-white hover:bg-slate-50 text-slate-600 font-medium py-2 px-3 rounded-lg text-xs border border-slate-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <span>{showDiagnosisDetails ? (currentLanguage === "en" ? "▲ Hide Details" : "▲ जानकारी छुपाएं") : (currentLanguage === "en" ? "ℹ️ Evidence & History Details" : "ℹ️ साक्ष्य एवं इतिहास विवरण")}</span>
+                      <span>{showDiagnosisDetails ? (currentLanguage === "en" ? "▲ Hide Technical Details" : "▲ तकनीकी विवरण छुपाएं") : (currentLanguage === "en" ? "ℹ️ Machine History & Evidence Details" : "ℹ️ साक्ष्य एवं मशीन विवरण")}</span>
                     </button>
                   </div>
                 </div>
@@ -5672,9 +5537,9 @@ export default function AgriPulseApp() {
                 <button
                   type="button"
                   onClick={handleBackFromDiagnosis}
-                  className="w-full py-3 text-base font-bold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1 cursor-pointer"
                 >
-                  <ArrowLeft className="w-5 h-5" />
+                  <ArrowLeft className="w-4 h-4" />
                   <span>{currentLanguage === "en" ? "← Change Issue / Go Back" : "← समस्या बदलें / वापस जाएं"}</span>
                 </button>
               </div>
@@ -6290,16 +6155,16 @@ export default function AgriPulseApp() {
         {currentScreen === "repair" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <span>🔧</span> {t("repair.title", currentLanguage)}
               </h2>
               <span
-                className={`text-sm font-black px-3 py-1 rounded-full ${
+                className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${
                   latestRepair && latestRepair.status !== "completed"
                     ? latestRepair.syncStatus === "pending"
-                      ? "bg-amber-100 text-amber-900 border border-amber-300"
-                      : "bg-emerald-100 text-emerald-900 border border-emerald-300"
-                    : "bg-slate-200 text-slate-700"
+                      ? "bg-amber-50 text-amber-900 border-amber-200"
+                      : "bg-emerald-50 text-emerald-900 border-emerald-200"
+                    : "bg-slate-100 text-slate-700 border-slate-200"
                 }`}
               >
                 {latestRepair && latestRepair.status !== "completed"
@@ -6312,53 +6177,53 @@ export default function AgriPulseApp() {
 
             {/* EMPTY STATE */}
             {!latestRepair ? (
-              <div className="bg-white border-3 border-slate-200 rounded-3xl p-8 text-center space-y-4 shadow-sm">
-                <span className="text-4xl sm:text-5xl block">🚜</span>
-                <h3 className="text-2xl font-black text-slate-800">
+              <div className="bg-white border border-slate-200 rounded-lg p-6 text-center space-y-3 shadow-2xs">
+                <span className="text-3xl block">🚜</span>
+                <h3 className="text-base font-bold text-slate-800">
                   {currentLanguage === "en" ? "No active repairs right now." : "अभी कोई मरम्मत नहीं है।"}
                 </h3>
-                <p className="text-base font-bold text-slate-600">
+                <p className="text-xs text-slate-600">
                   {currentLanguage === "en" ? "All your machines are in working condition." : "आपकी सभी मशीनें चालू स्थिति में हैं।"}
                 </p>
                 <button
                   onClick={() => handleStartBreakdown()}
-                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-4 px-4 rounded-2xl text-xl shadow-md transition-colors"
+                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-md text-sm transition-colors cursor-pointer shadow-2xs"
                 >
                   {currentLanguage === "en" ? "Machine broken? Call mechanic" : "मशीन खराब है? मैकेनिक बुलाएं"}
                 </button>
               </div>
             ) : (
               /* DYNAMIC REPAIR CARD */
-              <div className="bg-white border-3 border-amber-400 rounded-3xl p-5 shadow-md space-y-4">
+              <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-2xs space-y-3.5">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-3xl sm:text-4xl p-2 bg-amber-50 rounded-2xl border border-amber-200">
+                    <span className="w-11 h-11 bg-slate-100 rounded-md border border-slate-200 flex items-center justify-center text-2xl shrink-0">
                       {latestRepair.machineIcon}
                     </span>
                     <div>
-                      <h3 className="text-2xl font-black text-slate-900">
+                      <h3 className="text-base font-bold text-slate-900">
                         {currentLanguage === "en" ? (machines.find((m) => m.id === latestRepair.machineId)?.name || (latestRepair as any).machineName || latestRepair.machineNameHi) : latestRepair.machineNameHi}
                       </h3>
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                      <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">
                         {currentLanguage === "en" ? "Complaint ID: " : "शिकायत संख्या: "}{latestRepair.id}
                       </p>
                     </div>
                   </div>
-                  <span className="bg-amber-100 text-amber-900 text-sm font-extrabold px-3 py-1 rounded-full border border-amber-300">
+                  <span className="bg-slate-100 text-slate-800 text-xs font-semibold px-2.5 py-0.5 rounded-md border border-slate-200">
                     {currentLanguage === "en" ? "Repair Complaint" : "मरम्मत की शिकायत"}
                   </span>
                 </div>
 
                 {/* Status Message Highlight */}
-                <div className="bg-amber-50 border-3 border-amber-300 rounded-2xl p-4 text-center">
-                  <div className="flex items-center justify-center gap-2 text-amber-800 font-extrabold text-sm mb-1">
-                    <span className="relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center">
+                  <div className="flex items-center justify-center gap-1.5 text-slate-600 font-semibold text-xs mb-0.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
                     </span>
                     {currentLanguage === "en" ? "Current Status" : "वर्तमान स्थिति"}
                   </div>
-                  <div className="text-2xl font-black text-amber-950">
+                  <div className="text-lg font-bold text-slate-900">
                     {currentLanguage === "en"
                       ? (latestRepair.status === "completed"
                           ? "Repair Completed"
@@ -6371,162 +6236,163 @@ export default function AgriPulseApp() {
                           : "Technician Assigned")
                       : latestRepair.statusTextHi}
                   </div>
-                  <p className="text-sm text-amber-900 font-bold mt-1">
+                  <p className="text-xs text-slate-600 font-medium mt-0.5">
                     {latestRepair.syncStatus === "pending"
                       ? (currentLanguage === "en" ? "Details will be sent to mechanic once online" : "इंटरनेट मिलते ही जानकारी मैकेनिक तक पहुँचा दी जाएगी")
                       : (currentLanguage === "en" ? "Notice sent to your nearby mechanic" : "आपके नजदीकी मैकेनिक को सूचना भेजी जा चुकी है")}
                   </p>
                 </div>
 
-                {/* Phase 2D-A: Attached AI Diagnosis if present */}
+                {/* Attached AI Diagnosis if present */}
                 {latestRepair.diagnosis && (
-                  <div className="p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-300 space-y-2 shadow-sm">
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-emerald-900 flex items-center gap-1.5 uppercase tracking-wide">
-                        <Sparkles className="w-4 h-4 text-emerald-700" />
-                        {currentLanguage === "en" ? "AI Initial Diagnosis Report" : "AI प्रारंभिक जाँच रिपोर्ट"}
+                      <span className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                        {currentLanguage === "en" ? "Diagnostic Assessment" : "प्रारंभिक जाँच रिपोर्ट"}
                       </span>
-                      <span className="text-xs font-black bg-emerald-200 text-emerald-900 px-2.5 py-0.5 rounded-full">
-                        {latestRepair.diagnosis.confidence} {currentLanguage === "en" ? "confidence" : "विश्वास"}
+                      <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
+                        {latestRepair.diagnosis.confidence} {currentLanguage === "en" ? "confidence" : "विश्वसनीयता"}
                       </span>
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-slate-500">{currentLanguage === "en" ? "Probable Issue:" : "संभावित समस्या:"}</div>
-                      <div className="text-xl font-black text-slate-900">
+                      <div className="text-[11px] text-slate-500 font-medium">{currentLanguage === "en" ? "Probable Issue:" : "संभावित समस्या:"}</div>
+                      <div className="text-sm font-bold text-slate-900">
                         {localizeDiagnosisProblem(latestRepair.diagnosis.possibleProblem, currentLanguage)}
                       </div>
                     </div>
-                    <div className="pt-1 border-t border-emerald-200 text-xs font-bold text-slate-700">
-                      {currentLanguage === "en" ? "Advice: " : "सलाह: "}{currentLanguage === "en" ? "Keep machine turned off until technician arrives." : latestRepair.diagnosis.safeAction}
+                    <div className="pt-1 border-t border-slate-200 text-xs text-slate-600">
+                      <span className="font-semibold text-slate-700">{currentLanguage === "en" ? "Advice: " : "सलाह: "}</span>
+                      {currentLanguage === "en" ? "Keep machine turned off until technician arrives." : latestRepair.diagnosis.safeAction}
                     </div>
                   </div>
                 )}
 
                 {/* Attached Photo Evidence if present */}
                 {latestRepair.photoDataUrl && (
-                  <div className="p-3.5 bg-slate-50 rounded-2xl border-2 border-slate-200 flex items-center justify-between shadow-sm">
-                    <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={latestRepair.photoDataUrl}
                         alt={currentLanguage === "en" ? "Machine photo" : "मशीन की फोटो"}
-                        className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-xl border border-slate-300 shadow-sm"
+                        className="w-12 h-12 object-cover rounded-md border border-slate-300"
                       />
                       <div>
-                        <div className="text-xs font-bold text-slate-500">{currentLanguage === "en" ? "Machine Photo Evidence" : "मशीन की फोटो साक्ष्य"}</div>
-                        <div className="text-base font-black text-slate-900">{currentLanguage === "en" ? "📷 Photo secured" : "📷 फोटो सुरक्षित है"}</div>
+                        <div className="text-[11px] text-slate-500 font-medium">{currentLanguage === "en" ? "Photo Evidence" : "मशीन की फोटो"}</div>
+                        <div className="text-xs font-semibold text-slate-800">{currentLanguage === "en" ? "📷 Photo secured" : "📷 फोटो सुरक्षित है"}</div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* P2O Step 2: Transparent Pricing Breakdown & Price Change Banner */}
+                {/* Transparent Pricing Breakdown */}
                 {(() => {
                   const pricing = latestRepair.finalCost || latestRepair.estimatedCost;
                   if (!pricing) return null;
 
                   return (
-                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-3 border-amber-400 rounded-3xl p-4 space-y-3 shadow-sm">
-                      <div className="flex items-center justify-between border-b border-amber-200 pb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">💰</span>
-                          <span className="text-lg font-black text-amber-950">
+                    <div className="bg-white border border-slate-200 rounded-lg p-3.5 space-y-2.5 shadow-2xs">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm">💰</span>
+                          <span className="text-xs font-bold text-slate-900">
                             {latestRepair.finalCost
                               ? (currentLanguage === "en" ? "Final Repair Cost" : "अंतिम मरम्मत लागत")
                               : (currentLanguage === "en" ? "Estimated Repair Cost" : "अनुमानित मरम्मत लागत")}
                           </span>
                         </div>
-                        <span className="text-xs font-black bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
+                        <span className="text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
                           {latestRepair.finalCost
                             ? (currentLanguage === "en" ? "Confirmed Bill" : "पुष्टीकृत बिल")
-                            : (currentLanguage === "en" ? "Transparent Rate" : "पारदर्शी दर")}
+                            : (currentLanguage === "en" ? "Standard Rate" : "प्रमाणित दर")}
                         </span>
                       </div>
 
-                      <div className="space-y-1.5 text-sm">
-                        <div className="flex justify-between items-center text-slate-700 font-bold">
-                          <span>{currentLanguage === "en" ? "Diagnostic Fee:" : "जांच शुल्क (Diagnostic):"}</span>
-                          <span className="font-black text-slate-900">{formatCurrencyHi(pricing.diagnosticFee)}</span>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between items-center text-slate-600">
+                          <span>{currentLanguage === "en" ? "Diagnostic Fee:" : "जांच शुल्क:"}</span>
+                          <span className="font-semibold text-slate-900">{formatCurrencyHi(pricing.diagnosticFee)}</span>
                         </div>
-                        <div className="flex justify-between items-center text-slate-700 font-bold">
-                          <span>{currentLanguage === "en" ? "Labour Fee:" : "मजदूरी (Labour):"}</span>
-                          <span className="font-black text-slate-900">{formatCurrencyHi(pricing.labourFee)}</span>
+                        <div className="flex justify-between items-center text-slate-600">
+                          <span>{currentLanguage === "en" ? "Labour Fee:" : "मजदूरी:"}</span>
+                          <span className="font-semibold text-slate-900">{formatCurrencyHi(pricing.labourFee)}</span>
                         </div>
-                        <div className="flex justify-between items-center text-slate-700 font-bold">
-                          <span>{currentLanguage === "en" ? "Spare Parts:" : "स्पेयर पार्ट्स (Parts):"}</span>
-                          <span className="font-black text-slate-900">{formatCurrencyHi(pricing.partsEstimate)}</span>
+                        <div className="flex justify-between items-center text-slate-600">
+                          <span>{currentLanguage === "en" ? "Spare Parts:" : "स्पेयर पार्ट्स:"}</span>
+                          <span className="font-semibold text-slate-900">{formatCurrencyHi(pricing.partsEstimate)}</span>
                         </div>
-                        <div className="flex justify-between items-center text-slate-700 font-bold">
-                          <span>{currentLanguage === "en" ? "Travel Fee:" : "घर पर आने का शुल्क (Travel):"}</span>
-                          <span className="font-black text-slate-900">{formatCurrencyHi(pricing.travelFee)}</span>
+                        <div className="flex justify-between items-center text-slate-600">
+                          <span>{currentLanguage === "en" ? "Travel Fee:" : "विजिट शुल्क:"}</span>
+                          <span className="font-semibold text-slate-900">{formatCurrencyHi(pricing.travelFee)}</span>
                         </div>
                         {pricing.discount > 0 && (
-                          <div className="flex justify-between items-center text-emerald-700 font-bold">
-                            <span>{currentLanguage === "en" ? "Discount / Subsidy:" : "छूट / सब्सिडी:"}</span>
-                            <span className="font-black text-emerald-800">-{formatCurrencyHi(pricing.discount)}</span>
+                          <div className="flex justify-between items-center text-emerald-700">
+                            <span>{currentLanguage === "en" ? "Discount:" : "छूट:"}</span>
+                            <span className="font-semibold text-emerald-800">-{formatCurrencyHi(pricing.discount)}</span>
                           </div>
                         )}
                       </div>
 
-                      <div className="pt-2 border-t-2 border-dashed border-amber-300 flex justify-between items-center">
+                      <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
                         <div>
-                          <span className="text-xs font-bold text-amber-900 block">
+                          <span className="text-[11px] text-slate-500 block">
                             {latestRepair.finalCost
                               ? (currentLanguage === "en" ? "Total Payable Amount" : "कुल देय राशि")
                               : (currentLanguage === "en" ? "Total Estimated Amount" : "कुल अनुमानित राशि")}
                           </span>
-                          <span className="text-2xl font-black text-amber-950">
+                          <span className="text-base font-bold text-slate-900">
                             {formatCurrencyHi(pricing.total)}
                           </span>
                         </div>
-                        <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300">
-                          {currentLanguage === "en" ? "✓ Transparent Rate" : "✓ पारदर्शी दर"}
+                        <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          {currentLanguage === "en" ? "Standard Pricing" : "पारदर्शी दर"}
                         </span>
                       </div>
 
                       {/* Explicit Price Adjustment notice if cost changed */}
                       {latestRepair.priceAdjustment && (
-                        <div className="bg-amber-100/90 border-2 border-amber-300 rounded-2xl p-3 space-y-1.5 text-xs">
-                          <div className="font-black text-amber-950 flex items-center gap-1 text-sm">
+                        <div className="bg-amber-50 border border-amber-200 rounded-md p-2.5 space-y-1 text-xs">
+                          <div className="font-semibold text-amber-950 flex items-center gap-1">
                             <span>⚠️</span>
-                            <span>{currentLanguage === "en" ? "Price Modification Notice:" : "लागत में बदलाव की सूचना (Price Modification):"}</span>
+                            <span>{currentLanguage === "en" ? "Price Modification Notice:" : "लागत में बदलाव की सूचना:"}</span>
                           </div>
-                          <div className="grid grid-cols-3 gap-1.5 text-center font-bold">
-                            <div className="bg-white p-1.5 rounded-lg border border-amber-200">
+                          <div className="grid grid-cols-3 gap-1.5 text-center">
+                            <div className="bg-white p-1 rounded border border-amber-200">
                               <span className="text-[10px] text-slate-500 block">{currentLanguage === "en" ? "Estimated" : "अनुमानित"}</span>
-                              <span className="text-slate-900">{formatCurrencyHi(latestRepair.priceAdjustment.estimatedTotal)}</span>
+                              <span className="font-medium text-slate-900">{formatCurrencyHi(latestRepair.priceAdjustment.estimatedTotal)}</span>
                             </div>
-                            <div className="bg-white p-1.5 rounded-lg border border-amber-200">
+                            <div className="bg-white p-1 rounded border border-amber-200">
                               <span className="text-[10px] text-slate-500 block">{currentLanguage === "en" ? "Revised" : "संशोधित"}</span>
-                              <span className="text-amber-950 font-black">{formatCurrencyHi(latestRepair.priceAdjustment.revisedTotal)}</span>
+                              <span className="text-slate-900 font-bold">{formatCurrencyHi(latestRepair.priceAdjustment.revisedTotal)}</span>
                             </div>
-                            <div className="bg-white p-1.5 rounded-lg border border-amber-200">
-                              <span className="text-[10px] text-slate-500 block">{currentLanguage === "en" ? "Difference" : "अंतर"}</span>
-                              <span className={latestRepair.priceAdjustment.difference > 0 ? "text-amber-800 font-black" : "text-emerald-700 font-black"}>
+                            <div className="bg-white p-1 rounded border border-amber-200">
+                              <span className="text-[10px] text-slate-500 block">{currentLanguage === "en" ? "Diff" : "अंतर"}</span>
+                              <span className={latestRepair.priceAdjustment.difference > 0 ? "text-amber-800 font-bold" : "text-emerald-700 font-bold"}>
                                 {latestRepair.priceAdjustment.difference >= 0 ? "+" : ""}
                                 {formatCurrencyHi(latestRepair.priceAdjustment.difference)}
                               </span>
                             </div>
                           </div>
-                          <div className="text-[11px] font-bold text-amber-900 pt-0.5">
-                            {currentLanguage === "en" ? "📌 Reason: " : "📌 कारण: "}<span className="underline">{latestRepair.priceAdjustment.reason}</span>
+                          <div className="text-[11px] text-amber-900 pt-0.5 font-medium">
+                            {currentLanguage === "en" ? "Reason: " : "कारण: "}<span className="font-semibold">{latestRepair.priceAdjustment.reason}</span>
                             {latestRepair.priceAdjustment.customReasonNote && ` (${latestRepair.priceAdjustment.customReasonNote})`}
                           </div>
                         </div>
                       )}
 
                       {!latestRepair.finalCost && (
-                        <div className="text-[11px] font-bold text-amber-900/90 bg-amber-100/70 p-2.5 rounded-xl border border-amber-200 leading-snug">
+                        <div className="text-[11px] text-slate-500 font-medium pt-1">
                           {currentLanguage === "en"
-                            ? "⚠️ This is an estimate. Final pricing may change after physical inspection of machine."
-                            : "⚠️ यह अनुमान है। मशीन की जांच के बाद अंतिम कीमत बदल सकती है।"}
+                            ? "Note: Final pricing may change after physical inspection of machine."
+                            : "नोट: मशीन की भौतिक जांच के बाद अंतिम कीमत संशोधित हो सकती है।"}
                         </div>
                       )}
                     </div>
                   );
                 })()}
 
-                {/* P2O Step 3: Assigned Technician & Certification Trust Preview */}
+                {/* Assigned Technician Preview */}
                 {(() => {
                   const jobCard = getJobCardByRepairId(latestRepair.id);
                   if (!jobCard) return null;
@@ -6534,58 +6400,58 @@ export default function AgriPulseApp() {
                   const vStatus = assignedTech?.verificationStatus || jobCard.technicianVerificationStatus || "verified";
 
                   return (
-                    <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-3.5 space-y-2">
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2 text-xs">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl">👨‍🔧</span>
+                          <span className="text-base">👨‍🔧</span>
                           <div>
-                            <div className="text-sm font-black text-slate-900">
+                            <div className="font-bold text-slate-900">
                               {currentLanguage === "en" ? (assignedTech?.name || jobCard.technicianNameHi) : jobCard.technicianNameHi}
                             </div>
-                            <div className="text-[11px] font-bold text-slate-500">
+                            <div className="text-[11px] text-slate-500 font-medium">
                               {currentLanguage === "en" ? (assignedTech?.skills[0] || "Tractor Expert") : jobCard.technicianSkillHi} • {assignedTech?.experienceYears || jobCard.technicianExperienceYears || 3} {currentLanguage === "en" ? "years exp" : "वर्ष अनुभव"}
                             </div>
                           </div>
                         </div>
                         <span
-                          className={`text-[11px] font-black px-2.5 py-1 rounded-full border ${
+                          className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${
                             vStatus === "verified"
-                              ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                               : vStatus === "expired"
-                              ? "bg-red-100 text-red-900 border-red-300"
-                              : "bg-amber-100 text-amber-900 border-amber-300"
+                              ? "bg-red-50 text-red-800 border-red-200"
+                              : "bg-amber-50 text-amber-800 border-amber-200"
                           }`}
                         >
                           {vStatus === "verified"
-                            ? (currentLanguage === "en" ? "🟢 Verified" : "🟢 प्रमाणित")
+                            ? (currentLanguage === "en" ? "Verified" : "प्रमाणित")
                             : vStatus === "expired"
-                            ? (currentLanguage === "en" ? "🔴 Expired" : "🔴 समाप्त")
-                            : (currentLanguage === "en" ? "🟡 Pending" : "🟡 प्रक्रियाधीन")}
+                            ? (currentLanguage === "en" ? "Expired" : "समाप्त")
+                            : (currentLanguage === "en" ? "Pending" : "प्रक्रियाधीन")}
                         </span>
                       </div>
                       {assignedTech && (
                         <button
                           type="button"
                           onClick={() => handleOpenCredentialsModal(assignedTech)}
-                          className="w-full bg-white hover:bg-slate-100 text-slate-700 font-bold py-1.5 px-2 rounded-lg border border-slate-300 text-xs flex items-center justify-center gap-1.5 transition-colors"
+                          className="w-full bg-white hover:bg-slate-100 text-slate-700 font-medium py-1 px-2 rounded border border-slate-200 text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
                         >
-                          <Award className="w-3.5 h-3.5 text-amber-600" />
-                          <span>{currentLanguage === "en" ? "View Mechanic Certifications & Training" : "मैकेनिक का प्रमाणन व प्रशिक्षण देखें"}</span>
+                          <Award className="w-3 h-3 text-amber-600" />
+                          <span>{currentLanguage === "en" ? "View Mechanic Certifications" : "मैकेनिक का प्रमाणन व प्रशिक्षण देखें"}</span>
                         </button>
                       )}
                     </div>
                   );
                 })()}
 
-                {/* Dynamic Timeline based on status — P2M Step 1: 6 simple farmer-friendly steps */}
-                <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 space-y-3.5">
-                  <div className="text-base font-black text-slate-800 mb-2">
+                {/* Progress Timeline */}
+                <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2 text-xs">
+                  <div className="font-bold text-slate-700 mb-1">
                     {currentLanguage === "en" ? "Progress Status:" : "प्रगति की स्थिति:"}
                   </div>
 
                   {/* 1. शिकायत दर्ज */}
-                  <div className="flex items-center gap-3 text-emerald-800 font-black text-lg">
-                    <span className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-base font-black">
+                  <div className="flex items-center gap-2.5 text-emerald-800 font-semibold">
+                    <span className="w-5 h-5 rounded-full bg-emerald-700 text-white flex items-center justify-center text-[11px] font-bold">
                       ✓
                     </span>
                     <span>
@@ -6597,21 +6463,21 @@ export default function AgriPulseApp() {
 
                   {/* 2. मैकेनिक नियुक्त */}
                   <div
-                    className={`flex items-center gap-3 font-black text-lg ${
+                    className={`flex items-center gap-2.5 font-semibold ${
                       latestRepair.status === "finding_mechanic"
-                        ? "text-amber-900"
+                        ? "text-amber-800"
                         : ["mechanic_assigned", "mechanic_accepted", "repair_in_progress", "verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
                         ? "text-emerald-800"
                         : "text-slate-400"
                     }`}
                   >
                     <span
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-black ${
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${
                         latestRepair.status === "finding_mechanic"
-                          ? "bg-amber-500 text-white animate-pulse"
+                          ? "bg-amber-500 text-white"
                           : ["mechanic_assigned", "mechanic_accepted", "repair_in_progress", "verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
-                          ? "bg-emerald-600 text-white"
-                          : "border-2 border-slate-300 bg-white text-slate-400"
+                          ? "bg-emerald-700 text-white"
+                          : "border border-slate-300 bg-white text-slate-400"
                       }`}
                     >
                       {["mechanic_assigned", "mechanic_accepted", "repair_in_progress", "verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
@@ -6629,21 +6495,21 @@ export default function AgriPulseApp() {
 
                   {/* 3. मैकेनिक रास्ते में */}
                   <div
-                    className={`flex items-center gap-3 font-black text-lg ${
+                    className={`flex items-center gap-2.5 font-semibold ${
                       ["mechanic_assigned", "mechanic_accepted"].includes(latestRepair.status)
-                        ? "text-amber-900"
+                        ? "text-amber-800"
                         : ["repair_in_progress", "verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
                         ? "text-emerald-800"
                         : "text-slate-400"
                     }`}
                   >
                     <span
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-black ${
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${
                         ["mechanic_assigned", "mechanic_accepted"].includes(latestRepair.status)
-                          ? "bg-amber-500 text-white animate-pulse"
+                          ? "bg-amber-500 text-white"
                           : ["repair_in_progress", "verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
-                          ? "bg-emerald-600 text-white"
-                          : "border-2 border-slate-300 bg-white text-slate-400"
+                          ? "bg-emerald-700 text-white"
+                          : "border border-slate-300 bg-white text-slate-400"
                       }`}
                     >
                       {["repair_in_progress", "verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
@@ -6659,21 +6525,21 @@ export default function AgriPulseApp() {
 
                   {/* 4. मरम्मत */}
                   <div
-                    className={`flex items-center gap-3 font-black text-lg ${
+                    className={`flex items-center gap-2.5 font-semibold ${
                       latestRepair.status === "repair_in_progress"
-                        ? "text-blue-900"
+                        ? "text-blue-800"
                         : ["verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
                         ? "text-emerald-800"
                         : "text-slate-400"
                     }`}
                   >
                     <span
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-black ${
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${
                         latestRepair.status === "repair_in_progress"
-                          ? "bg-blue-600 text-white animate-pulse"
+                          ? "bg-blue-600 text-white"
                           : ["verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
-                          ? "bg-emerald-600 text-white"
-                          : "border-2 border-slate-300 bg-white text-slate-400"
+                          ? "bg-emerald-700 text-white"
+                          : "border border-slate-300 bg-white text-slate-400"
                       }`}
                     >
                       {["verification_pending", "re_repair_required", "completed"].includes(latestRepair.status)
@@ -6691,9 +6557,9 @@ export default function AgriPulseApp() {
 
                   {/* 5. जाँच */}
                   <div
-                    className={`flex items-center gap-3 font-black text-lg ${
+                    className={`flex items-center gap-2.5 font-semibold ${
                       latestRepair.status === "verification_pending"
-                        ? "text-amber-900"
+                        ? "text-amber-800"
                         : latestRepair.status === "completed"
                         ? "text-emerald-800"
                         : latestRepair.status === "re_repair_required"
@@ -6702,14 +6568,14 @@ export default function AgriPulseApp() {
                     }`}
                   >
                     <span
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-black ${
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${
                         latestRepair.status === "verification_pending"
-                          ? "bg-amber-500 text-white animate-pulse"
+                          ? "bg-amber-500 text-white"
                           : latestRepair.status === "completed"
-                          ? "bg-emerald-600 text-white"
+                          ? "bg-emerald-700 text-white"
                           : latestRepair.status === "re_repair_required"
                           ? "bg-red-500 text-white"
-                          : "border-2 border-slate-300 bg-white text-slate-400"
+                          : "border border-slate-300 bg-white text-slate-400"
                       }`}
                     >
                       {latestRepair.status === "completed"
@@ -6731,21 +6597,21 @@ export default function AgriPulseApp() {
 
                   {/* 6. पूरी */}
                   <div
-                    className={`flex items-center gap-3 font-black text-lg ${
+                    className={`flex items-center gap-2.5 font-semibold ${
                       latestRepair.status === "completed"
                         ? "text-emerald-800"
                         : latestRepair.status === "re_repair_required"
-                        ? "text-red-900"
+                        ? "text-red-800"
                         : "text-slate-400"
                     }`}
                   >
                     <span
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-black ${
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${
                         latestRepair.status === "completed"
-                          ? "bg-emerald-600 text-white"
+                          ? "bg-emerald-700 text-white"
                           : latestRepair.status === "re_repair_required"
                           ? "bg-red-600 text-white"
-                          : "border-2 border-slate-300 bg-white text-slate-400"
+                          : "border border-slate-300 bg-white text-slate-400"
                       }`}
                     >
                       {latestRepair.status === "completed"
@@ -6764,11 +6630,11 @@ export default function AgriPulseApp() {
 
                 {/* Verification Pending Action Banner */}
                 {latestRepair.status === "verification_pending" && (
-                  <div className="p-4 bg-amber-50 border-3 border-amber-400 rounded-2xl space-y-2 text-center shadow-sm">
-                    <div className="text-lg font-black text-amber-950">
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg space-y-2 text-center">
+                    <div className="text-sm font-bold text-amber-950">
                       {currentLanguage === "en" ? "Repair finished! Please test-run the machine." : "मरम्मत पूरी हो गई है! अब मशीन चलाकर जाँच करें।"}
                     </div>
-                    <p className="text-xs font-bold text-amber-800">
+                    <p className="text-xs text-amber-800">
                       {currentLanguage === "en" ? "Make sure the machine is working properly without issues." : "सुनिश्चित करें कि मशीन अब बिना किसी समस्या के चल रही है।"}
                     </p>
                     <button
@@ -6778,7 +6644,7 @@ export default function AgriPulseApp() {
                         if (card) setCurrentJobCard(card);
                         setCurrentScreen("repair_verification");
                       }}
-                      className="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-slate-950 font-black py-3.5 px-4 rounded-xl text-lg border-2 border-amber-700 flex items-center justify-center gap-2 transition-transform shadow-md"
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-md text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                     >
                       <span>{currentLanguage === "en" ? "Inspect Machine" : "मशीन की जाँच करें"}</span>
                       <span>➔</span>
@@ -6788,8 +6654,8 @@ export default function AgriPulseApp() {
 
                 {/* Re-repair Required Action Banner */}
                 {latestRepair.status === "re_repair_required" && (
-                  <div className="p-4 bg-red-50 border-3 border-red-400 rounded-2xl space-y-2 text-center shadow-sm">
-                    <div className="text-lg font-black text-red-950">
+                  <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg space-y-2 text-center">
+                    <div className="text-sm font-bold text-red-950">
                       {currentLanguage === "en" ? "Issue not yet resolved — Re-repair is required." : "समस्या अभी ठीक नहीं हुई है — दोबारा मरम्मत की जरूरत है।"}
                     </div>
                     <button
@@ -6799,9 +6665,9 @@ export default function AgriPulseApp() {
                         if (card) setCurrentJobCard(card);
                         handleReRepair();
                       }}
-                      className="w-full bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-black py-3.5 px-4 rounded-xl text-lg border-2 border-red-900 flex items-center justify-center gap-2 transition-transform shadow-md"
+                      className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-4 rounded-md text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                     >
-                      <RotateCcw className="w-5 h-5 text-white" />
+                      <RotateCcw className="w-4 h-4 text-white" />
                       <span>{currentLanguage === "en" ? "Request Re-Repair" : "दोबारा मरम्मत कराएं"}</span>
                     </button>
                   </div>
@@ -6809,14 +6675,14 @@ export default function AgriPulseApp() {
 
                 {/* Completed Celebration Banner */}
                 {latestRepair.status === "completed" && (
-                  <div className="p-4 bg-emerald-50 border-3 border-emerald-400 rounded-2xl space-y-2 text-center shadow-sm">
-                    <div className="text-lg font-black text-emerald-950">
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg space-y-2 text-center">
+                    <div className="text-sm font-bold text-emerald-950">
                       {currentLanguage === "en" ? "Machine repair successfully completed." : "मशीन की मरम्मत सफलतापूर्वक पूरी हो गई।"}
                     </div>
                     <button
                       type="button"
                       onClick={() => setCurrentScreen("machines")}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black py-3 px-4 rounded-xl text-base border-2 border-emerald-900 flex items-center justify-center gap-2 transition-transform"
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-md text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <span>{currentLanguage === "en" ? "View My Machine" : "मेरी मशीन देखें"}</span>
                       <span>➔</span>
@@ -6833,9 +6699,9 @@ export default function AgriPulseApp() {
                       if (card) setCurrentJobCard(card);
                       setCurrentScreen("technician_job_card");
                     }}
-                    className="w-full bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 text-slate-800 font-bold py-3 px-4 rounded-xl text-base flex items-center justify-center gap-2"
+                    className="w-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-semibold py-2.5 px-4 rounded-md text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    <ClipboardList className="w-5 h-5 text-slate-600" />
+                    <ClipboardList className="w-4 h-4 text-slate-600" />
                     <span>{currentLanguage === "en" ? "View Digital Job Card" : "डिजिटल जॉब कार्ड देखें"}</span>
                   </button>
                 )}
@@ -6844,9 +6710,9 @@ export default function AgriPulseApp() {
                 <div className="pt-1">
                   <a
                     href="tel:1800000000"
-                    className="w-full bg-slate-100 hover:bg-slate-200 border-3 border-slate-300 text-slate-900 py-4 px-4 rounded-2xl flex items-center justify-center gap-2 font-black text-lg transition-colors"
+                    className="w-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 py-2.5 px-4 rounded-md flex items-center justify-center gap-2 font-semibold text-xs transition-colors"
                   >
-                    <PhoneCall className="w-6 h-6 text-emerald-700" />
+                    <PhoneCall className="w-4 h-4 text-emerald-700" />
                     <span>{currentLanguage === "en" ? "Call Helpline Directly" : "सीधे हेल्पलाइन पर बात करें"}</span>
                   </a>
                 </div>
@@ -6859,15 +6725,15 @@ export default function AgriPulseApp() {
         {currentScreen === "service" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <span>📅</span> {currentLanguage === "en" ? "Next Service Schedule" : "अगली सर्विस सारणी"}
               </h2>
-              <span className="text-sm font-black bg-blue-100 text-blue-900 px-3 py-1 rounded-full border border-blue-200">
+              <span className="text-xs font-semibold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md border border-slate-200">
                 {currentLanguage === "en" ? `Total: ${machines.length} Machines` : `कुल: ${machines.length} मशीनें`}
               </span>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {machines.map((machine) => {
                 const statusDisp = getMaintenanceStatusDisplay(machine.maintenanceStatus || "upcoming");
                 const checklist =
@@ -6878,28 +6744,28 @@ export default function AgriPulseApp() {
                 return (
                   <div
                     key={`srv-screen-${machine.id}`}
-                    className={`bg-white border-3 rounded-3xl p-5 shadow-sm space-y-4 transition-all ${
+                    className={`bg-white border rounded-lg p-4 shadow-2xs space-y-3 transition-colors ${
                       machine.maintenanceStatus === "overdue"
-                        ? "border-red-400"
+                        ? "border-red-300"
                         : machine.maintenanceStatus === "due"
-                        ? "border-amber-400"
-                        : "border-blue-300"
+                        ? "border-amber-300"
+                        : "border-slate-200"
                     }`}
                   >
                     {/* Header: Machine & Tag */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-3xl sm:text-4xl p-2 sm:p-2.5 bg-slate-100 rounded-2xl border border-slate-200 shrink-0">
+                        <span className="w-11 h-11 bg-slate-100 rounded-md border border-slate-200 flex items-center justify-center text-2xl shrink-0">
                           {machine.icon}
                         </span>
                         <div>
-                          <h3 className="text-2xl font-black text-slate-900">
+                          <h3 className="text-base font-bold text-slate-900">
                             {currentLanguage === "en" ? machine.name : machine.nameHi}
                           </h3>
-                          <p className="text-xs font-bold text-slate-500 uppercase">{machine.name}</p>
+                          <p className="text-[11px] font-medium text-slate-500 uppercase">{machine.name}</p>
                         </div>
                       </div>
-                      <span className={`px-3 py-1 rounded-xl text-xs font-black border shrink-0 ${statusDisp.badgeClass}`}>
+                      <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border shrink-0 ${statusDisp.badgeClass}`}>
                         {currentLanguage === "en"
                           ? (machine.maintenanceStatus === "overdue"
                               ? "🔴 Overdue"
@@ -6913,10 +6779,10 @@ export default function AgriPulseApp() {
                     {/* Reminder message if due or overdue */}
                     {statusDisp.reminderMessageHi && (
                       <div
-                        className={`p-3 rounded-xl border font-black text-base flex items-center gap-2 ${
+                        className={`p-2.5 rounded-md border text-xs font-semibold flex items-center gap-2 ${
                           machine.maintenanceStatus === "overdue"
-                            ? "bg-red-50 text-red-900 border-red-300"
-                            : "bg-amber-50 text-amber-900 border-amber-300"
+                            ? "bg-red-50 text-red-900 border-red-200"
+                            : "bg-amber-50 text-amber-900 border-amber-200"
                         }`}
                       >
                         <span>
@@ -6930,36 +6796,36 @@ export default function AgriPulseApp() {
                     )}
 
                     {/* Next service date info */}
-                    <div className="p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl flex justify-between items-center">
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-md flex justify-between items-center text-xs">
                       <div>
-                        <div className="text-xs font-bold text-slate-600">
+                        <div className="text-[11px] font-medium text-slate-500">
                           {currentLanguage === "en" ? "Service Date:" : "सर्विस की तारीख:"}
                         </div>
-                        <div className="text-2xl font-black text-slate-900 mt-0.5">
+                        <div className="text-sm font-bold text-slate-900 mt-0.5">
                           {formatServiceDateHi(machine.nextServiceDate)}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs font-bold text-slate-500">
+                        <div className="text-[11px] font-medium text-slate-500">
                           {currentLanguage === "en" ? "Interval:" : "अंतराल:"}
                         </div>
-                        <div className="text-base font-black text-slate-800">
+                        <div className="text-xs font-semibold text-slate-800">
                           {currentLanguage === "en" ? `Every ${machine.serviceIntervalDays || 90} days` : `हर ${machine.serviceIntervalDays || 90} दिन`}
                         </div>
                       </div>
                     </div>
 
                     {/* Checklist preview */}
-                    <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-200">
-                      <div className="text-xs font-bold text-slate-600 mb-1.5 flex items-center gap-1">
+                    <div className="bg-slate-50 p-2.5 rounded-md border border-slate-200">
+                      <div className="text-[11px] font-semibold text-slate-600 mb-1.5 flex items-center gap-1">
                         <span>📋</span>
                         <span>{currentLanguage === "en" ? "Key Inspection Points:" : "मुख्य जाँच बिंदु:"}</span>
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-1">
                         {checklist.slice(0, 5).map((item) => (
                           <span
                             key={item}
-                            className="bg-white border border-slate-300 text-slate-800 text-xs font-bold px-2 py-1 rounded-lg"
+                            className="bg-white border border-slate-200 text-slate-700 text-[11px] font-medium px-2 py-0.5 rounded"
                           >
                             ✓ {item}
                           </span>
@@ -6971,16 +6837,16 @@ export default function AgriPulseApp() {
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <button
                         onClick={() => handleOpenMachineDetail(machine)}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-900 font-black py-3 px-3 rounded-xl text-base border-2 border-slate-300 flex items-center justify-center gap-1 transition-colors"
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold py-2 px-3 rounded-md text-xs border border-slate-200 flex items-center justify-center gap-1 transition-colors cursor-pointer"
                       >
                         <span>{currentLanguage === "en" ? "View Checklist" : "जाँच सूची देखें"}</span>
                         <span>➔</span>
                       </button>
                       <button
                         onClick={() => handleCompleteService(machine.id)}
-                        className="bg-emerald-700 hover:bg-emerald-800 text-white font-black py-3 px-3 rounded-xl text-base shadow-md flex items-center justify-center gap-1 transition-colors active:scale-[0.98]"
+                        className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 px-3 rounded-md text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-2xs"
                       >
-                        <CheckCircle2 className="w-4 h-4" />
+                        <CheckCircle2 className="w-3.5 h-3.5" />
                         <span>{currentLanguage === "en" ? "Service Done" : "सर्विस पूरी हुई"}</span>
                       </button>
                     </div>
@@ -7313,11 +7179,11 @@ export default function AgriPulseApp() {
         {currentScreen === "technician_match" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <span>👨‍🔧</span> {currentLanguage === "en" ? "Nearby Mechanics" : "पास के मैकेनिक"}
               </h2>
               {lastSubmittedRepair && (
-                <span className="text-sm font-bold text-slate-500">
+                <span className="text-xs font-medium text-slate-500">
                   {lastSubmittedRepair.machineIcon} {currentLanguage === "en" ? (machines.find((m) => m.id === lastSubmittedRepair.machineId)?.name || (lastSubmittedRepair as any).machineName || lastSubmittedRepair.machineNameHi) : lastSubmittedRepair.machineNameHi}
                 </span>
               )}
@@ -7330,13 +7196,13 @@ export default function AgriPulseApp() {
                 lastSubmittedRepair;
               if (rep?.safetyMessage) {
                 return (
-                  <div className="bg-red-50 border-3 border-red-500 rounded-2xl p-4 flex items-start gap-3 shadow-md">
-                    <ShieldAlert className="w-6 h-6 text-red-700 flex-shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <div className="text-base font-black text-red-950">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2.5">
+                    <ShieldAlert className="w-5 h-5 text-red-700 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-bold text-red-950">
                         {rep.safetyMessage}
                       </div>
-                      <p className="text-xs font-bold text-red-800">
+                      <p className="text-[11px] text-red-800">
                         {currentLanguage === "en"
                           ? "Safety Warning: Keep machine stopped immediately in case of fire, smoke, leakage or overheating. Do not attempt to start."
                           : "सुरक्षा चेतावनी: आग, धुआं, लीकेज या ओवरहीटिंग के समय मशीन तुरंत बंद रखें। मशीन चालू करने का प्रयास न करें।"}
@@ -7353,45 +7219,45 @@ export default function AgriPulseApp() {
               type="button"
               id="open-map-screen-btn"
               onClick={() => setCurrentScreen("nearby_mechanics")}
-              className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-2 border-emerald-300 font-black py-3 px-4 rounded-2xl text-base flex items-center justify-center gap-2 shadow-sm transition-all"
+              className="w-full bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-semibold py-2.5 px-4 rounded-lg text-xs flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer"
             >
-              <MapPin className="w-5 h-5 text-emerald-700" />
+              <MapPin className="w-4 h-4 text-emerald-700" />
               <span>{currentLanguage === "en" ? "🗺️ View Nearby Mechanics on Map" : "🗺️ पास के मैकेनिक नक्शे पर देखें"}</span>
             </button>
 
             {/* LOADING STATE */}
             {isFindingTech ? (
-              <div className="bg-white border-3 border-emerald-400 rounded-3xl p-8 text-center space-y-6 shadow-md">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-100 border-4 border-emerald-400 flex items-center justify-center text-3xl sm:text-4xl mx-auto animate-bounce shadow-inner">
+              <div className="bg-white border border-slate-200 rounded-lg p-6 text-center space-y-4 shadow-2xs">
+                <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-2xl mx-auto">
                   👨‍🔧
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-black text-slate-900">
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-slate-900">
                     {currentLanguage === "en" ? "Finding mechanic for you..." : "आपके लिए मैकेनिक ढूंढ रहे हैं..."}
                   </h3>
-                  <p className="text-base font-bold text-slate-600">
+                  <p className="text-xs text-slate-600">
                     {currentLanguage === "en"
                       ? "Checking skills, availability, distance, and workload"
                       : "हुनर, उपलब्धता, दूरी और कार्यभार की जाँच की जा रही है"}
                   </p>
                 </div>
-                <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden border border-slate-300 shadow-inner">
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
                   <div
                     className="bg-emerald-600 h-full rounded-full animate-pulse"
                     style={{ width: "70%" }}
                   ></div>
                 </div>
-                <p className="text-xs font-bold text-slate-500">
+                <p className="text-[11px] text-slate-500 font-medium">
                   {currentLanguage === "en" ? "⚡ Local data search — no internet needed" : "⚡ स्थानीय डेटा से खोज — इंटरनेट की जरूरत नहीं"}
                 </p>
               </div>
             ) : techMatchResult ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Offline notice */}
                 {!isOnline && (
-                  <div className="bg-amber-50 border-3 border-amber-400 rounded-2xl p-4 flex items-start gap-3">
-                    <WifiOff className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm font-black text-amber-950">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2.5">
+                    <WifiOff className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs font-semibold text-amber-950">
                       {currentLanguage === "en"
                         ? "Mechanic data saved locally on phone. Will sync when online."
                         : "मैकेनिक की जानकारी फोन में सुरक्षित है। इंटरनेट आने पर सिंक की जाएगी।"}
@@ -7401,30 +7267,29 @@ export default function AgriPulseApp() {
 
                 {/* Match reason banner */}
                 {techMatchResult.recommended ? (
-                  <div className="bg-emerald-50 border-3 border-emerald-500 rounded-2xl p-3 flex items-center gap-3">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-700 flex-shrink-0" />
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-2.5">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-700 flex-shrink-0" />
                     <div>
-                      <div className="text-lg font-black text-emerald-950">
+                      <div className="text-xs font-bold text-emerald-950">
                         {currentLanguage === "en" ? "Mechanic Matched ✓" : "मैकेनिक मिल गया ✓"}
                       </div>
-                      <div className="text-sm font-bold text-emerald-900">
+                      <div className="text-[11px] text-emerald-900 font-medium">
                         {currentLanguage === "en" ? "Nearest verified expert is ready to assist." : techMatchResult.reasonHi}
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-amber-50 border-3 border-amber-400 rounded-2xl p-4">
-                    <p className="text-lg font-black text-amber-950">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-amber-950">
                       {currentLanguage === "en" ? "Searching nearby area for available technicians..." : techMatchResult.reasonHi}
                     </p>
                   </div>
                 )}
 
-                {/* P2M Step 1: Farmer-Friendly Technician Screen */}
+                {/* Mechanic list */}
                 <div className="space-y-3">
-                  <div className="text-xl font-black text-slate-900 flex items-center gap-2">
-                    <span>👨‍🔧</span>
-                    <span>{currentLanguage === "en" ? "Nearby Mechanics" : "पास के मैकेनिक"}</span>
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                    {currentLanguage === "en" ? "Available Technicians" : "उपलब्ध मैकेनिक सूची"}
                   </div>
 
                   {techMatchResult.matchedTechnicians.map((item, idx) => {
@@ -7435,30 +7300,35 @@ export default function AgriPulseApp() {
                       <div
                         key={tech.id}
                         id={`technician-card-${tech.id}`}
-                        className={`rounded-3xl p-5 border-3 transition-all space-y-4 shadow-sm ${
+                        className={`rounded-lg p-4 border bg-white transition-colors space-y-3 shadow-2xs ${
                           idx === 0 && tech.available
-                            ? "bg-white border-emerald-500 shadow-md ring-2 ring-emerald-200"
-                            : "bg-white border-slate-300"
+                            ? "border-emerald-600"
+                            : "border-slate-200"
                         }`}
                       >
                         {/* Header: Name & Availability */}
                         <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center text-2xl sm:text-3xl shrink-0 shadow-inner">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-10 h-10 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center text-xl shrink-0">
                               👨‍🔧
                             </div>
                             <div>
-                              <h3 className="text-2xl font-black text-slate-900">
+                              <h3 className="text-sm font-bold text-slate-900">
                                 {currentLanguage === "en" ? tech.name : tech.nameHi}
                               </h3>
+                              {idx === 0 && tech.available && (
+                                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                  {currentLanguage === "en" ? "Recommended Match" : "सर्वोत्तम सुझाव"}
+                                </span>
+                              )}
                             </div>
                           </div>
 
                           <span
-                            className={`text-base font-black px-3 py-1.5 rounded-xl border flex items-center gap-1.5 shrink-0 ${
+                            className={`text-xs font-semibold px-2 py-0.5 rounded-md border flex items-center gap-1 shrink-0 ${
                               tech.available
-                                ? "bg-emerald-100 text-emerald-900 border-emerald-300"
-                                : "bg-slate-100 text-slate-600 border-slate-300"
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : "bg-slate-100 text-slate-600 border-slate-200"
                             }`}
                           >
                             {tech.available
@@ -7468,94 +7338,72 @@ export default function AgriPulseApp() {
                         </div>
 
                         {/* Details: Machine Experience & Distance */}
-                        <div className="grid grid-cols-2 gap-2.5 text-sm">
-                          <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-3 flex items-center gap-2.5">
-                            <Wrench className="w-5 h-5 text-emerald-700 shrink-0" />
-                            <div>
-                              <div className="text-xs font-bold text-emerald-800">
-                                {currentLanguage === "en" ? "Machine Experience" : "मशीन का अनुभव"}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="bg-slate-50 border border-slate-200 rounded-md p-2 flex items-center gap-2">
+                            <Wrench className="w-4 h-4 text-emerald-700 shrink-0" />
+                            <div className="min-w-0">
+                              <div className="text-[10px] text-slate-500 font-medium">
+                                {currentLanguage === "en" ? "Experience" : "अनुभव"}
                               </div>
-                              <div className="text-base font-black text-emerald-950 truncate">
+                              <div className="text-xs font-bold text-slate-900 truncate">
                                 {currentLanguage === "en" ? tech.skills.join(", ") : item.expertiseLabel}
                               </div>
                             </div>
                           </div>
 
-                          <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-3 flex items-center gap-2.5">
-                            <MapPin className="w-5 h-5 text-emerald-700 shrink-0" />
-                            <div>
-                              <div className="text-xs font-bold text-slate-600">
-                                {currentLanguage === "en" ? "Approx Distance" : "लगभग दूरी"}
+                          <div className="bg-slate-50 border border-slate-200 rounded-md p-2 flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-emerald-700 shrink-0" />
+                            <div className="min-w-0">
+                              <div className="text-[10px] text-slate-500 font-medium">
+                                {currentLanguage === "en" ? "Distance" : "दूरी"}
                               </div>
-                              <div className="text-base font-black text-slate-900">
+                              <div className="text-xs font-bold text-slate-900 truncate">
                                 {item.approxDistanceText}
                               </div>
                             </div>
                           </div>
                         </div>
 
-                        {/* P2O Step 3: Farmer Trust & Certification Information */}
-                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2 text-xs">
-                          {/* Certification Badge */}
+                        {/* Certification & Trust */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-md p-2.5 space-y-1.5 text-xs">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-600">
-                              {currentLanguage === "en" ? "Certification Status:" : "प्रमाणन स्थिति:"}
+                            <span className="text-[11px] text-slate-500 font-medium">
+                              {currentLanguage === "en" ? "Certification:" : "प्रमाणन:"}
                             </span>
                             <span
-                              className={`font-black px-2.5 py-1 rounded-full border text-xs flex items-center gap-1 ${
+                              className={`font-semibold px-2 py-0.5 rounded text-[11px] border ${
                                 tech.verificationStatus === "verified"
-                                  ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                                   : tech.verificationStatus === "expired"
-                                  ? "bg-red-100 text-red-900 border-red-300"
-                                  : "bg-amber-100 text-amber-900 border-amber-300"
+                                  ? "bg-red-50 text-red-800 border-red-200"
+                                  : "bg-amber-50 text-amber-800 border-amber-200"
                               }`}
                             >
                               {tech.verificationStatus === "verified"
-                                ? (currentLanguage === "en" ? "🟢 Verified Mechanic" : "🟢 प्रमाणित मैकेनिक (Verified)")
+                                ? (currentLanguage === "en" ? "Verified" : "प्रमाणित")
                                 : tech.verificationStatus === "expired"
-                                ? (currentLanguage === "en" ? "🔴 Renewal Required" : "🔴 प्रमाणन समाप्त (Renewal Required)")
-                                : (currentLanguage === "en" ? "🟡 Pending" : "🟡 सत्यापन प्रक्रियाधीन (Pending)")}
+                                ? (currentLanguage === "en" ? "Renewal Req." : "नवीनीकरण जरूरी")
+                                : (currentLanguage === "en" ? "Pending" : "प्रक्रियाधीन")}
                             </span>
                           </div>
 
-                          {/* Equipment & Skills */}
-                          <div className="space-y-1 pt-1 border-t border-slate-200/80">
-                            <div className="flex justify-between items-center">
-                              <span className="font-bold text-slate-500">
-                                {currentLanguage === "en" ? "Equipment:" : "उपकरण (Equipment):"}
-                              </span>
-                              <span className="font-black text-slate-900 truncate max-w-[190px]">
-                                {tech.equipmentCategories?.join(" • ") || tech.skills.join(" • ")}
-                              </span>
-                            </div>
-                            {tech.technicalSkills && tech.technicalSkills.length > 0 && (
-                              <div className="flex justify-between items-center">
-                                <span className="font-bold text-slate-500">
-                                  {currentLanguage === "en" ? "Skills:" : "हुनर (Skills):"}
-                                </span>
-                                <span className="font-black text-slate-800 truncate max-w-[190px]">
-                                  {tech.technicalSkills.join(" • ")}
-                                </span>
-                              </div>
-                            )}
-                            <div className="flex justify-between items-center">
-                              <span className="font-bold text-slate-500">
-                                {currentLanguage === "en" ? "Work Experience:" : "कार्य अनुभव:"}
-                              </span>
-                              <span className="font-black text-slate-900">
-                                {tech.experienceYears ? `${tech.experienceYears} ${currentLanguage === "en" ? "years" : "वर्ष"}` : (currentLanguage === "en" ? "3+ years" : "3+ वर्ष")}
-                              </span>
-                            </div>
+                          <div className="flex justify-between items-center text-[11px] pt-1 border-t border-slate-200">
+                            <span className="text-slate-500 font-medium">
+                              {currentLanguage === "en" ? "Experience:" : "कार्य अनुभव:"}
+                            </span>
+                            <span className="font-semibold text-slate-800">
+                              {tech.experienceYears ? `${tech.experienceYears} ${currentLanguage === "en" ? "years" : "वर्ष"}` : (currentLanguage === "en" ? "3+ years" : "3+ वर्ष")}
+                            </span>
                           </div>
 
                           {/* Button to view certificate portfolio */}
                           <button
                             type="button"
                             onClick={() => handleOpenCredentialsModal(tech)}
-                            className="w-full mt-1 py-1.5 px-2 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-lg border border-slate-300 text-[11px] flex items-center justify-center gap-1.5 transition-colors"
+                            className="w-full mt-1 py-1 px-2 bg-white hover:bg-slate-100 text-slate-700 font-medium rounded border border-slate-200 text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
                           >
-                            <Award className="w-3.5 h-3.5 text-amber-600" />
-                            <span>{currentLanguage === "en" ? "View Certifications & Training Record" : "प्रमाणन व प्रशिक्षण रिकॉर्ड देखें"}</span>
+                            <Award className="w-3 h-3 text-amber-600" />
+                            <span>{currentLanguage === "en" ? "View Certifications" : "प्रमाणन व प्रशिक्षण रिकॉर्ड देखें"}</span>
                           </button>
                         </div>
 
@@ -7565,10 +7413,10 @@ export default function AgriPulseApp() {
                             <button
                               type="button"
                               onClick={() => window.open(routeUrl, "_blank")}
-                              className="text-blue-700 hover:text-blue-900 flex items-center gap-1 font-bold text-xs bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
+                              className="text-emerald-700 hover:text-emerald-900 flex items-center gap-1 font-medium text-xs bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 cursor-pointer"
                             >
-                              <Navigation className="w-3.5 h-3.5" />
-                              <span>{currentLanguage === "en" ? "View Route (Map)" : "रास्ता देखें (मैप)"}</span>
+                              <Navigation className="w-3 h-3" />
+                              <span>{currentLanguage === "en" ? "View Route" : "रास्ता देखें"}</span>
                             </button>
                           </div>
                         )}
@@ -7579,13 +7427,13 @@ export default function AgriPulseApp() {
                           id={`select-tech-btn-${tech.id}`}
                           onClick={() => handleSelectTechnician(tech)}
                           disabled={!tech.available || isAssigningTechnician}
-                          className={`w-full font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 flex items-center justify-center gap-2.5 transition-transform active:scale-[0.98] ${
+                          className={`w-full font-semibold py-2.5 px-4 rounded-md text-sm shadow-2xs flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                             tech.available && !isAssigningTechnician
-                              ? "bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-950"
-                              : "bg-slate-200 text-slate-500 border-slate-300 cursor-not-allowed"
+                              ? "bg-emerald-700 hover:bg-emerald-800 text-white"
+                              : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
                           }`}
                         >
-                          <UserCheck className="w-6 h-6 text-amber-300" />
+                          <UserCheck className="w-4 h-4" />
                           <span>
                             {isAssigningTechnician
                               ? (currentLanguage === "en" ? "Assigning..." : "नियुक्त हो रहा है...")
@@ -7603,7 +7451,7 @@ export default function AgriPulseApp() {
                 <button
                   type="button"
                   onClick={() => setCurrentScreen("repair")}
-                  className="w-full py-3 text-base font-bold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1"
+                  className="w-full py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1 cursor-pointer"
                 >
                   <span>{currentLanguage === "en" ? "View My Repair ➔" : "मेरी मरम्मत देखें ➔"}</span>
                 </button>
@@ -7616,22 +7464,22 @@ export default function AgriPulseApp() {
         {currentScreen === "technician_job_card" && currentJobCard && (
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-                <ClipboardList className="w-6 h-6 text-emerald-700" />
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-emerald-700" />
                 <span>{currentLanguage === "en" ? "Job Card & Status" : "जॉब कार्ड व स्थिति"}</span>
               </h2>
-              <span className="text-xs font-bold text-slate-500">{currentJobCard.jobId}</span>
+              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{currentJobCard.jobId}</span>
             </div>
 
-            {/* P2K Section 6: Technician Status Stepper (5 stages in simple Hindi) */}
-            <div className="bg-white border-3 border-emerald-500 rounded-3xl p-5 shadow-md space-y-3">
-              <div className="text-xs font-black text-slate-500 uppercase tracking-wide">
+            {/* Technician Status Stepper */}
+            <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs space-y-2.5">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
                 {currentLanguage === "en" ? "Mechanic Tracking Status:" : "मैकेनिक ट्रैकिंग स्थिति:"}
               </div>
 
               {/* Status Display Text */}
-              <div className="text-2xl font-black text-emerald-900 flex items-center gap-2">
-                <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <div className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse"></span>
                 <span>
                   {currentJobCard.status === "मैकेनिक को भेजा गया" ||
                   currentJobCard.technicianWorkflowStatus === "assigned"
@@ -7692,7 +7540,7 @@ export default function AgriPulseApp() {
                       return (
                         <div key={stage.key} className="text-center space-y-1">
                           <div
-                            className={`w-full h-2 rounded-full ${
+                            className={`w-full h-1.5 rounded-full ${
                               isPast
                                 ? "bg-emerald-600"
                                 : isCurrent
@@ -7701,9 +7549,9 @@ export default function AgriPulseApp() {
                             }`}
                           />
                           <span
-                            className={`text-[11px] font-black block truncate ${
+                            className={`text-[10px] font-semibold block truncate ${
                               isCurrent
-                                ? "text-emerald-900"
+                                ? "text-emerald-800"
                                 : isPast
                                 ? "text-slate-700"
                                 : "text-slate-400"
@@ -7719,15 +7567,15 @@ export default function AgriPulseApp() {
               })()}
             </div>
 
-            {/* P2K Section 10: Mandatory Safety Warning for Hazardous Condition */}
+            {/* Mandatory Safety Warning for Hazardous Condition */}
             {currentJobCard.safetyMessage && (
-              <div className="p-4 bg-red-50 border-3 border-red-500 rounded-2xl flex items-start gap-3 shadow-sm">
-                <ShieldAlert className="w-6 h-6 text-red-700 flex-shrink-0 mt-0.5" />
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2.5">
+                <ShieldAlert className="w-5 h-5 text-red-700 flex-shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
-                  <div className="text-base font-black text-red-950">
+                  <div className="text-xs font-bold text-red-950">
                     {currentJobCard.safetyMessage}
                   </div>
-                  <p className="text-xs font-bold text-red-800">
+                  <p className="text-[11px] text-red-800">
                     {currentLanguage === "en"
                       ? "Safety Instructions: In case of fire, smoke, leakage, or overheating, keep machine shut off immediately. Do not start until mechanic arrives."
                       : "सुरक्षा निर्देश: आग, धुआं, लीकेज या ओवरहीटिंग के समय मशीन को तुरंत बंद रखें। मैकेनिक के आने तक इसे चालू न करें।"}
@@ -7736,9 +7584,9 @@ export default function AgriPulseApp() {
               </div>
             )}
 
-            {/* P2K Section 5: Automatically prepared Job Card details */}
-            <div className="bg-white border-3 border-slate-300 rounded-3xl p-5 space-y-4 shadow-sm">
-              <div className="text-base font-black text-slate-700 border-b border-slate-100 pb-2 flex items-center justify-between">
+            {/* Job Card details container */}
+            <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3.5 shadow-2xs">
+              <div className="text-xs font-bold text-slate-700 border-b border-slate-100 pb-2 flex items-center justify-between">
                 <span>{currentLanguage === "en" ? "Job Card Details" : "जॉब कार्ड विवरण"}</span>
                 <span className="text-xs font-bold text-slate-500">
                   {new Date(currentJobCard.createdAt).toLocaleDateString(currentLanguage === "en" ? "en-IN" : "hi-IN")}
@@ -8313,54 +8161,54 @@ export default function AgriPulseApp() {
               const hasDiff = currentJobCard.priceAdjustment || (effectiveFinalTotal !== est.total);
 
               return (
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-3 border-amber-400 rounded-3xl p-5 space-y-4 shadow-sm">
-                  <div className="flex items-center justify-between border-b border-amber-200 pb-3">
+                <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl">💰</span>
+                      <span className="text-base">💰</span>
                       <div>
-                        <h4 className="text-xl font-black text-amber-950">
+                        <h4 className="text-sm font-bold text-slate-900">
                           {currentLanguage === "en" ? "Transparent Billing Breakdown" : "पारदर्शी बिलिंग विवरण (Billing)"}
                         </h4>
-                        <span className="text-xs font-bold text-amber-800">
-                          {currentLanguage === "en" ? "No hidden or unjustified extra charges" : "बिना कारण कोई अतिरिक्त शुल्क नहीं"}
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          {currentLanguage === "en" ? "Standard authorized rates" : "बिना कारण कोई अतिरिक्त शुल्क नहीं"}
                         </span>
                       </div>
                     </div>
-                    <span className="text-xs font-black bg-amber-200 text-amber-900 px-2.5 py-1 rounded-full border border-amber-300">
+                    <span className="text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
                       {currentLanguage === "en" ? "Certified Rate" : "प्रमाणित दर"}
                     </span>
                   </div>
 
                   {/* 5 Cost Elements breakdown */}
-                  <div className="space-y-2 text-sm bg-white/80 p-3.5 rounded-2xl border border-amber-200">
-                    <div className="flex justify-between items-center text-slate-700 font-bold">
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center text-slate-600">
                       <span>{currentLanguage === "en" ? "Diagnostic Fee:" : "जांच शुल्क (Diagnostic Fee):"}</span>
-                      <span className="font-black text-slate-900">{formatCurrencyHi(est.diagnosticFee)}</span>
+                      <span className="font-semibold text-slate-900">{formatCurrencyHi(est.diagnosticFee)}</span>
                     </div>
-                    <div className="flex justify-between items-center text-slate-700 font-bold">
+                    <div className="flex justify-between items-center text-slate-600">
                       <span>{currentLanguage === "en" ? "Labour Fee:" : "मजदूरी शुल्क (Labour Fee):"}</span>
-                      <span className="font-black text-slate-900">{formatCurrencyHi(activeLabour)}</span>
+                      <span className="font-semibold text-slate-900">{formatCurrencyHi(activeLabour)}</span>
                     </div>
-                    <div className="flex justify-between items-center text-slate-700 font-bold">
+                    <div className="flex justify-between items-center text-slate-600">
                       <span>{currentLanguage === "en" ? "Spare Parts Cost:" : "स्पेयर पार्ट्स (Parts Cost):"}</span>
-                      <span className="font-black text-slate-900">{formatCurrencyHi(currentPartsCost)}</span>
+                      <span className="font-semibold text-slate-900">{formatCurrencyHi(currentPartsCost)}</span>
                     </div>
-                    <div className="flex justify-between items-center text-slate-700 font-bold">
+                    <div className="flex justify-between items-center text-slate-600">
                       <span>{currentLanguage === "en" ? "Travel Fee:" : "घर पर आने का शुल्क (Travel Fee):"}</span>
-                      <span className="font-black text-slate-900">{formatCurrencyHi(est.travelFee)}</span>
+                      <span className="font-semibold text-slate-900">{formatCurrencyHi(est.travelFee)}</span>
                     </div>
                     {est.discount > 0 && (
-                      <div className="flex justify-between items-center text-emerald-700 font-bold">
+                      <div className="flex justify-between items-center text-emerald-700">
                         <span>{currentLanguage === "en" ? "Discount / Subsidy:" : "छूट / सब्सिडी (Discount):"}</span>
-                        <span className="font-black text-emerald-800">-{formatCurrencyHi(est.discount)}</span>
+                        <span className="font-semibold text-emerald-800">-{formatCurrencyHi(est.discount)}</span>
                       </div>
                     )}
 
-                    <div className="pt-2 border-t-2 border-dashed border-amber-300 flex justify-between items-center">
-                      <span className="font-black text-base text-amber-950">
+                    <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
+                      <span className="font-bold text-xs text-slate-900">
                         {currentLanguage === "en" ? "Final Total Repair Cost:" : "अंतिम कुल मरम्मत राशि:"}
                       </span>
-                      <span className="text-2xl font-black text-amber-950">
+                      <span className="text-base font-bold text-slate-900">
                         {formatCurrencyHi(effectiveFinalTotal)}
                       </span>
                     </div>
@@ -8368,31 +8216,31 @@ export default function AgriPulseApp() {
 
                   {/* Difference display if final differs from estimate */}
                   {hasDiff && (
-                    <div className="bg-amber-100/90 border-2 border-amber-300 rounded-2xl p-3.5 space-y-2 text-sm">
-                      <div className="font-black text-amber-950 text-base flex items-center gap-1.5">
+                    <div className="bg-amber-50 border border-amber-200 rounded-md p-2.5 space-y-1.5 text-xs">
+                      <div className="font-semibold text-amber-950 flex items-center gap-1 text-xs">
                         <span>⚠️</span>
                         <span>{currentLanguage === "en" ? "Cost Adjustment Details:" : "लागत संशोधन विवरण (Cost Difference):"}</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-center font-bold">
-                        <div className="bg-white p-2 rounded-xl border border-amber-200">
-                          <span className="text-[11px] font-bold text-slate-500 block">
+                      <div className="grid grid-cols-3 gap-1.5 text-center">
+                        <div className="bg-white p-1.5 rounded border border-amber-200">
+                          <span className="text-[10px] text-slate-500 block">
                             {currentLanguage === "en" ? "Estimated Cost" : "अनुमानित लागत"}
                           </span>
-                          <span className="font-black text-slate-900 text-sm">{formatCurrencyHi(est.total)}</span>
+                          <span className="font-semibold text-slate-900 text-xs">{formatCurrencyHi(est.total)}</span>
                         </div>
-                        <div className="bg-white p-2 rounded-xl border border-amber-200">
-                          <span className="text-[11px] font-bold text-slate-500 block">
+                        <div className="bg-white p-1.5 rounded border border-amber-200">
+                          <span className="text-[10px] text-slate-500 block">
                             {currentLanguage === "en" ? "Adjusted Cost" : "संशोधित लागत"}
                           </span>
-                          <span className="font-black text-amber-950 text-sm">
+                          <span className="font-semibold text-amber-950 text-xs">
                             {formatCurrencyHi(effectiveFinalTotal)}
                           </span>
                         </div>
-                        <div className="bg-white p-2 rounded-xl border border-amber-200">
-                          <span className="text-[11px] font-bold text-slate-500 block">
+                        <div className="bg-white p-1.5 rounded border border-amber-200">
+                          <span className="text-[10px] text-slate-500 block">
                             {currentLanguage === "en" ? "Difference" : "अंतर"}
                           </span>
-                          <span className={`font-black text-sm ${(effectiveFinalTotal - est.total) > 0 ? "text-amber-800" : "text-emerald-700"}`}>
+                          <span className={`font-semibold text-xs ${(effectiveFinalTotal - est.total) > 0 ? "text-amber-800" : "text-emerald-700"}`}>
                             {(effectiveFinalTotal - est.total) >= 0 ? "+" : ""}
                             {formatCurrencyHi(effectiveFinalTotal - est.total)}
                           </span>
@@ -8401,7 +8249,7 @@ export default function AgriPulseApp() {
 
                       {/* Display recorded reason if already saved */}
                       {currentJobCard.priceAdjustment && (
-                        <div className="pt-1 text-xs font-bold text-amber-900 flex items-center justify-between">
+                        <div className="pt-0.5 text-[11px] text-amber-900 flex items-center justify-between">
                           <span>{currentLanguage === "en" ? "Reason:" : "कारण:"} {currentJobCard.priceAdjustment.reason}</span>
                           <span className="text-[10px] text-amber-800">
                             {new Date(currentJobCard.priceAdjustment.adjustedAt).toLocaleTimeString(currentLanguage === "en" ? "en-IN" : "hi-IN", { hour: "2-digit", minute: "2-digit" })}
@@ -8411,8 +8259,8 @@ export default function AgriPulseApp() {
                     </div>
                   )}
 
-                  {/* Price adjustment controls: disallow silent unrecorded change */}
-                  <div className="space-y-3 pt-1">
+                  {/* Price adjustment controls */}
+                  <div className="space-y-2 pt-1">
                     {!isEditingPrice ? (
                       <button
                         type="button"
@@ -8420,41 +8268,41 @@ export default function AgriPulseApp() {
                           setTechLabourFeeOverride(currentJobCard.finalCost?.labourFee ?? est.labourFee);
                           setIsEditingPrice(true);
                         }}
-                        className="w-full bg-white hover:bg-amber-50 text-amber-950 font-black py-3 px-4 rounded-xl border-2 border-amber-400 text-sm flex items-center justify-center gap-2 shadow-sm transition-colors"
+                        className="w-full bg-white hover:bg-slate-50 text-slate-700 font-semibold py-2 px-3 rounded-md border border-slate-200 text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <span>✏️</span>
                         <span>{currentLanguage === "en" ? "Revise Cost / Labour (With Reason)" : "लागत / मजदूरी संशोधित करें (कारण के साथ)"}</span>
                       </button>
                     ) : (
-                      <div className="bg-white p-4 rounded-2xl border-2 border-amber-400 space-y-3 shadow-sm">
-                        <div className="text-sm font-black text-slate-900 border-b pb-2">
+                      <div className="bg-slate-50 p-3 rounded-md border border-slate-200 space-y-2 text-xs">
+                        <div className="font-semibold text-slate-900 border-b border-slate-200 pb-1.5">
                           {currentLanguage === "en" ? "Cost Adjustment Form (Post-Inspection):" : "लागत संशोधन प्रपत्र (मशीन जांच उपरांत):"}
                         </div>
 
                         <div>
-                          <label className="text-xs font-bold text-slate-600 block mb-1">
+                          <label className="text-[11px] font-medium text-slate-600 block mb-1">
                             {currentLanguage === "en" ? "Revised Labour Fee:" : "संशोधित मजदूरी शुल्क (Labour Fee):"}
                           </label>
-                          <div className="flex items-center gap-2">
-                            <span className="font-black text-slate-700">₹</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-700">₹</span>
                             <input
                               type="number"
                               min="0"
                               value={techLabourFeeOverride ?? est.labourFee}
                               onChange={(e) => setTechLabourFeeOverride(Math.max(0, parseInt(e.target.value) || 0))}
-                              className="flex-1 border-2 border-slate-300 rounded-xl px-3 py-2 text-base font-black text-slate-900 focus:outline-none focus:border-amber-500"
+                              className="flex-1 border border-slate-300 rounded-md px-2.5 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none focus:border-emerald-600"
                             />
                           </div>
                         </div>
 
                         <div>
-                          <label className="text-xs font-bold text-slate-600 block mb-1">
+                          <label className="text-[11px] font-medium text-slate-600 block mb-1">
                             {currentLanguage === "en" ? "Mandatory Adjustment Reason:" : "संशोधन का अनिवार्य कारण (Mandatory Reason):"}
                           </label>
                           <select
                             value={priceAdjustmentReason}
                             onChange={(e) => setPriceAdjustmentReason(e.target.value as PriceChangeReason)}
-                            className="w-full border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 bg-white focus:outline-none focus:border-amber-500"
+                            className="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:border-emerald-600"
                           >
                             {PRICE_CHANGE_REASONS.map((reason) => (
                               <option key={reason} value={reason}>
@@ -8466,7 +8314,7 @@ export default function AgriPulseApp() {
 
                         {priceAdjustmentReason === "अन्य" && (
                           <div>
-                            <label className="text-xs font-bold text-slate-600 block mb-1">
+                            <label className="text-[11px] font-medium text-slate-600 block mb-1">
                               {currentLanguage === "en" ? "Enter explanation for reason:" : "कारण का विवरण लिखें:"}
                             </label>
                             <input
@@ -8474,7 +8322,7 @@ export default function AgriPulseApp() {
                               value={customPriceNote}
                               onChange={(e) => setCustomPriceNote(e.target.value)}
                               placeholder={currentLanguage === "en" ? "e.g., Additional wiring replaced" : "जैसे: अतिरिक्त वायरिंग बदली गई"}
-                              className="w-full border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 focus:outline-none focus:border-amber-500"
+                              className="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-900 focus:outline-none focus:border-emerald-600"
                             />
                           </div>
                         )}
@@ -8483,14 +8331,14 @@ export default function AgriPulseApp() {
                           <button
                             type="button"
                             onClick={handleSavePriceAdjustment}
-                            className="flex-1 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-slate-950 font-black py-2.5 px-3 rounded-xl text-sm border-2 border-amber-600 transition-all shadow-sm"
+                            className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-1.5 px-3 rounded-md text-xs transition-colors cursor-pointer shadow-2xs"
                           >
                             {currentLanguage === "en" ? "✓ Save Adjustment" : "✓ संशोधन सुरक्षित करें"}
                           </button>
                           <button
                             type="button"
                             onClick={() => setIsEditingPrice(false)}
-                            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm"
+                            className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-medium rounded-md text-xs border border-slate-200 cursor-pointer"
                           >
                             {currentLanguage === "en" ? "Cancel" : "रद्द करें"}
                           </button>
@@ -8506,7 +8354,7 @@ export default function AgriPulseApp() {
             <button
               type="button"
               onClick={() => setCurrentScreen("repair")}
-              className="w-full bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 text-slate-800 font-black py-4 px-4 rounded-2xl text-lg flex items-center justify-center gap-2 transition-colors"
+              className="w-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-semibold py-2.5 px-4 rounded-md text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <span>{t("nav.repairs", currentLanguage)}</span>
               <span>➔</span>
@@ -8791,60 +8639,61 @@ export default function AgriPulseApp() {
         })()}
 
       </main>
+      )}
 
       {/* ================= BOTTOM NAVIGATION ================= */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t-3 border-slate-200 py-2 shadow-2xl flex justify-center">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 py-1.5 flex justify-center shadow-xs">
         <div className="w-full max-w-md grid grid-cols-4 px-2">
-          {/* 🏠 Home */}
+          {/* Home */}
           <button
             onClick={() => setCurrentScreen("home")}
-            className={`py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer ${
+            className={`py-1.5 px-1 flex flex-col items-center justify-center transition-colors cursor-pointer ${
               getActiveTab() === "home"
-                ? "text-emerald-800 font-black bg-emerald-50 scale-105"
-                : "text-slate-600 font-bold hover:text-slate-900"
+                ? "text-emerald-700 font-bold"
+                : "text-slate-500 font-medium hover:text-slate-700"
             }`}
           >
-            <span className="text-2xl">🏠</span>
-            <span className="text-xs sm:text-sm mt-0.5">{t("nav.home", currentLanguage)}</span>
+            <Home className="w-5 h-5" />
+            <span className="text-[11px] mt-1">{t("nav.home", currentLanguage)}</span>
           </button>
 
-          {/* 🚜 Machines */}
+          {/* Machines */}
           <button
             onClick={() => setCurrentScreen("machines")}
-            className={`py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer ${
+            className={`py-1.5 px-1 flex flex-col items-center justify-center transition-colors cursor-pointer ${
               getActiveTab() === "machines"
-                ? "text-emerald-800 font-black bg-emerald-50 scale-105"
-                : "text-slate-600 font-bold hover:text-slate-900"
+                ? "text-emerald-700 font-bold"
+                : "text-slate-500 font-medium hover:text-slate-700"
             }`}
           >
-            <span className="text-2xl">🚜</span>
-            <span className="text-xs sm:text-sm mt-0.5">{t("nav.machines", currentLanguage)}</span>
+            <Tractor className="w-5 h-5" />
+            <span className="text-[11px] mt-1">{t("nav.machines", currentLanguage)}</span>
           </button>
 
-          {/* 🔧 Repairs */}
+          {/* Repairs */}
           <button
             onClick={() => setCurrentScreen("repair")}
-            className={`py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer ${
+            className={`py-1.5 px-1 flex flex-col items-center justify-center transition-colors cursor-pointer ${
               getActiveTab() === "repair"
-                ? "text-amber-800 font-black bg-amber-50 scale-105"
-                : "text-slate-600 font-bold hover:text-slate-900"
+                ? "text-emerald-700 font-bold"
+                : "text-slate-500 font-medium hover:text-slate-700"
             }`}
           >
-            <span className="text-2xl">🔧</span>
-            <span className="text-xs sm:text-sm mt-0.5">{t("nav.repairs", currentLanguage)}</span>
+            <Wrench className="w-5 h-5" />
+            <span className="text-[11px] mt-1">{t("nav.repairs", currentLanguage)}</span>
           </button>
 
-          {/* 📅 Service */}
+          {/* Service */}
           <button
             onClick={() => setCurrentScreen("service")}
-            className={`py-2 px-1 flex flex-col items-center justify-center rounded-2xl transition-all cursor-pointer ${
+            className={`py-1.5 px-1 flex flex-col items-center justify-center transition-colors cursor-pointer ${
               getActiveTab() === "service"
-                ? "text-blue-800 font-black bg-blue-50 scale-105"
-                : "text-slate-600 font-bold hover:text-slate-900"
+                ? "text-emerald-700 font-bold"
+                : "text-slate-500 font-medium hover:text-slate-700"
             }`}
           >
-            <span className="text-2xl">📅</span>
-            <span className="text-xs sm:text-sm mt-0.5">{t("nav.service", currentLanguage)}</span>
+            <CalendarDays className="w-5 h-5" />
+            <span className="text-[11px] mt-1">{t("nav.service", currentLanguage)}</span>
           </button>
         </div>
       </nav>

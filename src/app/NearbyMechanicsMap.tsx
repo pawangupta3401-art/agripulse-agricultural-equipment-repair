@@ -212,13 +212,13 @@ export default function NearbyMechanicsMap({
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-          <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-            <MapPin className="w-6 h-6 text-emerald-700" />
-            पास के मैकेनिक
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-emerald-700" />
+            <span>पास के मैकेनिक</span>
           </h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-1"
+            className="text-slate-400 hover:text-slate-700 p-1 rounded-md"
             aria-label="बंद करें"
           >
             <X className="w-5 h-5" />
@@ -226,38 +226,38 @@ export default function NearbyMechanicsMap({
         </div>
 
         {/* Permission request card */}
-        <div className="bg-emerald-50 border-3 border-emerald-400 rounded-3xl p-6 space-y-5 text-center shadow-md">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-100 border-4 border-emerald-400 flex items-center justify-center text-3xl sm:text-4xl mx-auto shadow-inner">
-            📍
+        <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-4 text-center shadow-xs">
+          <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-2xl mx-auto">
+            <MapPin className="w-6 h-6 text-emerald-700" />
           </div>
-          <div className="space-y-2">
-            <h3 className="text-2xl font-black text-slate-900">
+          <div className="space-y-1.5">
+            <h3 className="text-base font-bold text-slate-900">
               लोकेशन की अनुमति दें
             </h3>
-            <p className="text-base font-bold text-slate-700 leading-relaxed">
+            <p className="text-xs sm:text-sm font-medium text-slate-600 leading-relaxed">
               पास के मैकेनिक दिखाने के लिए आपकी लोकेशन चाहिए।
             </p>
-            <p className="text-sm font-bold text-slate-500">
-              आपकी लोकेशन केवल इस सत्र में उपयोग होगी। कहीं सेव नहीं होगी।
+            <p className="text-xs text-slate-400 font-medium">
+              आपकी लोकेशन केवल इस सत्र में उपयोग होगी।
             </p>
           </div>
           <button
             id="map-request-location-btn"
             onClick={handleRequestLocation}
             disabled={isLoadingLocation}
-            className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-lg shadow-lg border-2 border-emerald-950 flex items-center justify-center gap-2.5 transition-transform disabled:opacity-60"
+            className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-md text-sm shadow-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-60 cursor-pointer"
           >
             {isLoadingLocation ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Navigation className="w-5 h-5" />
+              <Navigation className="w-4 h-4" />
             )}
             <span>हाँ, लोकेशन दें</span>
           </button>
           <button
             id="map-skip-location-btn"
             onClick={handleSkipLocation}
-            className="w-full py-3 text-base font-bold text-slate-600 hover:text-slate-900"
+            className="w-full py-2 text-xs font-medium text-slate-500 hover:text-slate-700 cursor-pointer"
           >
             लोकेशन बाद में दें →
           </button>
@@ -271,13 +271,13 @@ export default function NearbyMechanicsMap({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-        <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-          <MapPin className="w-6 h-6 text-emerald-700" />
-          पास के मैकेनिक
+        <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <MapPin className="w-5 h-5 text-emerald-700" />
+          <span>पास के मैकेनिक</span>
         </h2>
         <button
           onClick={onClose}
-          className="text-slate-400 hover:text-slate-700 p-1"
+          className="text-slate-400 hover:text-slate-700 p-1 rounded-md"
           aria-label="बंद करें"
         >
           <X className="w-5 h-5" />
@@ -286,10 +286,10 @@ export default function NearbyMechanicsMap({
 
       {/* Location status bar */}
       {locationMessageHi && (
-        <div className={`rounded-xl px-4 py-2.5 flex items-center gap-2 text-sm font-bold ${
+        <div className={`rounded-md px-3.5 py-2 flex items-center gap-2 text-xs font-medium ${
           permissionStatus === "granted"
-            ? "bg-emerald-50 border border-emerald-300 text-emerald-900"
-            : "bg-amber-50 border border-amber-300 text-amber-900"
+            ? "bg-emerald-50 border border-emerald-200 text-emerald-900"
+            : "bg-amber-50 border border-amber-200 text-amber-900"
         }`}>
           <MapPin className="w-4 h-4 shrink-0" />
           {locationMessageHi}
@@ -298,9 +298,9 @@ export default function NearbyMechanicsMap({
 
       {/* Offline notice */}
       {!isOnline && (
-        <div className="bg-amber-50 border-3 border-amber-400 rounded-2xl p-4 flex items-start gap-3">
-          <WifiOff className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
-          <p className="text-sm font-black text-amber-950">
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex items-start gap-2.5">
+          <WifiOff className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+          <p className="text-xs font-medium text-amber-950">
             अभी लाइव नक्शा उपलब्ध नहीं है। पहले से उपलब्ध मैकेनिक जानकारी दिखाई जा रही है।
           </p>
         </div>
@@ -308,7 +308,7 @@ export default function NearbyMechanicsMap({
 
       {/* Map container — hidden offline */}
       {isOnline && (
-        <div className="relative rounded-2xl overflow-hidden border-3 border-slate-300 shadow-md">
+        <div className="relative rounded-lg overflow-hidden border border-slate-300 shadow-xs">
           {/* Leaflet CSS */}
           <link
             rel="stylesheet"
@@ -318,25 +318,25 @@ export default function NearbyMechanicsMap({
             ref={mapContainerRef}
             id="agripulse-map"
             className="w-full"
-            style={{ height: "280px", background: "#e8f4f8" }}
+            style={{ height: "260px", background: "#e8f4f8" }}
           />
           {!mapReady && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-100">
               <div className="flex flex-col items-center gap-2 text-slate-600">
-                <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
-                <span className="text-sm font-bold">नक्शा लोड हो रहा है...</span>
+                <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                <span className="text-xs font-medium">नक्शा लोड हो रहा है...</span>
               </div>
             </div>
           )}
           {/* Legend */}
-          <div className="absolute bottom-2 right-2 bg-white/95 backdrop-blur-sm rounded-xl px-3 py-2 text-xs font-bold shadow border border-slate-200 space-y-1">
+          <div className="absolute bottom-2 right-2 bg-white/95 backdrop-blur-sm rounded-md px-2.5 py-1.5 text-[11px] font-medium shadow-xs border border-slate-200 space-y-0.5">
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
-              उपलब्ध
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block" />
+              <span>उपलब्ध</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-slate-400 inline-block" />
-              व्यस्त
+              <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" />
+              <span>व्यस्त</span>
             </div>
           </div>
         </div>
@@ -351,43 +351,43 @@ export default function NearbyMechanicsMap({
         return (
           <div
             id="map-tech-card"
-            className="bg-white border-3 border-emerald-500 rounded-3xl p-5 shadow-lg space-y-4 animate-[fadeInUp_0.2s_ease-out]"
+            className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3 animate-fadeIn"
           >
             <div className="flex items-start gap-3">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-100 border-3 border-emerald-400 flex items-center justify-center text-2xl sm:text-3xl shadow-sm flex-shrink-0">
+              <div className="w-10 h-10 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center text-xl flex-shrink-0">
                 👨‍🔧
               </div>
               <div className="flex-1">
-                <h3 className="text-xl font-black text-slate-900">{selectedTech.nameHi}</h3>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className={`text-sm font-black px-2.5 py-0.5 rounded-xl border ${
+                <h3 className="text-base font-bold text-slate-900">{selectedTech.nameHi}</h3>
+                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded border ${
                     selectedTech.available
-                      ? "bg-emerald-100 text-emerald-900 border-emerald-300"
-                      : "bg-slate-100 text-slate-600 border-slate-300"
+                      ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+                      : "bg-slate-100 text-slate-600 border-slate-200"
                   }`}>
-                    {selectedTech.available ? "🟢 उपलब्ध" : "🔴 व्यस्त"}
+                    {selectedTech.available ? "उपलब्ध" : "व्यस्त"}
                   </span>
-                  <span className="text-sm font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg">
+                  <span className="text-xs text-slate-600 font-medium bg-slate-100 px-2 py-0.5 rounded">
                     📍 {distResult.displayText}
                   </span>
-                  <span className="text-sm font-bold text-amber-800 flex items-center gap-0.5">
-                    <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                  <span className="text-xs font-semibold text-amber-800 flex items-center gap-0.5">
+                    <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
                     {selectedTech.rating}
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedTech(null)}
-                className="text-slate-400 hover:text-slate-700 p-1 -mt-1 -mr-1"
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-md"
                 aria-label="बंद करें"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-              <span className="text-sm font-bold text-slate-600">🔧 मशीन विशेषज्ञता:</span>
-              <span className="text-sm font-black text-emerald-800">
+            <div className="p-2.5 bg-slate-50 rounded-md border border-slate-200 flex items-center justify-between text-xs">
+              <span className="font-medium text-slate-600">मशीन विशेषज्ञता:</span>
+              <span className="font-semibold text-emerald-800">
                 {expertise}
               </span>
             </div>
@@ -398,13 +398,13 @@ export default function NearbyMechanicsMap({
                 type="button"
                 id="map-tech-route-btn"
                 onClick={() => window.open(routeUrl, "_blank")}
-                className="w-full bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold py-3 px-4 rounded-2xl text-base border-2 border-blue-300 flex items-center justify-center gap-2 transition-colors"
+                className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium py-2 px-3 rounded-md text-xs border border-slate-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
-                <Navigation className="w-4 h-4 text-blue-700" />
+                <Navigation className="w-3.5 h-3.5 text-slate-600" />
                 <span>रास्ता देखें (दिशा-निर्देश)</span>
               </button>
             ) : (
-              <div className="text-xs font-bold text-slate-600 text-center py-2 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="text-[11px] font-medium text-slate-500 text-center py-1.5 bg-slate-50 rounded-md border border-slate-200">
                 📍 {isOnline ? `मैकेनिक का स्थान उपलब्ध (${distResult.displayText})` : `अभी लाइव दिशा-निर्देश उपलब्ध नहीं हैं। ${distResult.displayText}`}
               </div>
             )}
@@ -413,13 +413,13 @@ export default function NearbyMechanicsMap({
               id="map-select-tech-btn"
               onClick={() => onSelectTechnician(selectedTech)}
               disabled={!selectedTech.available}
-              className={`w-full font-black py-4 px-4 rounded-2xl text-lg shadow-lg border-2 flex items-center justify-center gap-2.5 transition-transform active:scale-[0.98] ${
+              className={`w-full font-semibold py-2.5 px-4 rounded-md text-sm shadow-xs flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                 selectedTech.available
-                  ? "bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-950"
-                  : "bg-slate-200 text-slate-500 border-slate-300 cursor-not-allowed"
+                  ? "bg-emerald-700 hover:bg-emerald-800 text-white"
+                  : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
               }`}
             >
-              <UserCheck className="w-5 h-5" />
+              <UserCheck className="w-4 h-4" />
               <span>
                 {selectedTech.available ? "मैकेनिक चुनें" : "अभी व्यस्त हैं"}
               </span>
@@ -429,9 +429,8 @@ export default function NearbyMechanicsMap({
       })()}
 
       {/* Technician list (always visible — works offline) */}
-      <div className="space-y-3">
-        <div className="text-base font-black text-slate-700 flex items-center gap-2">
-          <span>👨‍🔧</span>
+      <div className="space-y-2.5">
+        <div className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
           <span>उपलब्ध मैकेनिक ({availableTechs.length})</span>
         </div>
 
@@ -445,28 +444,28 @@ export default function NearbyMechanicsMap({
               id={`map-tech-list-${tech.id}`}
               type="button"
               onClick={() => setSelectedTech(tech)}
-              className="w-full bg-white border-3 border-emerald-400 rounded-2xl p-4 text-left hover:border-emerald-600 hover:shadow-md transition-all"
+              className="w-full bg-white border border-slate-200 rounded-lg p-3 text-left hover:border-slate-300 transition-colors shadow-xs cursor-pointer"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">👨‍🔧</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">👨‍🔧</span>
                   <div>
-                    <div className="text-lg font-black text-slate-900">{tech.nameHi}</div>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-xs font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        🔧 {expertise}
+                    <div className="text-sm font-bold text-slate-900">{tech.nameHi}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className="text-[11px] font-medium text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                        {expertise}
                       </span>
-                      <span className="text-xs font-bold text-slate-700">
+                      <span className="text-[11px] text-slate-600 font-medium">
                         📍 {distResult.displayText}
                       </span>
-                      <span className="text-xs font-bold text-amber-800">
+                      <span className="text-[11px] font-semibold text-amber-800">
                         ⭐ {tech.rating}
                       </span>
                     </div>
                   </div>
                 </div>
-                <span className="text-sm font-black text-emerald-700 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-xl shrink-0">
-                  🟢 उपलब्ध
+                <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md shrink-0">
+                  उपलब्ध
                 </span>
               </div>
             </button>
@@ -474,23 +473,23 @@ export default function NearbyMechanicsMap({
         })}
 
         {busyTechs.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-sm font-bold text-slate-500">अभी व्यस्त ({busyTechs.length})</div>
+          <div className="space-y-2 pt-1">
+            <div className="text-xs font-semibold text-slate-500">अभी व्यस्त ({busyTechs.length})</div>
             {busyTechs.map((tech) => (
               <div
                 key={tech.id}
-                className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 flex items-center justify-between opacity-60"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between opacity-60"
               >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl grayscale">👨‍🔧</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl grayscale">👨‍🔧</span>
                   <div>
-                    <div className="text-base font-black text-slate-700">{tech.nameHi}</div>
-                    <div className="text-xs font-bold text-slate-500">
+                    <div className="text-sm font-semibold text-slate-700">{tech.nameHi}</div>
+                    <div className="text-[11px] text-slate-500 font-medium">
                       📍 {tech.distanceKm} किमी &nbsp; ⭐ {tech.rating}
                     </div>
                   </div>
                 </div>
-                <span className="text-xs font-bold text-slate-500 bg-slate-200 px-2 py-1 rounded-lg">
+                <span className="text-[11px] font-medium text-slate-500 bg-slate-200 px-2 py-0.5 rounded">
                   व्यस्त
                 </span>
               </div>
