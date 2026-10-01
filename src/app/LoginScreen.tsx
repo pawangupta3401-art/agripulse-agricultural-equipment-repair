@@ -333,11 +333,6 @@ export default function LoginScreen({
     }
   };
 
-  // Quick fill test OTP (123456)
-  const handleFillDemoOtp = () => {
-    setOtpDigits(["1", "2", "3", "4", "5", "6"]);
-  };
-
   // Handle New Technician Registration
   const handleSubmitTechSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -946,7 +941,7 @@ export default function LoginScreen({
                 </div>
               </div>
 
-              {/* Resend & Demo Helper */}
+              {/* Resend Helper */}
               <div className="flex items-center justify-between text-xs sm:text-sm flex-wrap gap-2">
                 <button
                   type="button"
@@ -957,16 +952,6 @@ export default function LoginScreen({
                   {resendCountdown > 0
                     ? `दोबारा भेजें (${resendCountdown}s)`
                     : "OTP दोबारा भेजें"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleFillDemoOtp}
-                  className="text-xs font-semibold text-slate-700 bg-white px-2.5 py-1 rounded-md border border-slate-300 hover:bg-slate-50 flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
-                  title="डेमो कोड 123456 भरें"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  <span>डेमो OTP भरें (123456)</span>
                 </button>
               </div>
 

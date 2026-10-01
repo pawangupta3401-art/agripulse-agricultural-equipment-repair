@@ -191,7 +191,7 @@ export interface DemoScenarioDetails {
  */
 export const PRIMARY_DEMO_SCENARIO: DemoScenarioDetails = {
   id: "scenario-tractor-oil-leak",
-  nameHi: "ट्रैक्टर ऑयल लीकेज लाइव डेमो",
+  nameHi: "ट्रैक्टर ऑयल रिसाव शिकायत",
   farmer: DEMO_FARMERS[0],
   machine: DEMO_MACHINES[0],
   voiceComplaint: "मेरे ट्रैक्टर से तेल लीक हो रहा है और मुझे कल खेत में काम करना है।",

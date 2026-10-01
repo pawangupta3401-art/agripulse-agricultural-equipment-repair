@@ -117,7 +117,189 @@ export const initialMachines: Machine[] = [
   },
 ];
 
-export const initialRepairs: RepairRequest[] = [];
+export const initialRepairs: RepairRequest[] = [
+  // Request A: Tractor — Engine not starting (High Urgency)
+  {
+    id: "rep-pawan-tractor-01",
+    farmerId: "farmer-001",
+    farmerName: "Pawan Gupta",
+    farmerPhone: "9876543210",
+    machineId: "tractor",
+    machineNameHi: "Tractor (महिंद्रा ट्रैक्टर)",
+    machineIcon: "🚜",
+    problemDescription: "Tractor start नहीं हो रहा है, सेल्फ क्रैंक नहीं करता",
+    inputMethod: "voice",
+    urgency: "today",
+    status: "finding_mechanic",
+    statusTextHi: "मैकेनिक खोज रहे हैं",
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    verificationStatus: "pending",
+    syncStatus: "synced",
+    approxDistanceText: "4.8 किमी दूर",
+    routeUrl: "https://www.google.com/maps/dir/?api=1&destination=26.8467,80.9462",
+    farmerLocation: {
+      latitude: 26.8467,
+      longitude: 80.9462,
+      village: "शाहपुर",
+      district: "लखनऊ, उत्तर प्रदेश",
+    },
+    diagnosis: {
+      id: "diag-tractor-starter-01",
+      possibleProblem: "Starting system व बैटरी वोल्टेज में खराबी की संभावना",
+      confidence: "89% (उच्च)",
+      confidenceValue: 89,
+      reasons: [
+        "सेल्फ स्टार्टर मोटर या सोलनॉइड स्विच में खराबी हो सकती है।",
+        "बैटरी वोल्टेज पर्याप्त न होने पर स्टार्टर क्रैंक नहीं करता।",
+        "इग्निशन रिले या मुख्य टर्मिनल में वायरिंग ढीली हो सकती है।"
+      ],
+      safeAction: "मशीन तुरंत बंद रखें। बैटरी टर्मिनल चेक करें और मैकेनिक का इंतजार करें।",
+      urgencyLevel: "high",
+      urgencyText: "जरूरी",
+      urgencyColor: "bg-amber-100 text-amber-800 border-amber-300",
+      disclaimer: "AI की संभावित जांच • भौतिक निरीक्षण आवश्यक है",
+      matchedRule: "starter_system_diagnosis",
+      timestamp: new Date(Date.now() - 3600000).toISOString(),
+      whenToCallMechanic: "यदि बैटरी टर्मिनल साफ होने पर भी क्रैंक न हो, तो तुरंत प्रमाणित मैकेनिक को बुलाएं।",
+    },
+    recommendedParts: ["Starter Motor", "Battery Cable"],
+  },
+  // Request B: Power Tiller — Abnormal noise & vibration (Medium Urgency)
+  {
+    id: "rep-ramlal-tiller-02",
+    farmerId: "farmer-002",
+    farmerName: "Ramlal Yadav",
+    farmerPhone: "9812345671",
+    machineId: "power_tiller",
+    machineNameHi: "Power Tiller (पावर टिलर)",
+    machineIcon: "🚜",
+    problemDescription: "पावर टिलर से असामान्य तेज आवाज और अत्यधिक कंपन आ रहा है",
+    inputMethod: "text",
+    urgency: "within_2_3_days",
+    status: "finding_mechanic",
+    statusTextHi: "मैकेनिक खोज रहे हैं",
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+    verificationStatus: "pending",
+    syncStatus: "synced",
+    approxDistanceText: "7.4 किमी दूर",
+    routeUrl: "https://www.google.com/maps/dir/?api=1&destination=26.9200,80.8600",
+    farmerLocation: {
+      latitude: 26.9200,
+      longitude: 80.8600,
+      village: "माल",
+      district: "मलिहाबाद, लखनऊ",
+    },
+    diagnosis: {
+      id: "diag-tiller-noise-02",
+      possibleProblem: "ट्रांसमिशन रोटरी गियरबॉक्स या इंजन माउंटिंग में ढीलापन",
+      confidence: "84% (मध्यम)",
+      confidenceValue: 84,
+      reasons: [
+        "टिलर रोटरी गियरबॉक्स में बेयरिंग खराब होने से आवाज आती है।",
+        "इंजन फाउंडेशन बोल्ट ढीले होने से अत्यधिक कंपन होता है।"
+      ],
+      safeAction: "टिलर का आरपीएम कम रखें और भारी जुताई तुरंत रोक दें।",
+      urgencyLevel: "medium",
+      urgencyText: "मध्यम",
+      urgencyColor: "bg-blue-100 text-blue-800 border-blue-300",
+      disclaimer: "AI की संभावित जांच • भौतिक निरीक्षण आवश्यक है",
+      matchedRule: "transmission_vibration_diagnosis",
+      timestamp: new Date(Date.now() - 7200000).toISOString(),
+      whenToCallMechanic: "गियरबॉक्स से लगातार आवाज आने पर तेल जांचें व मैकेनिक से परीक्षण कराएं।",
+    },
+    recommendedParts: ["Gearbox Bearing", "Mounting Bolts"],
+  },
+  // Request C: Sprayer — Pressure problem & nozzle leak (High Urgency)
+  {
+    id: "rep-kishore-sprayer-03",
+    farmerId: "farmer-003",
+    farmerName: "Kishore Verma",
+    farmerPhone: "9823456712",
+    machineId: "sprayer",
+    machineNameHi: "Power Sprayer (स्प्रेयर)",
+    machineIcon: "🎒",
+    problemDescription: "स्प्रेयर में प्रेशर नहीं बन रहा है और नोजल से रिसाव हो रहा है",
+    inputMethod: "photo",
+    urgency: "today",
+    status: "finding_mechanic",
+    statusTextHi: "मैकेनिक खोज रहे हैं",
+    createdAt: new Date(Date.now() - 10800000).toISOString(),
+    verificationStatus: "pending",
+    syncStatus: "synced",
+    approxDistanceText: "5.6 किमी दूर",
+    routeUrl: "https://www.google.com/maps/dir/?api=1&destination=26.6800,80.9800",
+    farmerLocation: {
+      latitude: 26.6800,
+      longitude: 80.9800,
+      village: "मोहनलालगंज",
+      district: "लखनऊ, उत्तर प्रदेश",
+    },
+    diagnosis: {
+      id: "diag-sprayer-pressure-03",
+      possibleProblem: "प्रेशर रेगुलेटर वाल्व या पंप पिस्टन सील खराब होने की संभावना",
+      confidence: "91% (उच्च)",
+      confidenceValue: 91,
+      reasons: [
+        "प्रेशर वाल्व में कचरा आने से दबाव स्थिर नहीं रहता।",
+        "पंप की रबर ओ-रिंग घिस जाने से नोजल में लीकेज होती है।"
+      ],
+      safeAction: "केमिकल स्प्रे तुरंत रोकें और साफ पानी से नोजल धोएं।",
+      urgencyLevel: "high",
+      urgencyText: "जरूरी",
+      urgencyColor: "bg-amber-100 text-amber-800 border-amber-300",
+      disclaimer: "AI की संभावित जांच • भौतिक निरीक्षण आवश्यक है",
+      matchedRule: "sprayer_pressure_diagnosis",
+      timestamp: new Date(Date.now() - 10800000).toISOString(),
+      whenToCallMechanic: "दबाव न बनने की स्थिति में सील और वाल्व बदलवाने हेतु मैकेनिक से संपर्क करें।",
+    },
+    recommendedParts: ["Pressure Valve", "Nozzle O-Ring"],
+  },
+  // Request D: Water Pump — Motor not running, only humming (Medium Urgency)
+  {
+    id: "rep-haripal-pump-04",
+    farmerId: "farmer-004",
+    farmerName: "Haripal Singh",
+    farmerPhone: "9834567123",
+    machineId: "water_pump",
+    machineNameHi: "Water Pump (वाटर पंप)",
+    machineIcon: "💧",
+    problemDescription: "मोटर चालू नहीं हो रही है, स्टार्टर से सिर्फ हमिंग की आवाज आती है",
+    inputMethod: "text",
+    urgency: "within_2_3_days",
+    status: "finding_mechanic",
+    statusTextHi: "मैकेनिक खोज रहे हैं",
+    createdAt: new Date(Date.now() - 14400000).toISOString(),
+    verificationStatus: "pending",
+    syncStatus: "synced",
+    approxDistanceText: "6.8 किमी दूर",
+    routeUrl: "https://www.google.com/maps/dir/?api=1&destination=27.0100,80.9100",
+    farmerLocation: {
+      latitude: 27.0100,
+      longitude: 80.9100,
+      village: "बक्शी का तालाब",
+      district: "लखनऊ, उत्तर प्रदेश",
+    },
+    diagnosis: {
+      id: "diag-pump-motor-04",
+      possibleProblem: "स्टार्टर कैपेसिटर या मोटर वाइंडिंग में फाल्ट",
+      confidence: "86% (उच्च)",
+      confidenceValue: 86,
+      reasons: [
+        "सिंगल फेज कैपेसिटर वीक होने से मोटर स्टार्ट टॉर्क नहीं ले पाती।",
+        "इंपेलर में मिट्टी या कचरा फंसने से रोटर जाम हो सकता है।"
+      ],
+      safeAction: "पावर सप्लाई तुरंत बंद करें ताकि मोटर वाइंडिंग न जले।",
+      urgencyLevel: "medium",
+      urgencyText: "मध्यम",
+      urgencyColor: "bg-blue-100 text-blue-800 border-blue-300",
+      disclaimer: "AI की संभावित जांच • भौतिक निरीक्षण आवश्यक है",
+      matchedRule: "pump_motor_diagnosis",
+      timestamp: new Date(Date.now() - 14400000).toISOString(),
+      whenToCallMechanic: "कैपेसिटर और वाइंडिंग रेजिस्टेंस जांच हेतु प्रमाणित इलेक्ट्रीशियन/मैकेनिक बुलाएं।",
+    },
+    recommendedParts: ["Running Capacitor", "Suction Washer"],
+  },
+];
 
 // Helper to safely access localStorage (client-side only)
 function isStorageAvailable(): boolean {
@@ -240,13 +422,20 @@ export function getRepairRequests(): RepairRequest[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
+      // If empty or only contains legacy demo ID, re-seed with realistic requests
+      if (parsed.length === 0 || (parsed.length === 1 && parsed[0]?.id === "rep-demo-pawan-tractor")) {
+        localStorage.setItem(REPAIRS_STORAGE_KEY, JSON.stringify(initialRepairs));
+        return initialRepairs;
+      }
       // Deduplicate by id to guarantee integrity
       const seen = new Set<string>();
-      return parsed.filter((r: RepairRequest) => {
-        if (!r.id || seen.has(r.id)) return false;
-        seen.add(r.id);
-        return true;
-      });
+      return parsed
+        .filter((r: RepairRequest) => r.id !== "rep-demo-pawan-tractor")
+        .filter((r: RepairRequest) => {
+          if (!r.id || seen.has(r.id)) return false;
+          seen.add(r.id);
+          return true;
+        });
     }
     return initialRepairs;
   } catch {
@@ -676,76 +865,30 @@ export function resetDemoData(): void {
 }
 
 /**
- * Create a realistic simulated demo repair request for Technician workflow demo.
- * Farmer: Pawan Gupta | Machine: Tractor | Problem: Tractor start नहीं हो रहा
+ * Retrieve or create the primary realistic repair request for technician presentation.
+ * Farmer: Pawan Gupta | Machine: Mahindra Tractor | Problem: Tractor start नहीं हो रहा
  */
 export function createSimulatedDemoRepair(): RepairRequest {
-  return {
-    id: "rep-demo-pawan-tractor",
-    farmerId: "farmer-pawan-01",
-    farmerName: "Pawan Gupta",
-    farmerPhone: "9876543210",
-    machineId: "tractor",
-    machineNameHi: "Tractor (ट्रैक्टर)",
-    machineIcon: "🚜",
-    problemDescription: "Tractor start नहीं हो रहा",
-    inputMethod: "voice",
-    urgency: "today",
-    status: "finding_mechanic",
-    statusTextHi: "मैकेनिक खोज रहे हैं",
-    createdAt: new Date().toISOString(),
-    verificationStatus: "pending",
-    syncStatus: "synced",
-    isSimulatedDemo: true,
-    approxDistanceText: "3.2 किमी दूर",
-    routeUrl: "https://www.google.com/maps/dir/?api=1&destination=26.8467,80.9462",
-    farmerLocation: {
-      latitude: 26.8467,
-      longitude: 80.9462,
-      village: "शाहपुर",
-      district: "लखनऊ, उत्तर प्रदेश",
-    },
-    diagnosis: {
-      id: "diag-demo-starting-system",
-      possibleProblem: "Starting system में समस्या हो सकती है.",
-      confidence: "89% (उच्च)",
-      confidenceValue: 89,
-      reasons: [
-        "सेल्फ स्टार्टर मोटर या सोलनॉइड स्विच में खराबी हो सकती है।",
-        "बैटरी वोल्टेज पर्याप्त न होने पर स्टार्टर क्रैंक नहीं करता।",
-        "इग्निशन स्विच या रिले में वायरिंग ढीली हो सकती है।"
-      ],
-      safeAction: "मशीन तुरंत बंद रखें। बैटरी टर्मिनल चेक करें और मैकेनिक का इंतजार करें।",
-      urgencyLevel: "high",
-      urgencyText: "जरूरी",
-      urgencyColor: "bg-amber-100 text-amber-800 border-amber-300",
-      disclaimer: "AI की संभावित जांच • भौतिक निरीक्षण आवश्यक है",
-      matchedRule: "starter_system_diagnosis",
-      timestamp: new Date().toISOString(),
-      whenToCallMechanic: "यदि बैटरी टर्मिनल साफ होने पर भी क्रैंक न हो, तो तुरंत प्रमाणित मैकेनिक को बुलाएं।",
-    },
-    recommendedParts: ["Starter", "Battery"],
-  };
+  return initialRepairs[0];
 }
 
 /**
- * Ensure the simulated demo repair request is available for technician testing.
+ * Ensure the realistic presentation repair requests are seeded and available.
  */
 export function ensureSimulatedDemoRequest(): RepairRequest {
   const repairs = getRepairRequests();
-  const existing = repairs.find((r) => r.id === "rep-demo-pawan-tractor");
+  const existing = repairs.find((r) => r.id === initialRepairs[0].id);
   if (existing) return existing;
 
-  const newDemo = createSimulatedDemoRepair();
   if (isStorageAvailable()) {
     try {
-      const updated = [newDemo, ...repairs];
+      const updated = [...initialRepairs, ...repairs.filter((r) => r.id !== "rep-demo-pawan-tractor")];
       localStorage.setItem(REPAIRS_STORAGE_KEY, JSON.stringify(updated));
     } catch {
       // safe fallback
     }
   }
-  return newDemo;
+  return initialRepairs[0];
 }
 
 

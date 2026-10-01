@@ -54,6 +54,7 @@ import {
 import { calculateTechnicianSettlement } from "@/services/businessModelService";
 import { updateRepairStatus, ensureSimulatedDemoRequest, createSimulatedDemoRepair } from "@/services/storageService";
 import { getSparePartById, SparePart } from "@/services/sparePartData";
+import { haversineDistanceKm } from "@/services/locationService";
 import { LanguageCode } from "@/i18n";
 
 interface TechnicianDashboardProps {
@@ -95,13 +96,89 @@ export default function TechnicianDashboard({
   const [newSkillInput, setNewSkillInput] = useState<string>("");
   const [showAddSkill, setShowAddSkill] = useState<boolean>(false);
 
-  // Filter incoming repair requests (waiting for technician)
-  const incomingRepairs = repairs.filter(
-    (r) =>
-      r.status !== "completed" &&
-      (r.status === "finding_mechanic" || r.status === "reported" || !r.technicianId) &&
-      r.rejectionReason !== `rejected_by_${session.user.id}`
-  );
+  // Helper to compute live distance text from stored technician coordinates
+  const getTechnicianDistanceText = (req: RepairRequest) => {
+    if (req.farmerLocation?.latitude && req.farmerLocation?.longitude) {
+      const techLat = session.user.location?.latitude || (session.user as any).latitude;
+      const techLng = session.user.location?.longitude || (session.user as any).longitude;
+      if (techLat && techLng) {
+        const dist = haversineDistanceKm(techLat, techLng, req.farmerLocation.latitude, req.farmerLocation.longitude);
+        return `${dist.toFixed(1)} किमी दूर`;
+      }
+    }
+    return req.approxDistanceText || "3.2 किमी दूर";
+  };
+
+  // Filter incoming repair requests relevant to this technician:
+  // 1. Matches technician's skills / equipment categories OR was assigned to/recommended for this technician
+  // 2. Not rejected by this technician
+  // 3. Status is waiting for mechanic
+  const incomingRepairs = repairs.filter((r) => {
+    if (r.status === "completed") return false;
+    if (r.technicianId && r.technicianId !== session.user.id) return false;
+    if (r.rejectionReason === `rejected_by_${session.user.id}`) return false;
+
+    const isPendingAssignment =
+      r.status === "finding_mechanic" || r.status === "reported" || !r.technicianId;
+    if (!isPendingAssignment) return false;
+
+    // Direct assignment / targeted match
+    if (r.technicianId === session.user.id || (r as any).targetTechnicianId === session.user.id) {
+      return true;
+    }
+
+    // Equipment & skill match against technician's profile
+    const techSkills = (session.user.skills && session.user.skills.length > 0)
+      ? session.user.skills
+      : skills;
+
+    const machineStr = (r.machineNameHi || r.machineId || "").toLowerCase();
+    const problemDesc = (r.problemDescription || "").toLowerCase();
+    const diagDesc = (r.diagnosis?.possibleProblem || "").toLowerCase();
+
+    return techSkills.some((s) => {
+      const sLower = s.toLowerCase();
+      if (sLower === "tractor" || sLower === "ट्रैक्टर") {
+        return machineStr.includes("tractor") || machineStr.includes("ट्रैक्टर");
+      }
+      if (sLower === "sprayer" || sLower === "स्प्रेयर") {
+        return machineStr.includes("sprayer") || machineStr.includes("स्प्रेयर");
+      }
+      if (sLower === "power tiller" || sLower === "पावर टिलर" || sLower === "tiller") {
+        return machineStr.includes("tiller") || machineStr.includes("टिलर");
+      }
+      if (sLower === "water pump" || sLower === "वाटर पंप" || sLower === "pump") {
+        return machineStr.includes("pump") || machineStr.includes("पंप");
+      }
+      if (sLower === "engine" || sLower === "इंजन") {
+        return (
+          problemDesc.includes("engine") ||
+          problemDesc.includes("इंजन") ||
+          problemDesc.includes("start") ||
+          problemDesc.includes("स्टार्ट") ||
+          diagDesc.includes("engine") ||
+          diagDesc.includes("start")
+        );
+      }
+      if (sLower === "electrical" || sLower === "इलेक्ट्रिकल") {
+        return (
+          problemDesc.includes("motor") ||
+          problemDesc.includes("मोटर") ||
+          problemDesc.includes("wiring") ||
+          problemDesc.includes("बैटरी") ||
+          diagDesc.includes("electrical")
+        );
+      }
+      if (sLower === "hydraulic" || sLower === "हाइड्रोलिक") {
+        return (
+          problemDesc.includes("hydraulic") ||
+          problemDesc.includes("हाइड्रोलिक") ||
+          diagDesc.includes("hydraulic")
+        );
+      }
+      return false;
+    });
+  });
 
   // Filter active ongoing repairs assigned to this technician
   const activeRepairs = repairs.filter(
@@ -975,22 +1052,13 @@ export default function TechnicianDashboard({
                   </div>
 
                   {incomingRepairs.length === 0 ? (
-                    <div className="bg-white rounded-lg p-6 text-center border border-dashed border-slate-200 space-y-2">
+                    <div className="bg-white rounded-lg p-6 text-center border border-dashed border-slate-200 space-y-1">
                       <h3 className="text-sm font-semibold text-slate-700">
                         फिलहाल कोई नया मरम्मत अनुरोध लंबित नहीं है।
                       </h3>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const demo = createSimulatedDemoRepair();
-                          ensureSimulatedDemoRequest();
-                          onRefreshData();
-                          showToast("✓ सिमुलेटेड डेमो अनुरोध (Pawan Gupta - Tractor) तैयार!");
-                        }}
-                        className="mt-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer"
-                      >
-                        + सिमुलेटेड डेमो अनुरोध बनाएं (Pawan Gupta - Tractor)
-                      </button>
+                      <p className="text-xs text-slate-500">
+                        नए अनुरोध आने पर आपको तुरंत यहाँ सूचना मिलेगी।
+                      </p>
                     </div>
                   ) : (
                     incomingRepairs.map((req) => (
@@ -1013,7 +1081,7 @@ export default function TechnicianDashboard({
                                 {req.machineNameHi || "Tractor"}
                               </div>
                               <span className="text-[11px] text-slate-500 font-medium">
-                                📍 {req.approxDistanceText || "3.2 किमी दूर"} • {req.farmerLocation?.village || "शाहपुर, लखनऊ"}
+                                📍 {getTechnicianDistanceText(req)} • {req.farmerLocation?.village || "शाहपुर, लखनऊ"}
                               </span>
                             </div>
                           </div>

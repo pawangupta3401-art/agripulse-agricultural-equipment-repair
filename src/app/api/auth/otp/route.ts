@@ -66,14 +66,15 @@ if (!globalStore.__agripulse_users) {
   globalStore.__agripulse_users = new Map<string, ServerUserProfile>();
 }
 const users = globalStore.__agripulse_users;
+users.delete("9876543210_technician");
 
-  // 1. Seed Farmer accounts (Pawan Gupta & Ramlal Yadav)
+  // 1. Seed Farmer account: Pawan Gupta (9876543210)
   const seedFarmer: ServerUserProfile = {
     id: "farmer-001",
     phone: "9876543210",
     role: "farmer",
     name: "Pawan Gupta",
-    nameHi: "रामलाल यादव (Pawan Gupta)",
+    nameHi: "पवन गुप्ता (Pawan Gupta)",
     address: {
       villageOrCity: "शाहपुर",
       district: "लखनऊ",
@@ -81,7 +82,7 @@ const users = globalStore.__agripulse_users;
       pinCode: "226001",
     },
     villageOrArea: "शाहपुर, लखनऊ",
-    machinesLinked: ["tractor", "sprayer"],
+    machinesLinked: ["tractor", "power_tiller", "sprayer"],
     location: {
       latitude: 26.8467,
       longitude: 80.9462,
@@ -96,94 +97,94 @@ const users = globalStore.__agripulse_users;
   users.set("farmer-001", seedFarmer);
   users.set("9876543210", seedFarmer);
 
-  // 2. Seed Technician: Rajesh Kumar (9856789012 - exact prompt specification)
-  const seedRajeshTech: ServerUserProfile = {
+  // 2. Seed Technician 1: Ramesh Kumar (9876543211 - Sprayer & Power Tiller Specialist)
+  const seedRameshTech: ServerUserProfile = {
+    id: "tech-001",
+    phone: "9876543211",
+    role: "technician",
+    name: "Ramesh Kumar",
+    nameHi: "रमेश कुमार",
+    address: {
+      villageOrCity: "चिनहट",
+      district: "लखनऊ",
+      state: "उत्तर प्रदेश",
+      pinCode: "226028",
+    },
+    villageOrArea: "लखनऊ पूर्व व चिनहट क्षेत्र (12 किमी)",
+    skills: ["Sprayer", "Power Tiller", "Engine", "Mechanical"],
+    serviceArea: "लखनऊ पूर्व व चिनहट क्षेत्र (12 किमी)",
+    available: true,
+    location: {
+      latitude: 26.8628,
+      longitude: 80.9623,
+      village: "चिनहट",
+    },
+    createdAt: "2026-09-01T00:00:00.000Z",
+    updatedAt: "2026-09-01T00:00:00.000Z",
+  };
+  users.set("9876543211_technician", seedRameshTech);
+  users.set("tech-001", seedRameshTech);
+  users.set("9876543211", seedRameshTech);
+
+  // 3. Seed Technician 2: Suresh Patil (9856789012 - Tractor Specialist)
+  const seedSureshTech: ServerUserProfile = {
     id: "tech-007",
     phone: "9856789012",
     role: "technician",
-    name: "Rajesh Kumar",
-    nameHi: "राजेश कुमार",
+    name: "Suresh Patil",
+    nameHi: "सुरेश पाटिल",
     address: {
-      villageOrCity: "काटोल",
-      district: "नागपुर",
-      state: "महाराष्ट्र",
-      pinCode: "441302",
+      villageOrCity: "बीकेटी",
+      district: "लखनऊ",
+      state: "उत्तर प्रदेश",
+      pinCode: "226201",
     },
-    villageOrArea: "नागपुर व काटोल क्षेत्र (15 किमी)",
-    skills: ["Tractor", "Engine", "Mechanical", "Hydraulic"],
-    serviceArea: "नागपुर व काटोल क्षेत्र (15 किमी)",
+    villageOrArea: "लखनऊ ग्रामीण व बीकेटी क्षेत्र (15 किमी)",
+    skills: ["Tractor", "Rotavator", "Engine", "Mechanical", "Hydraulic"],
+    serviceArea: "लखनऊ ग्रामीण व बीकेटी क्षेत्र (15 किमी)",
     available: true,
     location: {
-      latitude: 26.8527,
-      longitude: 80.9302,
-      village: "काटोल",
+      latitude: 26.8789,
+      longitude: 80.9784,
+      village: "बीकेटी",
     },
     createdAt: "2026-09-01T00:00:00.000Z",
     updatedAt: "2026-09-01T00:00:00.000Z",
   };
-  users.set("9856789012_technician", seedRajeshTech);
-  users.set("tech-007", seedRajeshTech);
-  users.set("9856789012", seedRajeshTech);
+  users.set("9856789012_technician", seedSureshTech);
+  users.set("tech-007", seedSureshTech);
+  users.set("9856789012", seedSureshTech);
 
-  // 3. Seed Technician: Ajay Patel (9834567890)
-  const seedAjayTech: ServerUserProfile = {
+  // 4. Seed Technician 3: Mahesh Verma (9834567890 - Pump & Irrigation Specialist)
+  const seedMaheshTech: ServerUserProfile = {
     id: "tech-005",
     phone: "9834567890",
     role: "technician",
-    name: "Ajay Patel",
-    nameHi: "अजय पटेल",
+    name: "Mahesh Verma",
+    nameHi: "महेश वर्मा",
     address: {
-      villageOrCity: "नरखेड",
-      district: "नागपुर",
-      state: "महाराष्ट्र",
-      pinCode: "441304",
+      villageOrCity: "सरोजिनी नगर",
+      district: "लखनऊ",
+      state: "उत्तर प्रदेश",
+      pinCode: "226008",
     },
-    villageOrArea: "नरखेड व वरुड (12 किमी)",
-    skills: ["Tractor", "Engine", "Electrical", "Mechanical"],
-    serviceArea: "नरखेड व वरुड",
+    villageOrArea: "सरोजिनी नगर व मोहनलालगंज (15 किमी)",
+    skills: ["Water Pump", "Sprayer", "Motor", "Engine", "Electrical"],
+    serviceArea: "सरोजिनी नगर व मोहनलालगंज (15 किमी)",
     available: true,
     location: {
-      latitude: 26.8247,
-      longitude: 80.9352,
-      village: "नरखेड",
+      latitude: 26.7991,
+      longitude: 80.8986,
+      village: "सरोजिनी नगर",
     },
     createdAt: "2026-09-01T00:00:00.000Z",
     updatedAt: "2026-09-01T00:00:00.000Z",
   };
-  users.set("9834567890_technician", seedAjayTech);
-  users.set("tech-005", seedAjayTech);
-  users.set("9834567890", seedAjayTech);
+  users.set("9834567890_technician", seedMaheshTech);
+  users.set("tech-005", seedMaheshTech);
+  users.set("9834567890", seedMaheshTech);
 
-  // 4. Seed Technician: Suresh Yadav (9876501234)
-  const seedSureshTech: ServerUserProfile = {
-    id: "tech-002",
-    phone: "9876501234",
-    role: "technician",
-    name: "Suresh Yadav",
-    nameHi: "सुरेश यादव",
-    address: {
-      villageOrCity: "हिंगना",
-      district: "नागपुर",
-      state: "महाराष्ट्र",
-      pinCode: "441110",
-    },
-    villageOrArea: "हिंगना व बुटीबोरी",
-    skills: ["Water Pump", "Engine", "Electrical"],
-    serviceArea: "हिंगना व बुटीबोरी (15 किमी)",
-    available: true,
-    location: {
-      latitude: 26.8437,
-      longitude: 80.9842,
-      village: "हिंगना व बुटीबोरी",
-    },
-    createdAt: "2026-09-01T00:00:00.000Z",
-    updatedAt: "2026-09-01T00:00:00.000Z",
-  };
-  users.set("9876501234_technician", seedSureshTech);
-  users.set("tech-002", seedSureshTech);
-  users.set("9876501234", seedSureshTech);
-
-  // 5. Seed Technician: Mohan Singh (9812345678)
+  // 5. Seed Technician 4: Mohan Singh (9812345678)
   const seedMohanTech: ServerUserProfile = {
     id: "tech-003",
     phone: "9812345678",
@@ -191,19 +192,19 @@ const users = globalStore.__agripulse_users;
     name: "Mohan Singh",
     nameHi: "मोहन सिंह",
     address: {
-      villageOrCity: "काटोल",
-      district: "नागपुर",
-      state: "महाराष्ट्र",
-      pinCode: "441302",
+      villageOrCity: "मलिहाबाद",
+      district: "लखनऊ",
+      state: "उत्तर प्रदेश",
+      pinCode: "226102",
     },
-    villageOrArea: "नागपुर सेंट्रल व काटोल",
+    villageOrArea: "मलिहाबाद व काकोरी क्षेत्र (15 किमी)",
     skills: ["Tractor", "Power Tiller", "Engine", "Hydraulic", "Harvester"],
-    serviceArea: "नागपुर सेंट्रल व काटोल",
+    serviceArea: "मलिहाबाद व काकोरी क्षेत्र (15 किमी)",
     available: false,
     location: {
-      latitude: 26.8527,
-      longitude: 80.9302,
-      village: "काटोल",
+      latitude: 26.8587,
+      longitude: 80.9222,
+      village: "मलिहाबाद",
     },
     createdAt: "2026-09-01T00:00:00.000Z",
     updatedAt: "2026-09-01T00:00:00.000Z",
@@ -357,7 +358,6 @@ export async function POST(req: NextRequest) {
         phone,
         role: existingUser ? existingUser.role : validatedRole,
         isExistingUser,
-        demoOtp: otpCode,
         expiresInSeconds,
         messageHi: `6 अंकों का OTP आपके मोबाइल (+91 ${phone.slice(0, 5)} ${phone.slice(5)}) पर भेज दिया गया है।`,
         messageEn: `A 6-digit OTP has been sent to +91 ${phone}.`,

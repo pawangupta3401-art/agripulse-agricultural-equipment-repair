@@ -131,27 +131,27 @@ async function runTest() {
   const resolvedSkill = resolveSkill(createdRepair.machineNameHi, createdRepair.diagnosis?.matchedRule);
   console.log(`  ✓ Resolved Skill required: ${resolvedSkill}`);
 
-  // Check matching against Ajay Patel (Tractor specialist) vs Ramesh Kumar (Sprayer specialist)
-  const ajayTech = mockTechnicians.find((t) => t.name.includes("Ajay"))!;
+  // Check matching against Suresh Patil (Tractor specialist) vs Ramesh Kumar (Sprayer specialist)
+  const tractorTech = mockTechnicians.find((t) => t.name.includes("Suresh") || t.skills.includes("Tractor"))!;
   const rameshTech = mockTechnicians.find((t) => t.name.includes("Ramesh"))!;
 
-  const ajayMatch = isRepairRelevantForTechnician(createdRepair, ajayTech, true);
+  const tractorMatch = isRepairRelevantForTechnician(createdRepair, tractorTech, true);
   const rameshMatch = isRepairRelevantForTechnician(createdRepair, rameshTech, true);
 
-  console.log(`  ✓ Match for Ajay Patel (Tractor, Engine skills): ${ajayMatch ? "YES (MATCH)" : "NO"}`);
-  console.log(`  ✓ Match for Ramesh Kumar (Sprayer skills only): ${rameshMatch ? "YES" : "NO (CORRECTLY FILTERED OUT)"}`);
+  console.log(`  ✓ Match for Tractor Specialist (${tractorTech.name}): ${tractorMatch ? "YES (MATCH)" : "NO"}`);
+  console.log(`  ✓ Match for Sprayer Specialist (${rameshTech.name}): ${rameshMatch ? "YES" : "NO (CORRECTLY FILTERED OUT)"}`);
 
-  if (!ajayMatch) throw new Error("Matching layer failed to match Tractor specialist");
+  if (!tractorMatch) throw new Error("Matching layer failed to match Tractor specialist");
   if (rameshMatch) throw new Error("Matching layer incorrectly matched Sprayer specialist to Tractor");
 
   // ----------------------------------------------------------------------
   // STEP 6: Technician Logs In & Lands on Landing Page
   // ----------------------------------------------------------------------
-  console.log("\n▶ [Step 6] Technician Login (Ajay Patel - 9834567890)...");
-  const techOtpReq = await requestOtp("9834567890", "technician");
+  console.log(`\n▶ [Step 6] Technician Login (${tractorTech.name} - ${tractorTech.phone})...`);
+  const techOtpReq = await requestOtp(tractorTech.phone, "technician");
   if (!techOtpReq.success) throw new Error("Technician OTP request failed: " + techOtpReq.error);
 
-  const techVerify = await verifyOtp("9834567890", "technician", "123456");
+  const techVerify = await verifyOtp(tractorTech.phone, "technician", "123456");
   if (!techVerify.success || !techVerify.session) throw new Error("Technician login failed: " + techVerify.error);
   const techSession = techVerify.session;
 
@@ -166,7 +166,7 @@ async function runTest() {
   const techNewRequests = allRepairs.filter((r) =>
     (r.status === "finding_mechanic" || r.status === "reported") &&
     (!r.technicianId || r.technicianId === techSession.user.id) &&
-    isRepairRelevantForTechnician(r, ajayTech, true)
+    isRepairRelevantForTechnician(r, tractorTech, true)
   );
 
   console.log(`  ✓ Dynamic KPI Counts:`);

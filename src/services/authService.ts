@@ -389,7 +389,6 @@ export async function requestOtp(rawPhone: string, role: UserRole): Promise<OtpR
     success: true,
     phone,
     role,
-    demoOtp: otpCode,
     expiresInSeconds,
     isExistingUser: isExisting,
     messageHi: `6 अंकों का OTP +91 ${phone.slice(0, 5)} ${phone.slice(5)} पर भेजा गया है।`,

@@ -248,6 +248,8 @@ export function skillLabelHi(skill: TechnicianSkill | null): string {
     Harvester: "हार्वेस्टर",
     Planter: "प्लांटर",
     Weeder: "पावर वीडर",
+    Rotavator: "रोटावेटर",
+    Motor: "मोटर",
     Engine: "इंजन",
     Electrical: "इलेक्ट्रिकल",
     Hydraulic: "हाइड्रोलिक",
@@ -284,6 +286,7 @@ export function isRepairRelevantForTechnician(
   technician: TechnicianMatchProfile,
   isAvailable: boolean = true
 ): boolean {
+  if (!technician) return false;
   // 1. Availability check: if technician is off-duty, do not assign new requests
   if (!isAvailable) {
     return false;

@@ -84,22 +84,24 @@ async function runTests() {
 
   assert(!hindiDiag.farmerProblem?.includes("General Inspection Needed"), "Replaced technical 'General Inspection Needed' with simple Hindi");
   assert(
-    hindiDiag.farmerProblem?.includes("लगता है") ||
-    hindiDiag.farmerProblem?.includes("संभावित") ||
-    hindiDiag.farmerProblem?.includes("जांच की जरूरत") ||
-    hindiDiag.farmerProblem?.includes("समस्या"),
+    Boolean(
+      hindiDiag.farmerProblem?.includes("लगता है") ||
+      hindiDiag.farmerProblem?.includes("संभावित") ||
+      hindiDiag.farmerProblem?.includes("जांच की जरूरत") ||
+      hindiDiag.farmerProblem?.includes("समस्या")
+    ),
     "Hindi problem uses cautious, probabilistic phrasing instead of claiming confirmed fault"
   );
   assert(
-    hindiDiag.farmerSteps?.some(s => s.includes("पहला कदम")),
+    Boolean(hindiDiag.farmerSteps?.some(s => s.includes("पहला कदम"))),
     "Hindi steps use natural numbered steps ('पहला कदम')"
   );
   assert(
-    hindiDiag.farmerAvoid?.some(a => a.includes("बार-बार स्टार्ट")),
+    Boolean(hindiDiag.farmerAvoid?.some(a => a.includes("बार-बार स्टार्ट"))),
     "Hindi avoid clearly advises not to repeatedly restart machine"
   );
   assert(
-    hindiDiag.whenToCallMechanic?.includes("मैकेनिक"),
+    Boolean(hindiDiag.whenToCallMechanic?.includes("मैकेनिक")),
     "Hindi whenToCallMechanic clearly advises when to summon a mechanic"
   );
 
@@ -112,10 +114,10 @@ async function runTests() {
   });
 
   assert(typeof englishDiag.farmerProblem === "string" && englishDiag.farmerProblem.includes("machine"), "English problem text in English");
-  assert(englishDiag.farmerSteps?.some(s => s.toLowerCase().includes("step 1")), "English steps formatted with 'Step 1'");
-  assert(englishDiag.farmerAvoid?.some(a => a.toLowerCase().includes("do not")), "English avoid advises what not to do");
-  assert(englishDiag.whenToCallMechanic?.toLowerCase().includes("mechanic"), "English when to call mechanic present");
-  assert(englishDiag.voiceSummary?.toLowerCase().includes("farmer friend"), "English voice summary addresses the farmer in English");
+  assert(Boolean(englishDiag.farmerSteps?.some(s => s.toLowerCase().includes("step 1"))), "English steps formatted with 'Step 1'");
+  assert(Boolean(englishDiag.farmerAvoid?.some(a => a.toLowerCase().includes("do not"))), "English avoid advises what not to do");
+  assert(Boolean(englishDiag.whenToCallMechanic?.toLowerCase().includes("mechanic")), "English when to call mechanic present");
+  assert(Boolean(englishDiag.voiceSummary?.toLowerCase().includes("farmer friend")), "English voice summary addresses the farmer in English");
 
   // ── TEST 4: Voice Script Generation ───────────────────────────────────
   console.log("\n--- 4. Testing Spoken Explanation Script (Voice Quality) ---");

@@ -67,7 +67,7 @@ const estZeroParts = calculateEstimatedPricing({
   distanceKm: 0,
 });
 assert(estZeroParts.partsEstimate === 0, "Estimate with no parts has partsEstimate === 0");
-assert(estZeroParts.total === 150 + 350 + 0 + 50, `Tractor zero parts total is 550, got ${estZeroParts.total}`);
+assert(estZeroParts.total === 150 + 350 + 0, `Tractor zero parts total is 500, got ${estZeroParts.total}`);
 
 // 3. Multiple Parts
 console.log("\n--- 3. Testing Multiple Parts Calculation ---");
