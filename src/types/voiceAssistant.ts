@@ -31,4 +31,9 @@ export interface VoiceHelpResponse {
   isMachineBreakdownQuery?: boolean;
   isOffTopic?: boolean;
   fallbackUsed?: boolean;
+  matchedTopic?: string;
+  categoryHi?: string;
+  steps?: string[];
+  warning?: string;
+  mechanicRequired?: boolean;
 }

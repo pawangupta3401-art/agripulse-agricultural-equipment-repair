@@ -144,6 +144,7 @@ import LoginScreen from "./LoginScreen";
 import WelcomeScreen, { hasSeenWelcome, markWelcomeSeen } from "./WelcomeScreen";
 import TechnicianDashboard from "./TechnicianDashboard";
 import ProfileScreen from "./ProfileScreen";
+import VoiceHelpAssistant from "@/components/VoiceHelpAssistant";
 import {
   AuthSession,
   UserRole,
@@ -247,6 +248,9 @@ export default function AgriPulseApp() {
     markWelcomeSeen();
     setShowWelcomeScreen(false);
   };
+
+  // Voice AI Assistant with 1000 Q&A Knowledge Base
+  const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState<boolean>(false);
 
   // Authenticated user session (Farmer vs Technician)
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
@@ -2497,6 +2501,19 @@ export default function AgriPulseApp() {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
+                {/* 🗣️✨ Voice AI Assistant Header Button */}
+                <button
+                  type="button"
+                  id="header-voice-ai-btn"
+                  onClick={() => setIsVoiceAssistantOpen(true)}
+                  title="बोलकर पूछें / Ask by Voice"
+                  className="bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                  aria-label="बोलकर पूछें"
+                >
+                  <span className="text-sm">🗣️✨</span>
+                  <span className="hidden sm:inline">बोलकर पूछें</span>
+                </button>
+
                 {/* Language Selector */}
                 <button
                   type="button"
@@ -3433,6 +3450,32 @@ export default function AgriPulseApp() {
               <p className="text-xs text-slate-500 font-medium mt-0.5">
                 {t("welcome.howCanIHelp", currentLanguage)}
               </p>
+            </div>
+
+            {/* 🗣️✨ Voice AI Assistant Banner with 1000 Q&A Knowledge Base */}
+            <div
+              onClick={() => setIsVoiceAssistantOpen(true)}
+              className="w-full bg-gradient-to-r from-emerald-800 to-teal-800 text-white rounded-xl p-3.5 shadow-sm border border-emerald-900 cursor-pointer hover:shadow-md transition-all flex items-center justify-between group active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-3xl p-2 bg-white/15 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                  🗣️✨
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">बोलकर पूछें (Voice AI सहायक)</span>
+                    <span className="text-[10px] font-bold bg-amber-400 text-amber-950 px-2 py-0.5 rounded-full">
+                      1000 Q&A
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-100 font-medium truncate mt-0.5">
+                    ट्रैक्टर, पंप, टिलर या मशीन की समस्या बोलें — सरल हिन्दी में जवाब
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-bold bg-white text-emerald-900 px-3 py-1.5 rounded-lg shrink-0 shadow-2xs group-hover:bg-emerald-50 transition-colors">
+                पूछें ➔
+              </span>
             </div>
 
             {/* Service Reminders (if any due/overdue) */}
@@ -8726,6 +8769,21 @@ export default function AgriPulseApp() {
           </button>
         </div>
       </nav>
+
+      {/* 🗣️✨ Voice AI Assistant Modal with 1000 Q&A Knowledge Base */}
+      <VoiceHelpAssistant
+        isOpen={isVoiceAssistantOpen}
+        onClose={() => setIsVoiceAssistantOpen(false)}
+        context={{
+          currentPage: currentScreen,
+          selectedRole: authSession?.user?.role || "farmer",
+          language: currentLanguage,
+        }}
+        onRequestBreakdown={() => {
+          setIsVoiceAssistantOpen(false);
+          handleStartBreakdown();
+        }}
+      />
     </div>
   );
 }

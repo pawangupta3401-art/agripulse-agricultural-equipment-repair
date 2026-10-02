@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { VoiceHelpRequest, VoiceHelpResponse } from "@/types/voiceAssistant";
 import { LanguageCode } from "@/i18n";
+import { searchKnowledgeBase } from "@/services/knowledgeBaseService";
 
 const LANGUAGE_NAMES: Record<string, string> = {
   hi: "Hindi (हिन्दी)",
@@ -144,14 +145,30 @@ export async function POST(req: NextRequest) {
     const langName = LANGUAGE_NAMES[language] || LANGUAGE_NAMES["hi"];
     const isEn = language === "en";
 
-    // 1. Check for machine breakdown questions immediately
-    if (isMachineIssueQuery(userQuery)) {
+    // 1. Search 1000+ Q&A Knowledge Base for agricultural machine & repair inquiries
+    const kbResult = searchKnowledgeBase(userQuery);
+    const isMachineQuery = isMachineIssueQuery(userQuery) || kbResult.score >= 20;
+
+    if (isMachineQuery) {
+      const isLoginScreen = context?.currentPage === "login" && !context?.selectedRole;
+      let finalSpokenText = isEn ? kbResult.spokenResponseEn : kbResult.spokenResponseHi;
+
+      if (isLoginScreen) {
+        finalSpokenText += isEn
+          ? " You can log in to AgriPulse anytime to book a verified technician to your field."
+          : " आप AgriPulse में लॉगिन करके सीधे अपने खेत पर प्रमाणित मिस्त्री भी बुला सकते हैं।";
+      }
+
       return NextResponse.json({
         success: true,
-        spokenText: isEn
-          ? "Understood. That is a machine issue. After logging in, I can help you report the machine problem. First please log in to your AgriPulse account."
-          : "समझ गया। यह मशीन की समस्या है। लॉगिन के बाद मैं आपको मशीन की समस्या दर्ज करने में मदद कर सकता हूँ। पहले अपने AgriPulse खाते में लॉगिन करें।",
+        spokenText: finalSpokenText,
         isMachineBreakdownQuery: true,
+        matchedTopic: kbResult.entry.questionHi,
+        categoryHi: kbResult.entry.categoryHi,
+        steps: kbResult.entry.steps,
+        warning: kbResult.entry.warning,
+        mechanicRequired: kbResult.entry.mechanicRequired,
+        fallbackUsed: false,
       } as VoiceHelpResponse);
     }
 
@@ -159,7 +176,7 @@ export async function POST(req: NextRequest) {
     const apiKey = (process.env.AI_API_KEY || process.env.GEMINI_API_KEY)?.trim();
 
     if (!apiKey) {
-      // Deterministic immediate response
+      // Deterministic immediate response for navigation/login
       const spoken = getDeterministicResponse(
         userQuery,
         language,
