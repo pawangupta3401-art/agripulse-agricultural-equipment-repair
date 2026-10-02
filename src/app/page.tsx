@@ -3623,28 +3623,35 @@ export default function AgriPulseApp() {
       {/* ================= MAIN CONTENT ================= */}
       {currentScreen !== "profile" && (
         <main className="flex-1 p-4 max-w-md mx-auto w-full">
-        {/* ================= 1. HOME SCREEN (Section 2) ================= */}
+        {/* ================= 1. HOME SCREEN (COMPACT & INTUITIVE) ================= */}
         {currentScreen === "home" && (
-          <div className="space-y-3.5">
-            {/* Farmer Welcome Banner */}
-            <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-2xs">
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
-                <span>नमस्ते,</span>
-                <span>{authSession.user.nameHi || authSession.user.name}</span>
-              </h2>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                {t("welcome.howCanIHelp", currentLanguage)}
-              </p>
+          <div className="space-y-3 animate-fadeIn">
+            {/* 1. GREETING (COMPACT) */}
+            <div className="bg-white border border-slate-200/90 rounded-xl px-3.5 py-2.5 shadow-2xs flex items-center justify-between">
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-1.5 leading-snug">
+                  <span>{currentLanguage === "en" ? "Hello," : "नमस्ते,"}</span>
+                  <span className="capitalize">{authSession.user.nameHi || authSession.user.name}</span>
+                  <span className="select-none">👋</span>
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5 leading-tight">
+                  {currentLanguage === "en" ? "How is your machine today?" : "आज आपकी मशीन कैसी है?"}
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                <span>{currentLanguage === "en" ? "Active" : "सक्रिय"}</span>
+              </span>
             </div>
 
-            {/* 🗣️✨ किसान हेल्प (Dedicated Farmer Voice AI Tab) */}
+            {/* 2. किसान हेल्प (COMPACT BAR) */}
             <div
               id="home-kisan-help-tab"
               onClick={() => setCurrentScreen("kisan_help")}
-              className="w-full bg-gradient-to-r from-emerald-800 to-teal-800 text-white rounded-xl p-3.5 shadow-sm border border-emerald-900 cursor-pointer hover:shadow-md transition-all flex items-center justify-between group active:scale-[0.99]"
+              className="w-full bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white rounded-xl px-3.5 py-2.5 shadow-xs border border-emerald-900/60 cursor-pointer hover:shadow-md transition-all flex items-center justify-between group active:scale-[0.99]"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="text-3xl p-2 bg-white/15 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-2xl p-1.5 bg-white/15 rounded-lg shrink-0 select-none">
                   🗣️✨
                 </span>
                 <div className="min-w-0">
@@ -3652,134 +3659,131 @@ export default function AgriPulseApp() {
                     {currentLanguage === "en" ? "Farmer Help" : "किसान हेल्प"}
                   </h3>
                   <p className="text-xs text-emerald-100 font-medium truncate mt-0.5">
-                    {currentLanguage === "en" ? "Get help by speaking" : "बोलकर मदद पाएं"}
+                    {currentLanguage === "en" ? "Ask questions by voice" : "बोलकर सवाल पूछें"}
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-bold bg-white text-emerald-900 px-3 py-1.5 rounded-lg shrink-0 shadow-2xs group-hover:bg-emerald-50 transition-colors">
-                {currentLanguage === "en" ? "Ask ➔" : "पूछें ➔"}
+              <span className="text-xs font-bold bg-white text-emerald-900 px-3 py-1.5 rounded-lg shrink-0 shadow-2xs group-hover:bg-emerald-50 transition-colors flex items-center gap-1">
+                <span>{currentLanguage === "en" ? "Ask" : "पूछें"}</span>
+                <span>→</span>
               </span>
             </div>
 
-            {/* Service Reminders (if any due/overdue) */}
-            {(() => {
-              const overdueList = machines.filter((m) => m.maintenanceStatus === "overdue");
-              const dueList = machines.filter((m) => m.maintenanceStatus === "due");
-              if (overdueList.length === 0 && dueList.length === 0) return null;
-
-              return (
-                <div className="space-y-2">
-                  {overdueList.map((m) => (
-                    <div
-                      key={`home-overdue-${m.id}`}
-                      onClick={() => handleOpenMachineDetail(m)}
-                      className="cursor-pointer bg-red-50/70 border border-red-200 text-red-950 p-3.5 rounded-lg flex items-center justify-between hover:bg-red-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-xl p-2 bg-red-100 rounded-md shrink-0">{m.icon}</span>
-                        <div className="min-w-0">
-                          <div className="text-sm font-bold text-red-900 flex items-center gap-1">
-                            <span>{t("preventive.serviceDue", currentLanguage)}</span>
-                          </div>
-                          <div className="text-xs text-red-700 font-medium truncate mt-0.5">
-                            {m.nameHi} — {t("passport.nextMaintenance", currentLanguage)}: {formatServiceDateHi(m.nextServiceDate)}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-xs font-semibold bg-red-700 text-white px-2.5 py-1 rounded-md shrink-0">
-                        {t("common.view", currentLanguage)} ➔
-                      </span>
-                    </div>
-                  ))}
-
-                  {dueList.map((m) => (
-                    <div
-                      key={`home-due-${m.id}`}
-                      onClick={() => handleOpenMachineDetail(m)}
-                      className="cursor-pointer bg-amber-50/70 border border-amber-200 text-amber-950 p-3.5 rounded-lg flex items-center justify-between hover:bg-amber-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-xl p-2 bg-amber-100 rounded-md shrink-0">{m.icon}</span>
-                        <div className="min-w-0">
-                          <div className="text-sm font-bold text-amber-900 flex items-center gap-1">
-                            <span>{t("preventive.serviceDue", currentLanguage)}</span>
-                          </div>
-                          <div className="text-xs text-amber-800 font-medium truncate mt-0.5">
-                            {m.nameHi} — {t("passport.nextMaintenance", currentLanguage)}: {formatServiceDateHi(m.nextServiceDate)}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-xs font-semibold bg-amber-700 text-white px-2.5 py-1 rounded-md shrink-0">
-                        {t("common.view", currentLanguage)} ➔
-                      </span>
-                    </div>
-                  ))}
+            {/* 3. QUICK ACTIONS (COMPACT 2x2 TILES) */}
+            <div className="grid grid-cols-2 gap-2">
+              {/* Tile 1: 🔧 समस्या रिपोर्ट करें */}
+              <button
+                type="button"
+                id="home-report-breakdown-tile"
+                onClick={() => handleStartBreakdown()}
+                className="bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white rounded-xl p-2.5 shadow-2xs border border-emerald-800 transition-all flex items-center gap-2.5 text-left cursor-pointer min-h-[52px]"
+              >
+                <span className="w-8 h-8 rounded-lg bg-emerald-800/80 flex items-center justify-center text-lg shrink-0">
+                  🔧
+                </span>
+                <div className="min-w-0">
+                  <span className="text-xs sm:text-sm font-bold block leading-tight text-white truncate">
+                    {currentLanguage === "en" ? "Report Problem" : "समस्या रिपोर्ट करें"}
+                  </span>
+                  <span className="text-[10px] text-emerald-100 font-medium block truncate">
+                    {currentLanguage === "en" ? "Book repair" : "मैकेनिक बुलाएं"}
+                  </span>
                 </div>
-              );
-            })()}
-
-
-            {/* ================= MULTI-CHANNEL ACCESS RIBBON ================= */}
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                id="home-open-recovery-btn"
-                onClick={() => handleLaunchRecoveryEngine(machines[0], currentLanguage === "en" ? "Tractor hydraulic lift failure, emergency repair needed" : "ट्रैक्टर की हाइड्रोलिक लिफ्ट नहीं उठ रही, कल बुवाई शुरू करनी है")}
-                className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 rounded-lg p-2.5 text-center space-y-1 transition-colors cursor-pointer"
-              >
-                <span className="text-xl block">⚡</span>
-                <span className="text-xs font-semibold block truncate">{t("dashboard.recoveryEngine", currentLanguage)}</span>
               </button>
+
+              {/* Tile 2: 📞 फोन से मदद */}
               <button
                 type="button"
-                id="home-open-ivr-btn"
+                id="home-open-ivr-tile"
                 onClick={() => setIsFeaturePhoneModalOpen(true)}
-                className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 rounded-lg p-2.5 text-center space-y-1 transition-colors cursor-pointer"
+                className="bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-800 rounded-xl p-2.5 shadow-2xs border border-slate-200 transition-all flex items-center gap-2.5 text-left cursor-pointer min-h-[52px]"
               >
-                <span className="text-xl block">📞</span>
-                <span className="text-xs font-semibold block truncate">{t("dashboard.featurePhone", currentLanguage)}</span>
+                <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-lg shrink-0">
+                  📞
+                </span>
+                <div className="min-w-0">
+                  <span className="text-xs sm:text-sm font-bold block leading-tight text-slate-900 truncate">
+                    {currentLanguage === "en" ? "Phone Help" : "फोन से मदद"}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium block truncate">
+                    {currentLanguage === "en" ? "IVR Helpline" : "टोल-फ्री सहायता"}
+                  </span>
+                </div>
               </button>
+
+              {/* Tile 3: 🛠️ स्पेयर पार्ट्स */}
               <button
                 type="button"
-                id="home-open-assisted-btn"
+                id="home-open-assisted-tile"
                 onClick={() => setIsAssistedModalOpen(true)}
-                className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 rounded-lg p-2.5 text-center space-y-1 transition-colors cursor-pointer"
+                className="bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-800 rounded-xl p-2.5 shadow-2xs border border-slate-200 transition-all flex items-center gap-2.5 text-left cursor-pointer min-h-[52px]"
               >
-                <span className="text-xl block">🌾</span>
-                <span className="text-xs font-semibold block truncate">{t("dashboard.assistedDesk", currentLanguage)}</span>
+                <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-lg shrink-0">
+                  🛠️
+                </span>
+                <div className="min-w-0">
+                  <span className="text-xs sm:text-sm font-bold block leading-tight text-slate-900 truncate">
+                    {currentLanguage === "en" ? "Spare Parts" : "स्पेयर पार्ट्स"}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium block truncate">
+                    {currentLanguage === "en" ? "Assisted Desk" : "पुर्जे सहायता"}
+                  </span>
+                </div>
+              </button>
+
+              {/* Tile 4: 🛡️ मशीन सुरक्षा */}
+              <button
+                type="button"
+                id="home-open-recovery-tile"
+                onClick={() => handleLaunchRecoveryEngine(machines[0], currentLanguage === "en" ? "Machine safety and emergency support" : "मशीन सुरक्षा और आपातकालीन सहायता")}
+                className="bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-800 rounded-xl p-2.5 shadow-2xs border border-slate-200 transition-all flex items-center gap-2.5 text-left cursor-pointer min-h-[52px]"
+              >
+                <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-lg shrink-0">
+                  🛡️
+                </span>
+                <div className="min-w-0">
+                  <span className="text-xs sm:text-sm font-bold block leading-tight text-slate-900 truncate">
+                    {currentLanguage === "en" ? "Machine Safety" : "मशीन सुरक्षा"}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium block truncate">
+                    {currentLanguage === "en" ? "Downtime Care" : "बैकअप सुरक्षा"}
+                  </span>
+                </div>
               </button>
             </div>
 
-            {/* PRIORITY 1: 🚜 मेरी मशीनें (My Machines Section) */}
-            <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs space-y-2.5">
-              <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+            {/* 4. मेरी मशीनें (COMPACT 2-COLUMN CATALOGUE) */}
+            <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between pb-1 border-b border-slate-100">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-lg">🚜</span>
-                  <h2 className="text-base font-bold text-slate-900">
+                  <span className="text-base select-none">🚜</span>
+                  <h2 className="text-sm font-bold text-slate-900">
                     {t("dashboard.myMachines", currentLanguage)}
                   </h2>
                 </div>
                 <button
                   type="button"
+                  id="home-view-all-machines-btn"
                   onClick={() => setCurrentScreen("machines")}
-                  className="text-xs font-semibold text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-md transition-colors cursor-pointer shrink-0"
+                  className="text-xs font-semibold text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 px-2 py-0.5 rounded-md transition-colors cursor-pointer shrink-0"
                 >
                   {currentLanguage === "en" ? "View All →" : "सभी देखें →"}
                 </button>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-2">
                 {machines.map((machine) => {
                   const machineImage = machine.imageUrl || MACHINE_IMAGE_MAP[machine.id];
+                  const isHealthy = machine.maintenanceStatus !== "overdue" && machine.maintenanceStatus !== "due";
                   return (
                     <button
                       key={machine.id}
                       type="button"
                       onClick={() => handleOpenMachineDetail(machine)}
-                      className="w-full p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-between transition-colors text-left cursor-pointer group"
+                      className="p-2 bg-slate-50/80 hover:bg-slate-100 border border-slate-200/80 rounded-lg flex items-center justify-between gap-1.5 transition-colors text-left cursor-pointer group active:scale-[0.98]"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-12 h-12 p-1 bg-white rounded-md border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-10 h-10 p-0.5 bg-white rounded-md border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
                           {machineImage ? (
                             <img
                               src={machineImage}
@@ -3794,22 +3798,31 @@ export default function AgriPulseApp() {
                             />
                           ) : null}
                           <span
-                            className="fallback-icon text-2xl items-center justify-center"
+                            className="fallback-icon text-xl items-center justify-center"
                             style={{ display: machineImage ? "none" : "flex" }}
                           >
                             {machine.icon}
                           </span>
                         </span>
                         <div className="min-w-0">
-                          <span className="text-sm font-bold text-slate-900 block truncate group-hover:text-emerald-800 transition-colors">
+                          <span className="text-xs font-bold text-slate-900 block truncate group-hover:text-emerald-800 transition-colors">
                             {currentLanguage === "en" ? machine.name : machine.nameHi}
                           </span>
-                          <span className="text-[11px] font-medium text-slate-500 block truncate">
-                            {machine.statusText || (currentLanguage === "en" ? machine.type : machine.type)}
+                          <span className="text-[10px] font-medium text-slate-500 flex items-center gap-1 mt-0.5 truncate">
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                              machine.maintenanceStatus === "overdue"
+                                ? "bg-red-500"
+                                : machine.maintenanceStatus === "due"
+                                ? "bg-amber-500"
+                                : "bg-emerald-500"
+                            }`} />
+                            <span className="truncate">
+                              {machine.statusText || (isHealthy ? (currentLanguage === "en" ? "Ready" : "चालू") : (currentLanguage === "en" ? "Service" : "सर्विस बाकी"))}
+                            </span>
                           </span>
                         </div>
                       </div>
-                      <span className="text-slate-400 group-hover:text-emerald-700 text-sm font-bold transition-colors pl-2 shrink-0">
+                      <span className="text-slate-400 group-hover:text-emerald-700 text-xs font-bold shrink-0">
                         →
                       </span>
                     </button>
@@ -3818,108 +3831,97 @@ export default function AgriPulseApp() {
               </div>
             </div>
 
-            {/* PRIORITY 2: 🔧 मशीन में समस्या है (PRIMARY ACTION CALLOUT) */}
-            <button
-              onClick={() => handleStartBreakdown()}
-              className="w-full bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 transition-colors text-white rounded-lg p-4 shadow-sm border border-emerald-800 flex items-center justify-between text-left cursor-pointer"
-            >
-              <div className="flex items-center gap-3.5">
-                <span className="text-2xl p-2.5 bg-emerald-800 rounded-md text-white">🔧</span>
-                <div>
-                  <div className="text-base sm:text-lg font-bold text-white leading-tight">
-                    {t("dashboard.reportBreakdown", currentLanguage)}
-                  </div>
-                  <div className="text-xs text-emerald-100 font-medium mt-0.5">
-                    {t("dashboard.callMechanic", currentLanguage)}
-                  </div>
-                </div>
-              </div>
-              <span className="text-sm bg-emerald-800 px-3 py-1.5 rounded-md font-bold text-white shrink-0">
-                ➔
-              </span>
-            </button>
-
-            {/* PRIORITY 3: 📋 मेरी मरम्मत (My Repairs) */}
-            <button
-              onClick={() => setCurrentScreen("repair")}
-              className="w-full bg-white hover:bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between text-left transition-colors cursor-pointer shadow-2xs"
-            >
-              <div className="flex items-center gap-3.5">
-                <span className="text-2xl p-2.5 bg-amber-50 rounded-md border border-amber-100 text-amber-700">📋</span>
-                <div>
-                  <div className="text-base font-bold text-slate-900">{t("dashboard.myRepairs", currentLanguage)}</div>
-                  <div className="text-xs font-medium text-slate-500 mt-0.5">
-                    {activeRepairs.length > 0
-                      ? `${activeRepairs.length} ${t("repair.activeRepair", currentLanguage)} (${activeRepairs[0].machineNameHi})`
-                      : t("repair.noRepairs", currentLanguage)}
-                  </div>
-                </div>
-              </div>
-              <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md shrink-0">
-                {t("common.view", currentLanguage)} ➔
-              </span>
-            </button>
-
-            {/* PRIORITY 4: 📅 अगली सर्विस (Next Service) */}
+            {/* 5. REPAIR & SERVICE COMBINED COMPACT SECTION */}
             {(() => {
               const overdueM = machines.find((m) => m.maintenanceStatus === "overdue");
               const dueM = machines.find((m) => m.maintenanceStatus === "due");
               const firstUpcoming = machines.find((m) => m.maintenanceStatus === "upcoming") || machines[0];
               const displayM = overdueM || dueM || firstUpcoming;
 
-              let serviceStatusSummary = t("preventive.allMachinesHealthy", currentLanguage);
-              if (overdueM) {
-                serviceStatusSummary = `${overdueM.nameHi}: ${t("preventive.serviceOverdue", currentLanguage)}`;
-              } else if (dueM) {
-                serviceStatusSummary = `${dueM.nameHi}: ${t("preventive.serviceDue", currentLanguage)}`;
-              } else if (displayM) {
-                serviceStatusSummary = `${t("passport.nextMaintenance", currentLanguage)}: ${formatServiceDateHi(displayM.nextServiceDate)}`;
-              }
-
               return (
-                <button
-                  onClick={() => setCurrentScreen("service")}
-                  className="w-full bg-white hover:bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between text-left transition-colors cursor-pointer shadow-2xs"
-                >
-                  <div className="flex items-center gap-3.5">
-                    <span className="text-2xl p-2.5 bg-blue-50 rounded-md border border-blue-100 text-blue-700">📅</span>
-                    <div>
-                      <div className="text-base font-bold text-slate-900">{t("dashboard.nextService", currentLanguage)}</div>
-                      <div className="text-xs font-medium text-slate-500 mt-0.5">
-                        {serviceStatusSummary}
+                <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+                  {/* Row 1: मेरी मरम्मत (Active Repair or Status) */}
+                  <div
+                    onClick={() => setCurrentScreen("repair")}
+                    className="flex items-center justify-between cursor-pointer hover:bg-slate-50 p-1.5 rounded-lg transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center text-sm shrink-0">
+                        🔧
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900">
+                            {currentLanguage === "en" ? "My Repairs" : "मेरी मरम्मत"}
+                          </span>
+                          {activeRepairs.length > 0 ? (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                              {activeRepairs[0].status === "repairing" || activeRepairs[0].status === "repair_in_progress"
+                                ? (currentLanguage === "en" ? "In Progress" : "मरम्मत जारी")
+                                : (currentLanguage === "en" ? "Assigned" : "टेक्नीशियन नियुक्त")}
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              {currentLanguage === "en" ? "All Clear" : "कोई समस्या नहीं"}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                          {activeRepairs.length > 0
+                            ? `${activeRepairs[0].machineNameHi} की मरम्मत जारी है • रिपोर्ट ✓ टेक्नीशियन ✓`
+                            : (currentLanguage === "en" ? "No active repairs underway" : "वर्तमान में कोई मरम्मत लंबित नहीं है")}
+                        </p>
                       </div>
                     </div>
+                    <span className="text-slate-400 group-hover:text-emerald-700 text-xs font-bold shrink-0">
+                      →
+                    </span>
                   </div>
-                  <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md shrink-0">
-                    {t("common.view", currentLanguage)} ➔
-                  </span>
-                </button>
-              );
-            })()}
 
-            {/* PRIORITY 5: 🤖 किसान सहायक (Farmer Assistant) */}
-            <button
-              onClick={() => {
-                setSahayakStep("init");
-                setSahayakChoice(null);
-                setSahayakUrgency(null);
-                setCurrentScreen("sahayak");
-              }}
-              className="w-full bg-white hover:bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between text-left transition-colors cursor-pointer shadow-2xs"
-            >
-              <div className="flex items-center gap-3.5">
-                <span className="text-2xl p-2.5 bg-slate-100 rounded-md border border-slate-200 text-slate-700">🤖</span>
-                <div>
-                  <div className="text-base font-bold text-slate-900">{t("dashboard.kisanSahayak", currentLanguage)}</div>
-                  <div className="text-xs font-medium text-slate-500 mt-0.5">
-                    {t("dashboard.askQuestion", currentLanguage)}
+                  <div className="border-t border-slate-100" />
+
+                  {/* Row 2: अगली सर्विस (Upcoming / Due Service) */}
+                  <div
+                    onClick={() => setCurrentScreen("service")}
+                    className="flex items-center justify-between cursor-pointer hover:bg-slate-50 p-1.5 rounded-lg transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 flex items-center justify-center text-sm shrink-0">
+                        📅
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900">
+                            {currentLanguage === "en" ? "Next Service" : "अगली सर्विस"}
+                          </span>
+                          {overdueM ? (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-red-100 text-red-800">
+                              {currentLanguage === "en" ? "Overdue" : "समय बीता"}
+                            </span>
+                          ) : dueM ? (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                              {currentLanguage === "en" ? "Due Soon" : "जल्द बाकी"}
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
+                              {currentLanguage === "en" ? "Upcoming" : "नियमित"}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                          {displayM
+                            ? `${displayM.nameHi || displayM.name} — ${formatServiceDateHi(displayM.nextServiceDate)}`
+                            : (currentLanguage === "en" ? "All machines up to date" : "सभी मशीनें ठीक हैं")}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-slate-400 group-hover:text-emerald-700 text-xs font-bold shrink-0">
+                      →
+                    </span>
                   </div>
                 </div>
-              </div>
-              <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md shrink-0">
-                {t("common.view", currentLanguage)} ➔
-              </span>
-            </button>
+              );
+            })()}
           </div>
         )}
 
@@ -9014,12 +9016,6 @@ export default function AgriPulseApp() {
           <KisanHelpScreen
             currentLanguage={currentLanguage}
             onBack={() => setCurrentScreen("home")}
-            onRequestTechnician={(machineType, problemText) => {
-              handleStartBreakdown(machineType || "tractor");
-              if (problemText) {
-                setBreakdownDescription(problemText);
-              }
-            }}
           />
         )}
 

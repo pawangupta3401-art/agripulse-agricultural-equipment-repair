@@ -136,45 +136,139 @@ function getKisanHelpDeterministic(query: string, language: LanguageCode = "hi")
   const lower = query.toLowerCase();
 
   // 1. Danger condition check
-  if (checkDangerousCondition(query)) {
+  if (checkDangerousCondition(query) || lower.includes("धुआं") || lower.includes("smoke")) {
     return {
       success: true,
       spokenText: isEn
-        ? "Warning! Smoke, fire, or severe leak detected. Stop the machine immediately, maintain a safe distance, and call a certified technician."
-        : "सावधानी! मशीन में धुआं, आग या गंभीर रिसाव का खतरा है। मशीन तुरंत बंद रखें, सुरक्षित दूरी बनाएं और प्रमाणित मैकेनिक को दिखाएं।",
+        ? "Stop the machine immediately. If smoke is coming from near the engine, do not start it again and maintain a safe distance."
+        : "मशीन तुरंत बंद कर दें। अगर धुआं इंजन के पास से आ रहा है तो दोबारा स्टार्ट न करें और सुरक्षित दूरी बनाए रखें।",
       helpType: "machine",
-      technicianRequired: true,
+      technicianRequired: false,
       clarificationNeeded: false,
       recommendedMachine: "tractor",
-      problemSummary: isEn ? "Emergency: Safety Hazard" : "आपातकालीन सुरक्षा खतरा",
+      problemSummary: isEn ? "Safety Advice" : "सुरक्षा सलाह",
       fallbackUsed: true,
     };
   }
 
-  // 2. Technician request
+  // 2. Technician request - Guidance only, never auto-book
   if (
     lower.includes("mechanic") ||
     lower.includes("मैकेनिक") ||
     lower.includes("मिस्त्री") ||
     lower.includes("technician") ||
-    lower.includes("बुलाओ") ||
-    lower.includes("चाहिए")
+    lower.includes("टेक्नीशियन") ||
+    ((lower.includes("कारीगर") || lower.includes("रिपेयर") || lower.includes("सर्विसमैन")) && lower.includes("चाहिए"))
   ) {
     return {
       success: true,
       spokenText: isEn
-        ? "Sure, I can help connect you with a nearby certified technician right away. Please tap the button below to proceed."
-        : "ज़रूर, मैं आपके लिए नज़दीकी प्रमाणित मैकेनिक खोजने में मदद करता हूँ। कृपया नीचे दिए बटन से बुकिंग आगे बढ़ाएं।",
-      helpType: "technician",
-      technicianRequired: true,
+        ? "If you would like a repair, you can submit a request using the 'Report Problem' option on the home screen."
+        : "अगर आप चाहें तो मरम्मत के लिए 'समस्या रिपोर्ट करें' विकल्प से अनुरोध भेज सकते हैं।",
+      helpType: "app",
+      technicianRequired: false,
       clarificationNeeded: false,
       recommendedMachine: "tractor",
-      problemSummary: isEn ? "Technician Assistance Request" : "टेक्नीशियन सहायता अनुरोध",
+      problemSummary: isEn ? "Repair Flow Guidance" : "मरम्मत मार्गदर्शन",
       fallbackUsed: true,
     };
   }
 
-  // 3. App help
+  // 3. Tractor Oil inquiry
+  if (lower.includes("oil") || lower.includes("तेल") || lower.includes("मोबिल")) {
+    return {
+      success: true,
+      spokenText: isEn
+        ? "Depending on the tractor model, it typically takes 7 to 8 liters of engine oil. Always check the dipstick level before operating."
+        : "ट्रैक्टर मॉडल के अनुसार आमतौर पर 7 से 8 लीटर इंजन ऑयल लगता है। डालने से पहले डिपस्टिक से सही स्तर जांच लें।",
+      helpType: "machine",
+      technicianRequired: false,
+      clarificationNeeded: false,
+      recommendedMachine: "tractor",
+      problemSummary: isEn ? "Engine Oil Query" : "इंजन ऑयल मात्रा",
+      fallbackUsed: true,
+    };
+  }
+
+  // 4. Sprayer Cleaning & Maintenance
+  if (lower.includes("sprayer") || lower.includes("स्प्रेयर")) {
+    if (lower.includes("साफ") || lower.includes("clean") || lower.includes("धो")) {
+      return {
+        success: true,
+        spokenText: isEn
+          ? "Fill the tank with clean water, spray through the nozzles, then unscrew and clean the filter and nozzle with a soft brush."
+          : "स्प्रेयर की टंकी में साफ पानी भरकर नोज़ल चलाएं, फिर फिल्टर व नोज़ल खोलकर मुलायम ब्रश से साफ कर लें।",
+        helpType: "machine",
+        technicianRequired: false,
+        clarificationNeeded: false,
+        recommendedMachine: "sprayer",
+        problemSummary: isEn ? "Sprayer Cleaning" : "स्प्रेयर सफाई विधि",
+        fallbackUsed: true,
+      };
+    }
+    return {
+      success: true,
+      spokenText: isEn
+        ? "Check the sprayer nozzle and pressure valve for blockage. Is the pump building any pressure?"
+        : "स्प्रेयर के नोज़ल और प्रेशर वाल्व की जांच करें। क्या पंप प्रेशर बना रहा है?",
+      helpType: "machine",
+      clarificationNeeded: true,
+      technicianRequired: false,
+      recommendedMachine: "sprayer",
+      problemSummary: isEn ? "Sprayer Inspection" : "स्प्रेयर जांच",
+      fallbackUsed: true,
+    };
+  }
+
+  // 5. Strange noise inquiry
+  if (lower.includes("आवाज") || lower.includes("noise") || lower.includes("sound")) {
+    return {
+      success: true,
+      spokenText: isEn
+        ? "Is the abnormal sound coming from the engine or the gearbox? Please check and let me know."
+        : "यह आवाज़ इंजन के पास से आ रही है या गियरबॉक्स से? कृपया एक बार देखकर बताएं।",
+      helpType: "machine",
+      clarificationNeeded: true,
+      technicianRequired: false,
+      recommendedMachine: "tractor",
+      problemSummary: isEn ? "Abnormal Sound" : "असामान्य आवाज़ जांच",
+      fallbackUsed: true,
+    };
+  }
+
+  // 6. Starting problem
+  if (lower.includes("start") || lower.includes("स्टार्ट") || lower.includes("चालू")) {
+    return {
+      success: true,
+      spokenText: isEn
+        ? "First check if the battery light turns on on the dashboard when you turn the key."
+        : "पहले बताइए, क्या चाबी घुमाने पर डैशबोर्ड पर बैटरी की लाइट चालू हो रही है?",
+      helpType: "machine",
+      clarificationNeeded: true,
+      technicianRequired: false,
+      recommendedMachine: "tractor",
+      problemSummary: isEn ? "Starting Problem" : "स्टार्ट न होने की समस्या",
+      fallbackUsed: true,
+    };
+  }
+
+  // 7. Water pump
+  if (lower.includes("pump") || lower.includes("पंप") || lower.includes("पानी")) {
+    return {
+      success: true,
+      spokenText: isEn
+        ? "For the water pump, is water flowing at reduced pressure, or is the motor making a humming sound without lifting water?"
+        : "वाटर पंप के लिए बताइए, क्या पानी का दबाव कम है या मोटर आवाज़ कर रही है पर पानी नहीं उठा रही?",
+      helpType: "machine",
+      clarificationNeeded: true,
+      technicianRequired: false,
+      recommendedMachine: "water_pump",
+      problemSummary: isEn ? "Water Pump Issue" : "वाटर पंप समस्या",
+      fallbackUsed: true,
+    };
+  }
+
+  // 8. App help
   if (lower.includes("otp") || lower.includes("ओटीपी")) {
     return {
       success: true,
@@ -203,57 +297,11 @@ function getKisanHelpDeterministic(query: string, language: LanguageCode = "hi")
     return {
       success: true,
       spokenText: isEn
-        ? "To report a breakdown, tap 'Report Machine Breakdown' on the home screen and follow the 4 simple steps."
-        : "शिकायत दर्ज करने के लिए होम स्क्रीन पर 'मशीन में समस्या है / रिपोर्ट करें' बटन दबाएं और 4 आसान चरण पूरे करें।",
+        ? "To report a breakdown, tap 'Report Problem' on the home screen and follow the 4 simple steps."
+        : "समस्या दर्ज करने के लिए होम स्क्रीन पर 'समस्या रिपोर्ट करें' बटन दबाएं और 4 आसान चरण पूरे करें।",
       helpType: "app",
       technicianRequired: false,
       clarificationNeeded: false,
-      fallbackUsed: true,
-    };
-  }
-
-  // 4. Machine problem help
-  if (lower.includes("start") || lower.includes("स्टार्ट") || lower.includes("चालू")) {
-    return {
-      success: true,
-      spokenText: isEn
-        ? "Understood. First, check if the battery light turns on on the dashboard when you turn the key."
-        : "ठीक है। पहले बताइए, क्या चाबी घुमाने पर डैशबोर्ड पर बैटरी की लाइट चालू हो रही है?",
-      helpType: "machine",
-      clarificationNeeded: true,
-      technicianRequired: false,
-      recommendedMachine: "tractor",
-      problemSummary: isEn ? "Starting Problem" : "स्टार्ट न होने की समस्या",
-      fallbackUsed: true,
-    };
-  }
-
-  if (lower.includes("pump") || lower.includes("पंप") || lower.includes("पानी")) {
-    return {
-      success: true,
-      spokenText: isEn
-        ? "For the water pump, is water flowing at reduced pressure, or is the motor making a humming noise without lifting water?"
-        : "वाटर पंप के लिए बताइए, क्या पानी का दबाव कम है या मोटर आवाज़ कर रही है पर पानी नहीं उठा रही?",
-      helpType: "machine",
-      clarificationNeeded: true,
-      technicianRequired: false,
-      recommendedMachine: "water_pump",
-      problemSummary: isEn ? "Water Pump Issue" : "वाटर पंप की समस्या",
-      fallbackUsed: true,
-    };
-  }
-
-  if (lower.includes("sprayer") || lower.includes("स्प्रेयर") || lower.includes("दवा")) {
-    return {
-      success: true,
-      spokenText: isEn
-        ? "Check the sprayer nozzle and pressure valve for blockage. Is the pump building any pressure?"
-        : "स्प्रेयर के नोज़ल और प्रेशर वाल्व की जांच करें। क्या पंप प्रेशर बना रहा है?",
-      helpType: "machine",
-      clarificationNeeded: true,
-      technicianRequired: false,
-      recommendedMachine: "sprayer",
-      problemSummary: isEn ? "Sprayer Pressure Issue" : "स्प्रेयर प्रेशर की समस्या",
       fallbackUsed: true,
     };
   }
@@ -262,13 +310,13 @@ function getKisanHelpDeterministic(query: string, language: LanguageCode = "hi")
   return {
     success: true,
     spokenText: isEn
-      ? "Understood your equipment issue. Is there any abnormal sound or smoke coming from the engine?"
-      : "मशीन की समस्या समझ गया। क्या इंजन से कोई असामान्य आवाज़ या धुआं आ रहा है?",
+      ? "Understood your question. Is there any abnormal sound or smoke coming from the machine?"
+      : "आपकी बात समझ गया। क्या मशीन से कोई असामान्य आवाज़ या धुआं आ रहा है?",
     helpType: "machine",
     clarificationNeeded: true,
     technicianRequired: false,
     recommendedMachine: "tractor",
-    problemSummary: isEn ? "General Machine Inspection" : "मशीन जांच",
+    problemSummary: isEn ? "Machine Question" : "मशीन सवाल",
     fallbackUsed: true,
   };
 }
@@ -343,17 +391,17 @@ export async function POST(req: NextRequest) {
     // -------------------------------------------------------------------------
     if (context?.currentPage === "kisan_help") {
       // 1. Instant Dangerous condition check
-      if (checkDangerousCondition(userQuery)) {
+      if (checkDangerousCondition(userQuery) || lowerQuery.includes("धुआं") || lowerQuery.includes("smoke")) {
         return NextResponse.json({
           success: true,
           spokenText: isEn
-            ? "Warning! Dangerous condition detected. Stop the machine immediately, maintain a safe distance, and call a certified technician."
-            : "सावधानी! मशीन में आग, धुआं या गंभीर रिसाव का खतरा है। मशीन तुरंत बंद रखें, सुरक्षित दूरी बनाएं और प्रमाणित मैकेनिक को दिखाएं।",
+            ? "Stop the machine immediately. If smoke is coming from near the engine, do not start it again and maintain a safe distance."
+            : "मशीन तुरंत बंद कर दें। अगर धुआं इंजन के पास से आ रहा है तो दोबारा स्टार्ट न करें और सुरक्षित दूरी बनाए रखें।",
           helpType: "machine",
-          technicianRequired: true,
+          technicianRequired: false,
           clarificationNeeded: false,
           recommendedMachine: "tractor",
-          problemSummary: isEn ? "Critical Safety Hazard" : "गंभीर सुरक्षा खतरा",
+          problemSummary: isEn ? "Safety Advice" : "सुरक्षा सलाह",
           fallbackUsed: false,
         } as VoiceHelpResponse);
       }
@@ -362,35 +410,34 @@ export async function POST(req: NextRequest) {
       const apiKey = (process.env.AI_API_KEY || process.env.GEMINI_API_KEY)?.trim();
 
       if (apiKey) {
-        const kisanSystemPrompt = `You are AgriPulse "किसान हेल्प" (Farmer Voice Assistant), an intelligent, safe, and respectful AI speaking directly to an Indian farmer in simple ${langName}.
+        const kisanSystemPrompt = `You are AgriPulse "किसान हेल्प" (Farmer Voice Assistant), an intelligent, safe, and respectful AI assistant speaking directly to an Indian farmer in simple ${langName}.
 
-CATEGORIES TO UNDERSTAND AUTOMATICALLY:
-1. "machine" - Problems with farm equipment (tractor, pump, sprayer, tiller, etc.).
-   - If danger detected: strictly tell farmer to stop the machine immediately and maintain safe distance.
-   - If safe, ask only ONE simple clarifying question if needed (e.g. "क्या बैटरी की लाइट चालू हो रही है?") OR provide 1 safe check.
-   - If repair is needed, indicate technician is required.
-2. "technician" - Farmer wants a mechanic/technician ("मुझे मैकेनिक चाहिए", "मिस्त्री बुलाओ", etc.).
-   - Acknowledge warmly and confirm we will help connect to a nearby certified mechanic.
-   - Set technicianRequired to true.
-3. "app" - Questions about using AgriPulse ("OTP kahan dalna hai", "Machine kaise add karu", "Complaint kaise kare").
-   - Give simple, direct 1-2 sentence instruction.
+CRITICAL ROLE BOUNDARIES:
+- You are ONLY a question-answering AI assistant.
+- You are NOT a technician booking system.
+- Do NOT automatically call, match, book, or assign technician requests.
+- If the farmer asks for a mechanic or technician (e.g. "मुझे टेक्नीशियन चाहिए", "मैकेनिक बुलाओ"), respond with simple guidance:
+  "${isEn ? "If you would like a repair, you can submit a request using the 'Report Problem' option on the home screen." : "अगर आप चाहें तो मरम्मत के लिए 'समस्या रिपोर्ट करें' विकल्प से अनुरोध भेज सकते हैं।"}"
+- If dangerous condition, smoke, or fire is mentioned: prioritize safety first: "मशीन तुरंत बंद कर दें। अगर धुआं इंजन के पास से आ रहा है तो दोबारा स्टार्ट न करें..."
+- For questions about tractor, pump, sprayer, tiller maintenance, troubleshooting, parts, oil, cleaning: give short, practical, farmer-friendly, step-by-step guidance.
+- If information is insufficient: ask at most ONE simple, direct clarification question.
+
+RULES:
+- Tone must be warm, simple, respectful, and direct.
+- Keep answers short (1-2 sentences).
+- NO developer jargon (no "AI", "Gemini", "API", "token", "JSON").
+- NEVER mention "1000 Q&A", "Knowledge Base", or "Demo".
 
 OUTPUT FORMAT:
 Return valid JSON only (no markdown, no backticks, no extra text):
 {
   "spokenText": "short 1 to 2 sentence answer in ${langName}",
-  "helpType": "machine" | "technician" | "app",
+  "helpType": "machine" | "app",
   "clarificationNeeded": boolean,
-  "technicianRequired": boolean,
+  "technicianRequired": false,
   "recommendedMachine": "tractor" | "sprayer" | "water_pump" | "power_tiller",
   "problemSummary": "short 3-5 word summary"
-}
-
-RULES:
-- Tone must be warm, simple, respectful, and direct.
-- NO developer jargon (no "AI", "Gemini", "API", "token", "JSON").
-- NEVER mention "1000 Q&A", "Knowledge Base", or "Demo".
-- Ask only ONE question at a time if more information is needed.`;
+}`;
 
         const kisanUserPrompt = `The farmer just spoke: "${userQuery}". Respond as JSON.`;
 
@@ -435,7 +482,7 @@ RULES:
                       spokenText: parsed.spokenText,
                       helpType: parsed.helpType || "machine",
                       clarificationNeeded: !!parsed.clarificationNeeded,
-                      technicianRequired: !!parsed.technicianRequired,
+                      technicianRequired: false,
                       recommendedMachine: parsed.recommendedMachine || "tractor",
                       problemSummary: parsed.problemSummary || "मशीन सहायता",
                       fallbackUsed: false,

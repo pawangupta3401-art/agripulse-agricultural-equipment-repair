@@ -9,7 +9,6 @@ import { VoiceHelpResponse, FarmerHelpType } from "@/types/voiceAssistant";
 export interface KisanHelpScreenProps {
   currentLanguage: LanguageCode;
   onBack: () => void;
-  onRequestTechnician?: (machineType?: string, problemText?: string) => void;
 }
 
 interface ConversationTurn {
@@ -23,7 +22,6 @@ interface ConversationTurn {
 export default function KisanHelpScreen({
   currentLanguage = "hi",
   onBack,
-  onRequestTechnician,
 }: KisanHelpScreenProps) {
   const isEn = currentLanguage === "en";
 
@@ -364,31 +362,15 @@ export default function KisanHelpScreen({
 
           {/* Action CTAs */}
           <div className="space-y-2 pt-1">
-            {/* If Technician is Required or Requested */}
-            {(currentTurn.technicianRequired || currentTurn.helpType === "technician") && onRequestTechnician && (
-              <button
-                type="button"
-                id="kisan-help-technician-cta"
-                onClick={() => onRequestTechnician("tractor", currentTurn.farmerText)}
-                className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 px-4 rounded-xl text-sm sm:text-base shadow-sm border border-emerald-800 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
-              >
-                <Wrench className="w-4 h-4" />
-                <span>
-                  {isEn
-                    ? "Need a Technician (Book Mechanic) ➔"
-                    : "टेक्नीशियन की मदद चाहिए (मैकेनिक बुक करें) ➔"}
-                </span>
-              </button>
-            )}
-
             {/* Speak again for follow-up question or clarification */}
             <button
               type="button"
+              id="kisan-help-speak-again-btn"
               onClick={handleStartListening}
-              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm border border-slate-200 flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 px-4 rounded-xl text-sm border border-emerald-800 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98 shadow-xs"
             >
-              <Mic className="w-4 h-4 text-emerald-700" />
-              <span>{isEn ? "Speak Again / Answer Question" : "🎤 दोबारा बोलें / जवाब दें"}</span>
+              <Mic className="w-4 h-4 stroke-[2.5]" />
+              <span>{isEn ? "🎤 Speak Again / Answer Question" : "🎤 दोबारा बोलें / सवाल पूछें"}</span>
             </button>
           </div>
         </div>
@@ -397,29 +379,36 @@ export default function KisanHelpScreen({
       {/* Helpful Audio Prompt / Sample Inquiries */}
       <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 text-xs text-slate-600 space-y-2">
         <span className="font-bold text-slate-800 block text-[11px] uppercase tracking-wide">
-          {isEn ? "💡 You can speak queries like:" : "💡 आप इस तरह की बातें बोल सकते हैं:"}
+          {isEn ? "💡 You can ask questions like:" : "💡 आप ऐसे सवाल पूछ सकते हैं:"}
         </span>
         <div className="grid grid-cols-1 gap-1.5 font-medium">
           <div
-            onClick={() => handleProcessQuery(isEn ? "My tractor is not starting" : "मेरा ट्रैक्टर स्टार्ट नहीं हो रहा")}
+            onClick={() => handleProcessQuery(isEn ? "Smoke is coming from my tractor" : "मेरे ट्रैक्टर से धुआं निकल रहा है")}
             className="p-2 bg-white rounded-lg border border-slate-200/70 hover:border-emerald-400 cursor-pointer flex items-center gap-2 transition-colors"
           >
             <span>🚜</span>
-            <span>{isEn ? '"My tractor is not starting"' : '"मेरा ट्रैक्टर स्टार्ट नहीं हो रहा"'}</span>
+            <span>{isEn ? '"Smoke is coming from my tractor"' : '"मेरे ट्रैक्टर से धुआं निकल रहा है"'}</span>
           </div>
           <div
-            onClick={() => handleProcessQuery(isEn ? "I need a mechanic for pump repair" : "मुझे पंप ठीक करने के लिए मैकेनिक चाहिए")}
+            onClick={() => handleProcessQuery(isEn ? "How much oil should I put in the tractor?" : "ट्रैक्टर में तेल कितना डालना चाहिए?")}
             className="p-2 bg-white rounded-lg border border-slate-200/70 hover:border-emerald-400 cursor-pointer flex items-center gap-2 transition-colors"
           >
-            <span>🔧</span>
-            <span>{isEn ? '"I need a mechanic"' : '"मुझे मैकेनिक चाहिए"'}</span>
+            <span>🛢️</span>
+            <span>{isEn ? '"How much oil in tractor?"' : '"ट्रैक्टर में तेल कितना डालना चाहिए?"'}</span>
           </div>
           <div
-            onClick={() => handleProcessQuery(isEn ? "How do I add a new machine?" : "नई मशीन कैसे जोड़ूं?")}
+            onClick={() => handleProcessQuery(isEn ? "How to clean the sprayer?" : "स्प्रेयर कैसे साफ करें?")}
             className="p-2 bg-white rounded-lg border border-slate-200/70 hover:border-emerald-400 cursor-pointer flex items-center gap-2 transition-colors"
           >
-            <span>📱</span>
-            <span>{isEn ? '"How do I add a machine?"' : '"नई मशीन कैसे जोड़ूं?"'}</span>
+            <span>🚿</span>
+            <span>{isEn ? '"How to clean sprayer?"' : '"स्प्रेयर कैसे साफ करें?"'}</span>
+          </div>
+          <div
+            onClick={() => handleProcessQuery(isEn ? "Why is water pump pressure low?" : "पंप से पानी का प्रेशर कम क्यों है?")}
+            className="p-2 bg-white rounded-lg border border-slate-200/70 hover:border-emerald-400 cursor-pointer flex items-center gap-2 transition-colors"
+          >
+            <span>💧</span>
+            <span>{isEn ? '"Why is water pump pressure low?"' : '"पंप से पानी का प्रेशर कम क्यों है?"'}</span>
           </div>
         </div>
       </div>
