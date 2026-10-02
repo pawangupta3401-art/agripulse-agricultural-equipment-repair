@@ -181,6 +181,51 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    if (action === "contact_farmer") {
+      if (currentAssignment) {
+        (currentAssignment as any).farmerContactedAt = new Date().toISOString();
+        currentAssignment.updatedAt = new Date().toISOString();
+      }
+      return NextResponse.json({
+        success: true,
+        action: "contact_farmer",
+        repairId,
+        messageHi: "किसान से संपर्क दर्ज किया गया।",
+      });
+    }
+
+    if (action === "arrived") {
+      if (currentAssignment) {
+        currentAssignment.status = "arrived";
+        currentAssignment.statusTextHi = "मैकेनिक मौके पर पहुँच गया है";
+        currentAssignment.updatedAt = new Date().toISOString();
+      }
+      return NextResponse.json({
+        success: true,
+        action: "arrived",
+        repairId,
+        status: "arrived",
+        statusTextHi: "मैकेनिक मौके पर पहुँच गया है",
+        messageHi: "मौके पर पहुँचने की पुष्टि की गई।",
+      });
+    }
+
+    if (action === "start_repair") {
+      if (currentAssignment) {
+        currentAssignment.status = "repairing";
+        currentAssignment.statusTextHi = "मरम्मत चल रही है";
+        currentAssignment.updatedAt = new Date().toISOString();
+      }
+      return NextResponse.json({
+        success: true,
+        action: "start_repair",
+        repairId,
+        status: "repairing",
+        statusTextHi: "मरम्मत चल रही है",
+        messageHi: "मरम्मत कार्य प्रारंभ किया गया।",
+      });
+    }
+
     if (action === "complete") {
       if (currentAssignment) {
         currentAssignment.status = "verification_pending";

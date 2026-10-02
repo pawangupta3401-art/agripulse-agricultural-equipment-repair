@@ -30,7 +30,7 @@ export interface TechnicianProfileScreenProps {
   skills: string[];
   isAvailable: boolean;
   onToggleAvailability: () => void;
-  onNavigateTab: (tab: "jobs" | "earnings" | "profile", scrollTarget?: string) => void;
+  onNavigateTab: (tab: "home" | "requests" | "repairs" | "profile" | "earnings" | "jobs", scrollTarget?: string) => void;
   onAddSkill?: (skill: string) => void;
   currentLanguage: LanguageCode;
   onLogout: () => void;
@@ -91,7 +91,7 @@ export default function TechnicianProfileScreen({
           <button
             type="button"
             id="technician-profile-back-btn"
-            onClick={() => onNavigateTab("jobs")}
+            onClick={() => onNavigateTab("home")}
             className="flex items-center gap-2 p-1.5 -ml-1.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
             aria-label={isEn ? "Back to Dashboard" : "डैशबोर्ड पर वापस"}
           >
@@ -208,7 +208,7 @@ export default function TechnicianProfileScreen({
           <button
             type="button"
             id="tech-profile-requests-row"
-            onClick={() => onNavigateTab("jobs", "incomingRequestsSection")}
+            onClick={() => onNavigateTab("requests")}
             className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-slate-50 active:bg-slate-100 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-3.5 min-w-0">
@@ -231,7 +231,7 @@ export default function TechnicianProfileScreen({
           <button
             type="button"
             id="tech-profile-completed-row"
-            onClick={() => onNavigateTab("jobs", "activeWorkSection")}
+            onClick={() => onNavigateTab("repairs")}
             className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-slate-50 active:bg-slate-100 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-3.5 min-w-0">

@@ -34,6 +34,7 @@ import {
   PartSelection,
   TechnicianWorkflowStatus,
   PriceChangeReason,
+  PricingBreakdown,
   TECHNICIAN_STATUS_LABELS_HI,
 } from "@/types";
 import { AuthSession } from "@/services/authService";
@@ -73,7 +74,10 @@ export default function TechnicianDashboard({
   onLogout,
 }: TechnicianDashboardProps) {
   // Navigation tabs within Technician Interface
-  const [activeTab, setActiveTab] = useState<"jobs" | "earnings" | "profile">("jobs");
+  const [activeTab, setActiveTab] = useState<"home" | "requests" | "repairs" | "profile">("home");
+  const [repairsSubTab, setRepairsSubTab] = useState<"active" | "completed">("active");
+  const [contactedRepairs, setContactedRepairs] = useState<Record<string, boolean>>({});
+  const [completingRepairId, setCompletingRepairId] = useState<string | null>(null);
 
   // Selected active job card for deep inspection
   const [selectedJobCardId, setSelectedJobCardId] = useState<string | null>(null);
@@ -268,6 +272,10 @@ export default function TechnicianDashboard({
       // Safe offline fallback
     }
 
+    const farmerLat = viewingRequest.farmerLocation?.latitude || 26.8467;
+    const farmerLng = viewingRequest.farmerLocation?.longitude || 80.9462;
+    const realRouteUrl = viewingRequest.routeUrl || `https://www.google.com/maps/dir/?api=1&destination=${farmerLat},${farmerLng}`;
+
     const updated = updateRepairStatus(viewingRequest.id, {
       technicianId: session.user.id,
       selectedTechnician: session.user,
@@ -294,16 +302,149 @@ export default function TechnicianDashboard({
       farmerId: viewingRequest.farmerId || "farmer-pawan-01",
       farmerLocationText: `${viewingRequest.farmerLocation?.village || "शाहपुर"}, ${viewingRequest.farmerLocation?.district || "लखनऊ"}`,
       technicianWorkflowStatus: "assigned",
-      routeUrl: viewingRequest.routeUrl || "https://www.google.com/maps/dir/?api=1&destination=26.8467,80.9462",
-      approxDistanceText: viewingRequest.approxDistanceText || "3.2 किमी दूर",
+      routeUrl: realRouteUrl,
+      approxDistanceText: getTechnicianDistanceText(viewingRequest),
     });
 
     setAcceptedRepair(updated || viewingRequest);
     setIsConfirmingAccept(false);
     setViewingRequest(null);
-    setIsPartsToolsWizardOpen(true);
     onRefreshData();
-    showToast("✓ अनुरोध स्वीकार किया गया! आवश्यक सामान व तैयारी दर्ज करें।");
+    showToast("✓ अनुरोध स्वीकार किया गया! 'मेरी मरम्मत' में स्थानांतरित किया गया।");
+    setActiveTab("repairs");
+    setRepairsSubTab("active");
+  };
+
+  // Handle Call Farmer
+  const handleCallFarmer = async (repair: RepairRequest) => {
+    setContactedRepairs((prev) => ({ ...prev, [repair.id]: true }));
+    try {
+      await fetch("/api/technician/jobs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.token}`,
+        },
+        body: JSON.stringify({
+          action: "contact_farmer",
+          repairId: repair.id,
+        }),
+      });
+    } catch {}
+    showToast(`📞 किसान ${repair.farmerName || ""} से संपर्क दर्ज किया गया।`);
+  };
+
+  // Handle View Route with real GPS coordinates
+  const handleViewRoute = async (repair: RepairRequest) => {
+    const lat = repair.farmerLocation?.latitude || 26.8467;
+    const lng = repair.farmerLocation?.longitude || 80.9462;
+    const mapUrl = repair.routeUrl || `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+    if (repair.status === "technician_assigned" || repair.technicianWorkflowStatus === "assigned") {
+      try {
+        await fetch("/api/technician/jobs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.token}`,
+          },
+          body: JSON.stringify({
+            action: "start_travel",
+            repairId: repair.id,
+          }),
+        });
+      } catch {}
+
+      const card = getJobCardByRepairId(repair.id) || getLatestJobCard();
+      if (card) {
+        updateTechnicianWorkflowStatus(card.jobId, "on_the_way");
+      }
+
+      updateRepairStatus(repair.id, {
+        status: "on_the_way",
+        statusTextHi: "मैकेनिक रास्ते में है",
+        technicianWorkflowStatus: "on_the_way",
+      });
+
+      onRefreshData();
+      showToast("📍 यात्रा प्रारंभ! किसान को सूचना भेजी गई।");
+    }
+
+    window.open(mapUrl, "_blank", "noopener,noreferrer");
+  };
+
+  // Handle Start Repair
+  const handleStartRepair = async (repair: RepairRequest) => {
+    try {
+      await fetch("/api/technician/jobs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.token}`,
+        },
+        body: JSON.stringify({
+          action: "start_repair",
+          repairId: repair.id,
+        }),
+      });
+    } catch {}
+
+    const card = getJobCardByRepairId(repair.id) || getLatestJobCard();
+    if (card) {
+      updateTechnicianWorkflowStatus(card.jobId, "repairing");
+    }
+
+    updateRepairStatus(repair.id, {
+      status: "repairing",
+      statusTextHi: "मरम्मत चल रही है",
+      technicianWorkflowStatus: "repairing",
+    });
+
+    onRefreshData();
+    showToast("⚙️ मरम्मत कार्य प्रारंभ किया गया!");
+  };
+
+  // 5 Status progress stages helper
+  const getRepairProgressStages = (repair: RepairRequest, isContacted: boolean) => {
+    const status = repair.technicianWorkflowStatus || repair.status;
+    const isTravelStarted =
+      status === "on_the_way" ||
+      status === "arrived" ||
+      status === "repairing" ||
+      status === "completed" ||
+      status === "verification_pending";
+    const isArrivedOrBeyond =
+      status === "arrived" ||
+      status === "repairing" ||
+      status === "completed" ||
+      status === "verification_pending";
+    const isRepairingOrBeyond =
+      status === "repairing" ||
+      status === "completed" ||
+      status === "verification_pending";
+    const isCompleted =
+      status === "completed" || status === "verification_pending";
+
+    const stage1Done = true;
+    const stage2Done = isContacted || isTravelStarted;
+    const stage3Done = isArrivedOrBeyond;
+    const stage4Done = isRepairingOrBeyond;
+    const stage5Done = isCompleted;
+
+    let currentStage = 1;
+    if (!stage2Done) currentStage = 2;
+    else if (!stage3Done) currentStage = 3;
+    else if (!stage4Done) currentStage = 4;
+    else if (!stage5Done) currentStage = 5;
+    else currentStage = 5;
+
+    return [
+      { id: 1, label: "अनुरोध स्वीकार किया", done: stage1Done, current: false },
+      { id: 2, label: "किसान से संपर्क", done: stage2Done, current: currentStage === 2 },
+      { id: 3, label: "किसान के स्थान पर जाना", done: stage3Done, current: currentStage === 3 },
+      { id: 4, label: "मरम्मत शुरू", done: stage4Done, current: currentStage === 4 },
+      { id: 5, label: "मरम्मत पूरी", done: stage5Done, current: currentStage === 5 },
+    ];
   };
 
   // Handle Reject Confirmation
@@ -413,7 +554,7 @@ export default function TechnicianDashboard({
 
   // Handle Complete Repair Submission
   const handleConfirmCompletion = async () => {
-    const targetRepairId = activeJobCard ? activeJobCard.repairRequestId : selectedJobCardId;
+    const targetRepairId = completingRepairId || (activeJobCard ? activeJobCard.repairRequestId : selectedJobCardId);
     if (!targetRepairId) return;
 
     try {
@@ -432,20 +573,38 @@ export default function TechnicianDashboard({
       });
     } catch {}
 
-    if (activeJobCard) {
-      updateTechnicianWorkflowStatus(activeJobCard.jobId, "completed");
+    const card = getJobCardByRepairId(targetRepairId);
+    if (card) {
+      updateTechnicianWorkflowStatus(card.jobId, "completed");
     }
 
+    const feeNumber = typeof completionLabourFee === "number" ? completionLabourFee : 450;
+    const finalPricingBreakdown: PricingBreakdown = {
+      diagnosticFee: 150,
+      labourFee: feeNumber - 150 > 0 ? feeNumber - 150 : feeNumber,
+      partsEstimate: 0,
+      travelFee: 0,
+      discount: 0,
+      total: feeNumber,
+      currency: "₹",
+      isDemoPricing: false,
+    };
+
     updateRepairStatus(targetRepairId, {
-      status: "verification_pending",
-      statusTextHi: "मशीन की जाँच बाकी है",
+      status: "completed",
+      statusTextHi: "मरम्मत पूर्ण हो चुकी है",
       technicianWorkflowStatus: "completed",
+      verificationTime: new Date().toISOString(),
+      finalCost: finalPricingBreakdown,
+      verificationNote: completionNotes,
     });
 
     setIsCompletingModalOpen(false);
+    setCompletingRepairId(null);
     setSelectedJobCardId(null);
+    setRepairsSubTab("completed");
     onRefreshData();
-    showToast("✓ मरम्मत पूर्ण चिह्नित की गई! किसान सत्यापन हेतु सूचना प्रेषित।");
+    showToast("✓ मरम्मत पूरी हुई! किसान को पुष्टि व बिल भेजा गया।");
   };
 
   // Handle stage transition in job card
@@ -605,7 +764,19 @@ export default function TechnicianDashboard({
           isAvailable={isAvailable}
           onToggleAvailability={() => setIsAvailable((prev) => !prev)}
           onNavigateTab={(tab, target) => {
-            setActiveTab(tab);
+            if (tab === "jobs" || tab === "home") {
+              setActiveTab("home");
+            } else if (tab === "requests") {
+              setActiveTab("requests");
+            } else if (tab === "repairs") {
+              setActiveTab("repairs");
+              setRepairsSubTab("active");
+            } else if (tab === "profile") {
+              setActiveTab("profile");
+            } else {
+              setActiveTab("home");
+            }
+            setSelectedJobCardId(null);
             if (target) {
               setTimeout(() => {
                 const el = document.getElementById(target);
@@ -623,35 +794,468 @@ export default function TechnicianDashboard({
         />
       ) : (
         <main className="max-w-4xl mx-auto px-4 py-4 space-y-4">
-        {/* KPI Summary Cards — Real Backend Values (Part 9 Requirement) */}
+        {/* KPI Summary Cards — Interactive & Connected */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
-            <span className="text-xs font-bold text-amber-800 block">नए अनुरोध</span>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("requests");
+              setSelectedJobCardId(null);
+            }}
+            className={`p-3 sm:p-3.5 rounded-xl border transition-all cursor-pointer text-left block w-full shadow-2xs ${
+              activeTab === "requests"
+                ? "bg-amber-50/90 border-amber-400 ring-2 ring-amber-400/30"
+                : "bg-white border-slate-200/90 hover:border-amber-300"
+            }`}
+          >
+            <span className="text-[11px] sm:text-xs font-bold text-amber-800 block">नए अनुरोध</span>
             <span className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 block">
               {incomingRepairs.length}
             </span>
-          </div>
+          </button>
 
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
-            <span className="text-xs font-bold text-emerald-800 block">चल रहे काम</span>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("repairs");
+              setRepairsSubTab("active");
+              setSelectedJobCardId(null);
+            }}
+            className={`p-3 sm:p-3.5 rounded-xl border transition-all cursor-pointer text-left block w-full shadow-2xs ${
+              activeTab === "repairs" && repairsSubTab === "active"
+                ? "bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-400/30"
+                : "bg-white border-slate-200/90 hover:border-emerald-300"
+            }`}
+          >
+            <span className="text-[11px] sm:text-xs font-bold text-emerald-800 block">चल रहे काम</span>
             <span className="text-xl sm:text-2xl font-black text-emerald-700 mt-0.5 block">
               {activeRepairs.length}
             </span>
-          </div>
+          </button>
 
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
-            <span className="text-xs font-bold text-slate-600 block">पूरे किए गए काम</span>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("repairs");
+              setRepairsSubTab("completed");
+              setSelectedJobCardId(null);
+            }}
+            className={`p-3 sm:p-3.5 rounded-xl border transition-all cursor-pointer text-left block w-full shadow-2xs ${
+              activeTab === "repairs" && repairsSubTab === "completed"
+                ? "bg-slate-100 border-slate-400 ring-2 ring-slate-400/30"
+                : "bg-white border-slate-200/90 hover:border-slate-300"
+            }`}
+          >
+            <span className="text-[11px] sm:text-xs font-bold text-slate-600 block">पूरे किए गए काम</span>
             <span className="text-xl sm:text-2xl font-black text-slate-800 mt-0.5 block">
               {completedRepairs.length}
             </span>
-          </div>
+          </button>
         </div>
 
-        {/* ================= TAB 1: WORK ORDERS & ACTIVE JOB CARDS ================= */}
-        {activeTab === "jobs" && (
+        {/* ================= TAB: HOME (डैशबोर्ड होम) ================= */}
+        {activeTab === "home" && (
           <div className="space-y-4">
+            {/* Urgent incoming banner if available */}
+            {incomingRepairs.length > 0 && (
+              <div className="bg-amber-50 border border-amber-300 rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                    !
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-amber-950">
+                      {incomingRepairs.length} नया मरम्मत अनुरोध प्राप्त हुआ है
+                    </div>
+                    <div className="text-[11px] text-amber-900 truncate">
+                      {incomingRepairs[0].farmerName || "किसान"} • {incomingRepairs[0].machineNameHi || "Tractor"}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("requests");
+                    setSelectedJobCardId(null);
+                  }}
+                  className="bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 cursor-pointer transition-colors shadow-2xs"
+                >
+                  अनुरोध देखें ➔
+                </button>
+              </div>
+            )}
+
+            {/* Quick list of incoming requests */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                  <span>प्रासंगिक अनुरोध</span>
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("requests")}
+                  className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <span>सभी देखें ({incomingRepairs.length})</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {incomingRepairs.length === 0 ? (
+                <div className="bg-white rounded-xl p-6 text-center border border-slate-200/90 shadow-2xs space-y-1">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                  <p className="text-xs font-semibold text-slate-700">कोई नया अनुरोध लंबित नहीं है</p>
+                </div>
+              ) : (
+                incomingRepairs.slice(0, 2).map((req) => (
+                  <div
+                    key={req.id}
+                    className="bg-white rounded-xl p-4 border border-slate-200/90 hover:border-emerald-300 transition-all shadow-2xs space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-2xl p-2.5 bg-emerald-50 rounded-xl border border-emerald-100 flex-shrink-0">
+                          {req.machineIcon || "🚜"}
+                        </span>
+                        <div className="min-w-0">
+                          <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+                            {req.farmerName || "किसान"}
+                          </h3>
+                          <div className="text-xs font-bold text-emerald-800">
+                            {req.machineNameHi || "Tractor"}
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 flex-wrap mt-0.5">
+                            <span>📍 {getTechnicianDistanceText(req)}</span>
+                            <span>•</span>
+                            <span>{req.farmerLocation?.village || "शाहपुर"}, {req.farmerLocation?.district || "लखनऊ"}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                          req.urgency === "today"
+                            ? "bg-amber-50 text-amber-900 border-amber-300"
+                            : "bg-slate-50 text-slate-700 border-slate-200"
+                        }`}>
+                          {req.urgency === "today" ? "⚠️ आज ही" : "सामान्य"}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>{req.createdAt ? new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "अभी"}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200/80 text-xs text-slate-700 space-y-1.5">
+                      <div>
+                        <span className="text-slate-500 font-medium block text-[11px]">समस्या (Problem):</span>
+                        <span className="text-slate-900 font-bold text-xs sm:text-sm">
+                          {req.problemDescription}
+                        </span>
+                      </div>
+                      {req.diagnosis?.possibleProblem && (
+                        <div className="pt-1.5 border-t border-slate-200/70 text-[11px]">
+                          <span className="font-bold text-emerald-800">AI की संभावित जांच: </span>
+                          <span className="text-slate-700 font-medium">{req.diagnosis.possibleProblem}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-end pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setViewingRequest(req)}
+                        className="bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                      >
+                        <span>अनुरोध देखें</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Quick list of active repairs if any */}
+            {activeRepairs.length > 0 && (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+                  <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                    <ClipboardList className="w-4 h-4 text-emerald-700" />
+                    <span>सक्रिय मरम्मत</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("repairs");
+                      setRepairsSubTab("active");
+                    }}
+                    className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>मेरी मरम्मत देखें ➔</span>
+                  </button>
+                </div>
+
+                {activeRepairs.slice(0, 1).map((repair) => {
+                  const stages = getRepairProgressStages(repair, !!contactedRepairs[repair.id]);
+                  return (
+                    <div
+                      key={repair.id}
+                      className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl p-2.5 bg-emerald-50 rounded-xl border border-emerald-100 flex-shrink-0">
+                            {repair.machineIcon || "🚜"}
+                          </span>
+                          <div>
+                            <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                              {repair.farmerName || "किसान"} • {repair.machineNameHi || "मशीन"}
+                            </h3>
+                            <p className="text-xs text-slate-500 font-medium">
+                              📍 {getTechnicianDistanceText(repair)} • {repair.farmerLocation?.village || "स्थान उपलब्ध"}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                          {repair.statusTextHi || "स्वीकृत"}
+                        </span>
+                      </div>
+
+                      {/* 5-Stage Stepper */}
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-1.5">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          प्रगति स्थिति:
+                        </div>
+                        <div className="space-y-1">
+                          {stages.map((st) => (
+                            <div key={st.id} className="flex items-center gap-2 text-xs">
+                              {st.done ? (
+                                <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px] shrink-0">
+                                  ✓
+                                </span>
+                              ) : st.current ? (
+                                <span className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0 animate-pulse">
+                                  ●
+                                </span>
+                              ) : (
+                                <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center font-bold text-[9px] shrink-0">
+                                  ○
+                                </span>
+                              )}
+                              <span className={st.done ? "font-semibold text-slate-800" : st.current ? "font-bold text-amber-800" : "text-slate-400"}>
+                                {st.label}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleViewRoute(repair)}
+                          className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-200"
+                        >
+                          <Navigation className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>📍 रास्ता देखें</span>
+                        </button>
+                        <a
+                          href={`tel:${repair.farmerPhone || "9876543210"}`}
+                          onClick={() => handleCallFarmer(repair)}
+                          className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-emerald-200 text-center"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>📞 किसान से संपर्क</span>
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Zero Commission Settlement Card */}
+            <div className="bg-slate-900 text-white rounded-xl p-4 space-y-2 border border-slate-800 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                  शून्य कमीशन मॉडल
+                </span>
+                <span className="bg-slate-800 text-slate-300 text-[10px] font-semibold px-2 py-0.5 rounded border border-slate-700">
+                  AgriPulse
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                AgriPulse पर मरम्मत शुल्क का 100% भुगतान सीधा आपके बैंक खाते में जाता है। कोई मध्यस्थ या छिपे हुए शुल्क नहीं।
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ================= TAB: REQUESTS (मरम्मत अनुरोध) ================= */}
+        {activeTab === "requests" && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs flex items-center justify-between">
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-slate-900">
+                  मरम्मत अनुरोध
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  आपके कौशल और कार्यक्षेत्र के अनुसार प्रासंगिक अनुरोध
+                </p>
+              </div>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-300">
+                {incomingRepairs.length} नए अनुरोध
+              </span>
+            </div>
+
+            {incomingRepairs.length === 0 ? (
+              <div className="bg-white rounded-xl p-8 text-center border border-dashed border-slate-200 space-y-2">
+                <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-800">
+                  फिलहाल कोई नया मरम्मत अनुरोध लंबित नहीं है
+                </h3>
+                <p className="text-xs text-slate-500">
+                  नए अनुरोध आने पर आपको तुरंत यहाँ सूचना मिलेगी।
+                </p>
+              </div>
+            ) : (
+              incomingRepairs.map((req) => (
+                <div
+                  key={req.id}
+                  className="bg-white rounded-xl p-4 border border-slate-200/90 hover:border-emerald-300 transition-all shadow-2xs space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-2xl p-2.5 bg-emerald-50 rounded-xl border border-emerald-100 flex-shrink-0">
+                        {req.machineIcon || "🚜"}
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+                          {req.farmerName || "किसान"}
+                        </h3>
+                        <div className="text-xs font-bold text-emerald-800">
+                          {req.machineNameHi || "Tractor"}
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <span>📍 {getTechnicianDistanceText(req)}</span>
+                          <span>•</span>
+                          <span>{req.farmerLocation?.village || "शाहपुर"}, {req.farmerLocation?.district || "लखनऊ"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                        req.urgency === "today"
+                          ? "bg-amber-50 text-amber-900 border-amber-300"
+                          : "bg-slate-50 text-slate-700 border-slate-200"
+                      }`}>
+                        {req.urgency === "today" ? "⚠️ आज ही" : "सामान्य"}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span>{req.createdAt ? new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "अभी"}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200/80 text-xs text-slate-700 space-y-1.5">
+                    <div>
+                      <span className="text-slate-500 font-medium block text-[11px]">समस्या (Problem):</span>
+                      <span className="text-slate-900 font-bold text-xs sm:text-sm">
+                        {req.problemDescription}
+                      </span>
+                    </div>
+                    {req.diagnosis?.possibleProblem && (
+                      <div className="pt-1.5 border-t border-slate-200/70 text-[11px]">
+                        <span className="font-bold text-emerald-800">AI की संभावित जांच: </span>
+                        <span className="text-slate-700 font-medium">{req.diagnosis.possibleProblem}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="text-xs text-slate-600 font-medium">
+                      स्थिति: <span className="font-bold text-amber-800">{req.statusTextHi || "नया अनुरोध"}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setViewingRequest(req)}
+                      className="bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                    >
+                      <span>अनुरोध देखें</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* ================= TAB: REPAIRS (मेरी मरम्मत) ================= */}
+        {activeTab === "repairs" && (
+          <div className="space-y-4">
+            {/* Header and Sub-Tabs (only when not inspecting a single job card) */}
+            {(!selectedJobCardId || !activeJobCard) && (
+              <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base sm:text-lg font-black text-slate-900">
+                      मेरी मरम्मत
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      स्वीकृत और पूर्ण किए गए मरम्मत कार्य
+                    </p>
+                  </div>
+                </div>
+
+                {/* Sub-tabs: चल रही हैं | पूरी हुई */}
+                <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-lg text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setRepairsSubTab("active")}
+                    className={`py-2 px-3 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      repairsSubTab === "active"
+                        ? "bg-white text-emerald-800 shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <span>चल रही हैं</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                      repairsSubTab === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-600"
+                    }`}>
+                      {activeRepairs.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRepairsSubTab("completed")}
+                    className={`py-2 px-3 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      repairsSubTab === "completed"
+                        ? "bg-white text-emerald-800 shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <span>पूरी हुई</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                      repairsSubTab === "completed" ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-600"
+                    }`}>
+                      {completedRepairs.length}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* If deep inside a Job Card */}
-            {activeJobCard ? (
+            {selectedJobCardId && activeJobCard ? (
               <div className="space-y-4">
                 {/* Back button */}
                 <button
@@ -1001,290 +1605,219 @@ export default function TechnicianDashboard({
                   )}
                 </div>
               </div>
-            ) : (
-              /* Work Orders and Incoming Requests */
-              <div className="space-y-5">
-                {/* Real-time In-App Notification Banner for Incoming Request */}
-                {incomingRepairs.length > 0 && (
-                  <div className="bg-amber-50 text-amber-950 p-3 rounded-lg border border-amber-300 flex items-center justify-between gap-3 shadow-xs">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <AlertCircle className="w-5 h-5 text-amber-700 shrink-0" />
-                      <div className="truncate">
-                        <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-800">
-                          नया मरम्मत अनुरोध उपलब्ध
-                        </div>
-                        <div className="text-xs sm:text-sm font-bold truncate text-slate-900">
-                          {incomingRepairs[0].farmerName || "Pawan Gupta"} • {incomingRepairs[0].machineNameHi || "Tractor"}
-                        </div>
-                      </div>
+            ) : repairsSubTab === "active" ? (
+              /* Active repairs list */
+              <div className="space-y-3">
+                {activeRepairs.length === 0 ? (
+                  <div className="bg-white rounded-xl p-8 text-center border border-dashed border-slate-200 space-y-3">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800">
+                        कोई सक्रिय मरम्मत कार्य नहीं चल रहा है
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        नए अनुरोध को स्वीकार कर यहाँ से काम शुरू करें।
+                      </p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setViewingRequest(incomingRepairs[0])}
-                      className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-md text-xs font-semibold shrink-0 cursor-pointer transition-colors"
+                      onClick={() => setActiveTab("requests")}
+                      className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-2xs"
                     >
-                      देखें ➔
+                      अनुरोध देखें ➔
                     </button>
                   </div>
-                )}
+                ) : (
+                  activeRepairs.map((repair) => {
+                    const card = getJobCardByRepairId(repair.id) || getLatestJobCard();
+                    const stages = getRepairProgressStages(repair, !!contactedRepairs[repair.id]);
+                    const isRepairing = repair.status === "repairing" || repair.technicianWorkflowStatus === "repairing";
 
-                {/* ================= SECTION 1: INCOMING REQUESTS (नए मरम्मत अनुरोध) ================= */}
-                <div id="incomingRequestsSection" className="space-y-3">
-                  <div className="flex items-center justify-between pb-1 border-b border-slate-200">
-                    <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-slate-600" />
-                      <span>नए मरम्मत अनुरोध</span>
-                    </h2>
-                    <span className="text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-md">
-                      {incomingRepairs.length} नया अनुरोध
-                    </span>
-                  </div>
-
-                  {incomingRepairs.length === 0 ? (
-                    <div className="bg-white rounded-lg p-6 text-center border border-dashed border-slate-200 space-y-1">
-                      <h3 className="text-sm font-semibold text-slate-700">
-                        फिलहाल कोई नया मरम्मत अनुरोध लंबित नहीं है।
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        नए अनुरोध आने पर आपको तुरंत यहाँ सूचना मिलेगी।
-                      </p>
-                    </div>
-                  ) : (
-                    incomingRepairs.map((req) => (
+                    return (
                       <div
-                        key={req.id}
-                        className="bg-white rounded-xl p-4 border border-slate-200/90 hover:border-emerald-300 transition-all shadow-2xs space-y-3"
+                        key={repair.id}
+                        className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs space-y-3"
                       >
+                        {/* Farmer & Machine info */}
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex items-center gap-3">
                             <span className="text-2xl p-2.5 bg-emerald-50 rounded-xl border border-emerald-100 flex-shrink-0">
-                              {req.machineIcon || "🚜"}
+                              {repair.machineIcon || "🚜"}
                             </span>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
-                                  {req.farmerName || "Pawan Gupta"}
-                                </h3>
-                              </div>
+                            <div>
+                              <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+                                {repair.farmerName || "किसान"}
+                              </h3>
                               <div className="text-xs font-bold text-emerald-800">
-                                🚜 {req.machineNameHi || "Tractor"}
+                                {repair.machineNameHi || "Tractor"}
                               </div>
                               <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 flex-wrap mt-0.5">
-                                <span>📍 {getTechnicianDistanceText(req)}</span>
+                                <span>📍 {getTechnicianDistanceText(repair)}</span>
                                 <span>•</span>
-                                <span>{req.farmerLocation?.village || "शाहपुर, लखनऊ"}</span>
+                                <span>{repair.farmerLocation?.village || "शाहपुर"}, {repair.farmerLocation?.district || "लखनऊ"}</span>
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
-                              req.urgency === "today"
-                                ? "bg-amber-50 text-amber-900 border-amber-300"
-                                : "bg-slate-50 text-slate-700 border-slate-200"
-                            }`}>
-                              {req.urgency === "today" ? "⚠️ आज ही" : "सामान्य"}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-slate-400" />
-                              <span>{req.createdAt ? new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "अभी"}</span>
-                            </span>
+                          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            {repair.statusTextHi || "स्वीकृत"}
+                          </span>
+                        </div>
+
+                        {/* Problem info */}
+                        <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200/80 text-xs text-slate-700 space-y-1">
+                          <span className="text-slate-500 font-medium block text-[11px]">समस्या (Problem):</span>
+                          <span className="text-slate-900 font-bold text-xs sm:text-sm">
+                            {repair.problemDescription}
+                          </span>
+                        </div>
+
+                        {/* 5-Stage Stepper Status Progress */}
+                        <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                            <span>कार्य प्रगति स्थिति</span>
+                            <span className="text-emerald-800 font-extrabold">{repair.statusTextHi}</span>
+                          </div>
+                          <div className="space-y-1.5 pt-1">
+                            {stages.map((st) => (
+                              <div key={st.id} className="flex items-center gap-2.5 text-xs">
+                                {st.done ? (
+                                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
+                                    ✓
+                                  </span>
+                                ) : st.current ? (
+                                  <span className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0 animate-pulse">
+                                    ●
+                                  </span>
+                                ) : (
+                                  <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center font-bold text-[10px] shrink-0">
+                                    ○
+                                  </span>
+                                )}
+                                <span className={st.done ? "font-semibold text-slate-800" : st.current ? "font-bold text-amber-800" : "text-slate-400"}>
+                                  {st.label}
+                                </span>
+                              </div>
+                            ))}
                           </div>
                         </div>
 
-                        <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200/80 text-xs text-slate-700 space-y-1.5">
-                          <div>
-                            <span className="text-slate-500 font-medium block text-[11px]">समस्या (Problem):</span>
-                            <span className="text-slate-900 font-bold text-xs sm:text-sm">
-                              {req.problemDescription}
-                            </span>
+                        {/* Required Action Buttons */}
+                        <div className="space-y-2 pt-1">
+                          <div className="grid grid-cols-2 gap-2">
+                            {/* 📍 रास्ता देखें */}
+                            <button
+                              type="button"
+                              onClick={() => handleViewRoute(repair)}
+                              className="bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 font-bold text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-200 shadow-2xs"
+                            >
+                              <Navigation className="w-4 h-4 text-emerald-700" />
+                              <span>📍 रास्ता देखें</span>
+                            </button>
+
+                            {/* 📞 किसान से संपर्क करें */}
+                            <a
+                              href={`tel:${repair.farmerPhone || "9876543210"}`}
+                              onClick={() => handleCallFarmer(repair)}
+                              className="bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-900 font-bold text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-emerald-200 shadow-2xs text-center"
+                            >
+                              <Phone className="w-4 h-4 text-emerald-700" />
+                              <span>📞 किसान से संपर्क</span>
+                            </a>
                           </div>
-                          {req.diagnosis?.possibleProblem && (
-                            <div className="pt-1.5 border-t border-slate-200/70 text-[11px]">
-                              <span className="font-bold text-emerald-800">AI की संभावित जांच: </span>
-                              <span className="text-slate-700 font-medium">{req.diagnosis.possibleProblem}</span>
-                            </div>
+
+                          {/* मरम्मत शुरू करें button (if not yet repairing) */}
+                          {!isRepairing && repair.status !== "verification_pending" && (
+                            <button
+                              type="button"
+                              onClick={() => handleStartRepair(repair)}
+                              className="w-full bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-bold text-xs py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
+                            >
+                              <Wrench className="w-4 h-4 text-white" />
+                              <span>मरम्मत शुरू करें ➔</span>
+                            </button>
                           )}
-                        </div>
 
-                        <div className="flex items-center justify-between pt-1">
-                          <div className="text-xs text-slate-600 font-medium">
-                            स्थिति: <span className="font-bold text-amber-800">{req.statusTextHi || "नया अनुरोध"}</span>
-                          </div>
-
+                          {/* मरम्मत पूरी करें button */}
                           <button
                             type="button"
-                            onClick={() => setViewingRequest(req)}
-                            className="bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-bold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                            onClick={() => {
+                              setCompletingRepairId(repair.id);
+                              setIsCompletingModalOpen(true);
+                            }}
+                            className={`w-full ${
+                              isRepairing
+                                ? "bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white"
+                                : "bg-slate-800 hover:bg-slate-900 active:bg-slate-950 text-white"
+                            } font-bold text-xs py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs`}
                           >
-                            <span>अनुरोध देखें</span>
-                            <ChevronRight className="w-4 h-4" />
+                            <CheckCircle2 className="w-4 h-4 text-white" />
+                            <span>मरम्मत पूरी करें ✓</span>
+                          </button>
+
+                          {/* View Job card details */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedJobCardId(card ? card.jobId : repair.id);
+                            }}
+                            className="w-full text-center text-xs text-slate-500 hover:text-emerald-700 font-medium py-1 cursor-pointer"
+                          >
+                            विस्तृत जॉब कार्ड / पार्ट्स देखें ➔
                           </button>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
-
-                {/* ================= SECTION 2: ACTIVE REPAIRS (मेरे चल रहे काम) ================= */}
-                <div id="activeWorkSection" className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between pb-1 border-b border-slate-200">
-                    <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                      <ClipboardList className="w-4 h-4 text-slate-600" />
-                      <span>मेरे चल रहे काम</span>
-                    </h2>
-                    <span className="text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-md">
-                      {activeRepairs.length} सक्रिय कार्य
-                    </span>
+                    );
+                  })
+                )}
+              </div>
+            ) : (
+              /* Completed repairs list */
+              <div className="space-y-3">
+                {completedRepairs.length === 0 ? (
+                  <div className="bg-white rounded-xl p-8 text-center border border-dashed border-slate-200 space-y-2">
+                    <CheckCircle2 className="w-10 h-10 text-slate-300 mx-auto" />
+                    <h3 className="text-sm font-bold text-slate-800">
+                      अभी तक कोई मरम्मत पूरी नहीं हुई है
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      पूर्ण किए गए कार्य यहाँ दर्ज होंगे।
+                    </p>
                   </div>
-
-                  {activeRepairs.length === 0 ? (
-                    <div className="bg-white rounded-lg p-6 text-center border border-slate-200 space-y-1">
-                      <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                      <h3 className="text-sm font-semibold text-slate-800">
-                        कोई सक्रिय मरम्मत कार्य नहीं चल रहा है।
-                      </h3>
-                      <p className="text-xs text-slate-500 font-medium">
-                        ऊपर दिए गए नए अनुरोध को स्वीकार कर काम शुरू करें।
-                      </p>
-                    </div>
-                  ) : (
-                    activeRepairs.map((repair) => {
-                      const card = getJobCardByRepairId(repair.id) || getLatestJobCard();
-                      return (
-                        <div
-                          key={repair.id}
-                          className="bg-white rounded-lg p-4 border border-slate-200 hover:border-slate-300 transition-all shadow-xs space-y-3"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-3">
-                              <span className="text-2xl p-2 bg-slate-50 rounded-md border border-slate-200">
-                                {repair.machineIcon || "🚜"}
-                              </span>
-                              <div>
-                                <span className="text-xs font-medium text-slate-400 block">
-                                  {repair.id}
-                                </span>
-                                <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
-                                  {repair.farmerName || "Pawan Gupta"} • {repair.machineNameHi}
-                                </h3>
-                                <span className="text-xs text-slate-500 font-medium">
-                                  {repair.farmerLocation?.village || "शाहपुर"}, {repair.farmerLocation?.district || "लखनऊ"}
-                                </span>
-                              </div>
-                            </div>
-
-                            <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
-                              {repair.urgency === "today" ? "आज ही" : "2-3 दिन में"}
-                            </span>
-                          </div>
-
-                          <div className="p-2.5 bg-slate-50 rounded-md border border-slate-200 text-xs text-slate-700">
-                            <span className="text-slate-500 font-medium block mb-0.5">समस्या:</span>
-                            <span className="text-slate-900 font-semibold">
-                              {repair.problemDescription}
-                            </span>
-                          </div>
-
-                          {/* Quick Lifecycle Stage Stepper */}
-                          <div className="p-2 bg-slate-50 rounded-md border border-slate-200 flex items-center justify-between text-xs font-medium">
-                            <span className="text-slate-700">
-                              वर्तमान चरण: <strong className="text-emerald-800 font-semibold">{repair.statusTextHi}</strong>
-                            </span>
-                            {repair.routeUrl && (
-                              <a
-                                href={repair.routeUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-emerald-700 hover:underline flex items-center gap-1 font-semibold"
-                              >
-                                <Navigation className="w-3.5 h-3.5" />
-                                <span>रास्ता देखें</span>
-                              </a>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-between pt-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedJobCardId(card ? card.jobId : repair.id);
-                              }}
-                              className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs px-3.5 py-1.5 rounded-md flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
-                            >
-                              <span>कार्य विवरण / स्थिति अपडेट करें</span>
-                              <ChevronRight className="w-4 h-4" />
-                            </button>
+                ) : (
+                  completedRepairs.map((r) => (
+                    <div
+                      key={r.id}
+                      className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs space-y-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-2xl p-2 bg-emerald-50 rounded-xl border border-emerald-100">
+                            {r.machineIcon || "🚜"}
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900">{r.farmerName || "किसान"}</h4>
+                            <p className="text-xs font-semibold text-emerald-800">{r.machineNameHi || "Tractor"}</p>
                           </div>
                         </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ================= TAB 2: EARNINGS & SETTLEMENT ================= */}
-        {activeTab === "earnings" && (
-          <div className="space-y-4">
-            <div className="bg-slate-900 text-white rounded-lg p-4 space-y-3 shadow-xs border border-slate-800">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                डिजिटल भुगतान व खाता विवरण
-              </span>
-              <div className="flex items-baseline justify-between">
-                <div>
-                  <div className="text-xs text-slate-400">कुल संचित आय (Total Earnings)</div>
-                  <div className="text-2xl sm:text-3xl font-bold text-white">
-                    ₹{totalSettlement.toLocaleString("en-IN")}
-                  </div>
-                </div>
-                <span className="bg-slate-800 text-emerald-400 text-xs font-semibold px-2 py-0.5 rounded border border-slate-700">
-                  शून्य कमीशन मॉडल
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 font-medium">
-                प्रत्येक पूर्ण मरम्मत का भुगतान सीधा आपके बैंक खाते में 24 घंटे में स्थानांतरित किया जाता है।
-              </p>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-xs">
-              <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
-                हाल के मरम्मत बिल व भुगतान इतिहास
-              </h3>
-
-              <div className="space-y-2 text-xs">
-                {[
-                  { id: "PAY-901", machine: "महिंद्रा 575 DI", farmer: "रामलाल यादव", amount: 850, date: "आज", status: "प्रक्रियाधीन" },
-                  { id: "PAY-882", machine: "कृषि स्प्रेयर 16L", farmer: "सुरेश वर्मा", amount: 450, date: "कल", status: "सफल" },
-                  { id: "PAY-871", machine: "वाटर पंप 5HP", farmer: "हरिपाल सिंह", amount: 600, date: "28 सितंबर", status: "सफल" },
-                ].map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-2.5 bg-slate-50 rounded-md border border-slate-200 flex items-center justify-between"
-                  >
-                    <div>
-                      <div className="font-bold text-slate-900 text-xs sm:text-sm">{item.machine}</div>
-                      <div className="text-slate-500 font-medium text-[11px]">
-                        {item.farmer} • {item.date}
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          ✓ पूर्ण
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200/70 font-medium">
+                        {r.problemDescription}
+                      </p>
+                      <div className="flex items-center justify-between text-xs text-slate-500 pt-1 font-medium">
+                        <span>📍 {r.farmerLocation?.village || "शाहपुर"}, {r.farmerLocation?.district || "लखनऊ"}</span>
+                        <span className="font-bold text-slate-800">
+                          शुल्क: ₹{typeof r.finalCost === "object" && r.finalCost !== null ? (r.finalCost as any).total : (r.finalCost || 450)}
+                        </span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-bold text-slate-900 text-sm">₹{item.amount}</div>
-                      <span
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${item.status === "सफल"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-amber-100 text-amber-800"
-                          }`}
-                      >
-                        {item.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -1299,12 +1832,12 @@ export default function TechnicianDashboard({
             type="button"
             id="technician-nav-home-btn"
             onClick={() => {
-              setActiveTab("jobs");
+              setActiveTab("home");
               setSelectedJobCardId(null);
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             className={`py-1.5 px-1 flex flex-col items-center justify-center rounded-md transition-colors cursor-pointer ${
-              activeTab === "jobs" && !selectedJobCardId
+              activeTab === "home"
                 ? "text-emerald-700 font-bold bg-emerald-50"
                 : "text-slate-600 font-medium hover:text-slate-900"
             }`}
@@ -1318,16 +1851,24 @@ export default function TechnicianDashboard({
             type="button"
             id="technician-nav-requests-btn"
             onClick={() => {
-              setActiveTab("jobs");
+              setActiveTab("requests");
               setSelectedJobCardId(null);
-              setTimeout(() => {
-                const el = document.getElementById("incomingRequestsSection");
-                if (el) el.scrollIntoView({ behavior: "smooth" });
-              }, 50);
+              window.scrollTo({ top: 0, behavior: "smooth" });
             }}
-            className="py-1.5 px-1 flex flex-col items-center justify-center rounded-md transition-colors cursor-pointer text-slate-600 font-medium hover:text-slate-900"
+            className={`py-1.5 px-1 flex flex-col items-center justify-center rounded-md transition-colors cursor-pointer relative ${
+              activeTab === "requests"
+                ? "text-emerald-700 font-bold bg-emerald-50"
+                : "text-slate-600 font-medium hover:text-slate-900"
+            }`}
           >
-            <AlertCircle className="w-5 h-5 mb-0.5 text-amber-600" />
+            <div className="relative">
+              <AlertCircle className="w-5 h-5 mb-0.5 text-amber-600" />
+              {incomingRepairs.length > 0 && (
+                <span className="absolute -top-1 -right-2 bg-amber-600 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                  {incomingRepairs.length}
+                </span>
+              )}
+            </div>
             <span className="text-[11px]">{currentLanguage === "en" ? "Requests" : "अनुरोध"}</span>
           </button>
 
@@ -1336,15 +1877,24 @@ export default function TechnicianDashboard({
             type="button"
             id="technician-nav-repairs-btn"
             onClick={() => {
-              setActiveTab("jobs");
-              setTimeout(() => {
-                const el = document.getElementById("activeWorkSection");
-                if (el) el.scrollIntoView({ behavior: "smooth" });
-              }, 50);
+              setActiveTab("repairs");
+              setSelectedJobCardId(null);
+              window.scrollTo({ top: 0, behavior: "smooth" });
             }}
-            className="py-1.5 px-1 flex flex-col items-center justify-center rounded-md transition-colors cursor-pointer text-slate-600 font-medium hover:text-slate-900"
+            className={`py-1.5 px-1 flex flex-col items-center justify-center rounded-md transition-colors cursor-pointer relative ${
+              activeTab === "repairs"
+                ? "text-emerald-700 font-bold bg-emerald-50"
+                : "text-slate-600 font-medium hover:text-slate-900"
+            }`}
           >
-            <ClipboardList className="w-5 h-5 mb-0.5 text-emerald-700" />
+            <div className="relative">
+              <ClipboardList className="w-5 h-5 mb-0.5 text-emerald-700" />
+              {activeRepairs.length > 0 && (
+                <span className="absolute -top-1 -right-2 bg-emerald-600 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                  {activeRepairs.length}
+                </span>
+              )}
+            </div>
             <span className="text-[11px]">{currentLanguage === "en" ? "Repairs" : "मरम्मत"}</span>
           </button>
 
@@ -1352,7 +1902,11 @@ export default function TechnicianDashboard({
           <button
             type="button"
             id="technician-nav-profile-btn"
-            onClick={() => setActiveTab("profile")}
+            onClick={() => {
+              setActiveTab("profile");
+              setSelectedJobCardId(null);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
             className={`py-1.5 px-1 flex flex-col items-center justify-center rounded-md transition-colors cursor-pointer ${
               activeTab === "profile"
                 ? "text-emerald-700 font-bold bg-emerald-50"
@@ -1418,6 +1972,34 @@ export default function TechnicianDashboard({
                   </span>
                 </div>
               </div>
+
+              {/* Photo/Voice Complaint Section if available */}
+              {(viewingRequest.photoDataUrl || viewingRequest.inputMethod === "voice" || viewingRequest.inputMethod === "photo" || viewingRequest.mediaFileName) && (
+                <div className="pt-3.5 space-y-1.5">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+                    शिकायत प्रमाण (Photo / Voice Complaint)
+                  </span>
+                  {viewingRequest.photoDataUrl ? (
+                    <div className="rounded-md overflow-hidden border border-slate-200">
+                      <img
+                        src={viewingRequest.photoDataUrl}
+                        alt="शिकायत की फोटो"
+                        className="w-full max-h-48 object-cover"
+                      />
+                    </div>
+                  ) : viewingRequest.inputMethod === "voice" ? (
+                    <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-900 font-medium flex items-center gap-2">
+                      <span className="text-base">🎙️</span>
+                      <span>ऑडियो वॉइस शिकायत दर्ज की गई (AI द्वारा विश्लेषण किया गया)</span>
+                    </div>
+                  ) : (
+                    <div className="p-2 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-600 font-medium flex items-center gap-2">
+                      <span className="text-base">📷</span>
+                      <span>फोटो शिकायत संलग्न है</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 3. AI Potential Assessment */}
               <div className="pt-3.5 space-y-1.5">
@@ -1511,15 +2093,15 @@ export default function TechnicianDashboard({
                   onClick={() => setIsRejecting(true)}
                   className="w-full py-2.5 px-4 rounded-md border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
                 >
-                  अस्वीकार करें
+                  अभी उपलब्ध नहीं
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setIsConfirmingAccept(true)}
-                  className="w-full py-2.5 px-4 rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-colors cursor-pointer"
+                  onClick={handleConfirmAccept}
+                  className="w-full py-2.5 px-4 rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-colors cursor-pointer shadow-sm"
                 >
-                  अनुरोध स्वीकार करें ➔
+                  अनुरोध स्वीकार करें
                 </button>
               </div>
             </div>
