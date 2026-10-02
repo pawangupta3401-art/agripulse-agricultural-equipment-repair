@@ -142,7 +142,7 @@ import { MockBackendProvider, setBackendProvider, getBackendProvider } from "@/s
 import { DEMO_OIL_LEAK_PHOTO_DATA_URL, PRIMARY_DEMO_SCENARIO } from "@/services/demoData";
 import dynamic from "next/dynamic";
 import LoginScreen from "./LoginScreen";
-import WelcomeScreen, { hasSeenWelcome, markWelcomeSeen } from "./WelcomeScreen";
+import WelcomeScreen from "./WelcomeScreen";
 import TechnicianDashboard from "./TechnicianDashboard";
 import ProfileScreen from "./ProfileScreen";
 import VoiceHelpAssistant from "@/components/VoiceHelpAssistant";
@@ -237,17 +237,10 @@ type SyncState = "idle" | "syncing" | "synced";
 export default function AgriPulseApp() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>("home");
 
-  // Welcome screen: shown only on first launch (before auth flow)
-  const [showWelcomeScreen, setShowWelcomeScreen] = useState<boolean>(() => {
-    // SSR-safe: default to false; client-side useEffect will correct this
-    if (typeof window !== "undefined") {
-      return !hasSeenWelcome();
-    }
-    return false;
-  });
+  // Flow: App launch par hamesha First Welcome Screen show ho -> "शुरू करें" -> Login/Registration Page
+  const [showWelcomeScreen, setShowWelcomeScreen] = useState<boolean>(true);
 
   const handleWelcomeGetStarted = () => {
-    markWelcomeSeen();
     setShowWelcomeScreen(false);
   };
 
@@ -266,6 +259,7 @@ export default function AgriPulseApp() {
   const handleLogout = () => {
     clearStoredSession();
     setAuthSession(null);
+    setShowWelcomeScreen(true);
     setCurrentScreen("home");
   };
 
@@ -2379,8 +2373,8 @@ export default function AgriPulseApp() {
   const latestRepair = activeRepairs[0] || (repairs.length > 0 ? repairs[0] : null);
   const currentBreakdownMachine =
     machines.find((m) => m.id === breakdownMachineId) || machines[0];
-  // 1a. First-ever launch: show the Welcome Screen before auth
-  if (showWelcomeScreen) {
+  // 1a. App launch starting flow: Show First Welcome Screen before Login/Registration
+  if (!authSession && showWelcomeScreen) {
     return (
       <WelcomeScreen
         currentLanguage={currentLanguage}
@@ -2393,7 +2387,7 @@ export default function AgriPulseApp() {
     );
   }
 
-  // 1b. If not authenticated, render LoginScreen as the entry screen
+  // 1b. If not authenticated, render LoginScreen (after "शुरू करें" is clicked)
   if (!authSession) {
     return (
       <LoginScreen
@@ -2402,6 +2396,7 @@ export default function AgriPulseApp() {
           setCurrentLanguage(lang);
           setStoredLanguage(lang);
         }}
+        onBackToWelcome={() => setShowWelcomeScreen(true)}
         onLoginSuccess={(session) => {
           setAuthSession(session);
           if (isTechnicianRole(session.user.role)) {

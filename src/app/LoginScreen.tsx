@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Mic,
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
   Headphones,
   Lock,
@@ -38,12 +39,14 @@ interface LoginScreenProps {
   currentLanguage: LanguageCode;
   onLanguageChange: (lang: LanguageCode) => void;
   onLoginSuccess: (session: AuthSession) => void;
+  onBackToWelcome?: () => void;
 }
 
 export default function LoginScreen({
   currentLanguage,
   onLanguageChange,
   onLoginSuccess,
+  onBackToWelcome,
 }: LoginScreenProps) {
   // Step 1: Account type state (Strictly "farmer" or "technician")
   const [selectedRole, setSelectedRole] = useState<UserRole>("farmer");
@@ -399,6 +402,17 @@ export default function LoginScreen({
         <div className="flex justify-between items-center w-full px-3 sm:px-4 h-15 sm:h-16 max-w-4xl mx-auto">
           {/* Leading Brand Identity */}
           <div className="flex items-center gap-2">
+            {onBackToWelcome && (
+              <button
+                type="button"
+                onClick={onBackToWelcome}
+                className="p-1.5 -ml-1 text-[#475569] hover:text-[#165420] hover:bg-[#ecf8ee] rounded-lg transition-colors cursor-pointer"
+                title="शुरुआती स्क्रीन पर वापस जाएं / Back to Welcome"
+                aria-label="वापस जाएं"
+              >
+                <ArrowLeft className="w-5 h-5 text-[#165420]" />
+              </button>
+            )}
             <span className="text-2xl filter drop-shadow-2xs">🌾</span>
             <div className="flex flex-col">
               <span className="text-xl font-bold text-[#165420] tracking-tight leading-tight">
