@@ -3610,12 +3610,9 @@ export default function AgriPulseApp() {
                   🗣️✨
                 </span>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white">बोलकर पूछें (Voice AI सहायक)</span>
-                    <span className="text-[10px] font-bold bg-amber-400 text-amber-950 px-2 py-0.5 rounded-full">
-                      1000 Q&A
-                    </span>
-                  </div>
+                  <h3 className="text-sm font-bold text-white leading-tight">
+                    बोलकर पूछें (Voice AI सहायक)
+                  </h3>
                   <p className="text-xs text-emerald-100 font-medium truncate mt-0.5">
                     ट्रैक्टर, पंप, टिलर या मशीन की समस्या बोलें — सरल हिन्दी में जवाब
                   </p>
