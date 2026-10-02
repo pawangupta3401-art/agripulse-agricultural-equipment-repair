@@ -107,7 +107,7 @@ export interface PartSelection {
   decision: PartDecision;
 }
 
-export type ComplaintChannel = "APP" | "PHONE" | "ASSISTED";
+export type ComplaintChannel = "APP" | "PHONE" | "ASSISTED" | "WHATSAPP";
 
 export interface JobCard {
   jobId: string;
@@ -522,13 +522,42 @@ export interface ServiceCentreStockedPart {
   availabilityStatus: "उपलब्ध (In Stock)" | "सीमित स्टॉक (Limited)" | "ऑर्डर पर (On Order)";
 }
 
+export interface ServiceCentreAffiliatedTechnician {
+  technicianId: string;
+  role: "employed" | "affiliate" | "on_call_partner";
+  assignedDate: string;
+  isActive: boolean;
+}
+
+export interface ServiceCentreEquipmentCapability {
+  category: string;
+  supportedBrands: string[];
+  serviceTypesOffered: ("minor_repair" | "major_overhaul" | "periodic_service" | "diagnostics")[];
+}
+
+export interface FPODetails {
+  fpoName: string;
+  cinOrRegNo: string;
+  memberFarmerCount: number;
+  affiliatedVillages: string[];
+  customHiringCentreAvailable: boolean;
+  subsidizedPricingForMembers: boolean;
+  memberDiscountPercentage: number;
+}
+
+export interface CooperativeDetails {
+  societyName: string;
+  registrationDistrict: string;
+  pacsAffiliated: boolean;
+}
+
 export interface ServiceCentre {
   id: string;
   name: string;
   nameHi: string;
   centreType: ServiceCentreType;
   operatingOrgName?: string;
-  operatingOrgType?: "FPO" | "Cooperative" | "Entrepreneur" | "Private Workshop";
+  operatingOrgType?: "FPO" | "Cooperative" | "Entrepreneur" | "Private Workshop" | "Govt_Custom_Hiring_Centre";
   location: {
     lat: number;
     lng: number;
@@ -547,6 +576,12 @@ export interface ServiceCentre {
   verificationStatus: ServiceCentreVerificationStatus;
   isDemoRecord: boolean;
   notesHi?: string;
+  // Deep FPO / Cooperative & Network Relationships
+  technicianAffiliations?: ServiceCentreAffiliatedTechnician[];
+  supportedEquipmentDetails?: ServiceCentreEquipmentCapability[];
+  fpoDetails?: FPODetails;
+  cooperativeDetails?: CooperativeDetails;
+  sparePartSupplierId?: string;
 }
 
 // ─── P2J Step 1: Backend & Cloud Sync Types ─────────────────────────────────
@@ -719,3 +754,210 @@ export interface RecoveryPlan {
   isOffline: boolean;
   generatedAt: string;
 }
+
+// ─── P3: WhatsApp Support Backend Integration Types ─────────────────────────
+
+export type WhatsAppMessageType = "text" | "image" | "audio" | "interactive";
+
+export interface WhatsAppIncomingMessage {
+  from: string; // E.164 phone number, e.g. "919876543210"
+  id: string;
+  timestamp: string;
+  type: WhatsAppMessageType;
+  text?: { body: string };
+  image?: { id: string; mime_type?: string; caption?: string; url?: string; sha256?: string; base64?: string };
+  audio?: { id: string; mime_type?: string; voice?: boolean; url?: string };
+  interactive?: {
+    type: "button_reply" | "list_reply";
+    button_reply?: { id: string; title: string };
+    list_reply?: { id: string; title: string; description?: string };
+  };
+}
+
+export interface WhatsAppOutgoingMessage {
+  to: string;
+  type: "text" | "interactive";
+  text?: { body: string };
+  interactive?: {
+    type: "button" | "list";
+    header?: { type: "text"; text: string };
+    body: { text: string };
+    footer?: { text: string };
+    action: {
+      buttons?: Array<{ type: "reply"; reply: { id: string; title: string } }>;
+      button?: string;
+      sections?: Array<{ title: string; rows: Array<{ id: string; title: string; description?: string }> }>;
+    };
+  };
+}
+
+export interface WhatsAppSession {
+  phoneNumber: string;
+  farmerName?: string;
+  language: string;
+  state: "idle" | "awaiting_photo" | "confirming_booking" | "in_diagnosis";
+  conversationContext: Array<{ role: "farmer" | "assistant"; content: string }>;
+  activeRepairRequestId?: string;
+  lastActive: string;
+}
+
+// ─── P3: Spare Parts Network & Multi-Supplier Types ─────────────────────────
+
+export type SupplierType = "oem_distributor" | "local_retailer" | "fpo_depot" | "authorized_dealer";
+
+export interface Supplier {
+  id: string;
+  name: string;
+  nameHi: string;
+  supplierType: SupplierType;
+  contactPhone: string;
+  email?: string;
+  location: {
+    lat: number;
+    lng: number;
+    addressHi: string;
+    district: string;
+    state: string;
+    pincode: string;
+  };
+  distanceKm?: number;
+  rating: number;
+  verifiedStatus: "verified" | "pending";
+  deliveryAvailable: boolean;
+  deliveryRadiusKm: number;
+  operatingStatus: "open" | "closed";
+  notesHi?: string;
+}
+
+export interface SparePartStockItem {
+  supplierId: string;
+  partId: string;
+  inStock: boolean;
+  quantity: number;
+  unitPrice: number;
+  wholesalePrice?: number;
+  leadTimeHours: number;
+  lastUpdated: string;
+}
+
+export interface SparePartCompatibilityRule {
+  partId: string;
+  machineType: string;
+  machineModel?: string;
+  engineModel?: string;
+  notes?: string;
+}
+
+export interface NearbySupplierMatch {
+  supplier: Supplier;
+  distanceKm: number;
+  distanceText: string;
+  partAvailability: Array<{
+    partId: string;
+    partNameHi: string;
+    partNameEn: string;
+    inStock: boolean;
+    quantity: number;
+    unitPrice: number;
+    leadTimeHours: number;
+  }>;
+  allRequestedPartsInStock: boolean;
+  totalPartsCost: number;
+  deliveryAvailable: boolean;
+  estimatedDeliveryHours: number;
+}
+
+// ─── P3: Technician Training & Certification Architecture Types ─────────────
+
+export interface TrainingModule {
+  id: string;
+  title: string;
+  titleHi: string;
+  descriptionHi: string;
+  category: string;
+  equipmentCategory: string;
+  durationHours: number;
+  passingScore: number;
+  topicsHi: string[];
+  certificationAwardedId?: string;
+}
+
+export interface TechnicianTrainingEnrollment {
+  id: string;
+  technicianId: string;
+  moduleId: string;
+  status: "enrolled" | "in_progress" | "completed" | "failed";
+  enrolledAt: string;
+  completedAt?: string;
+  scorePercentage?: number;
+  certificateAwardedNumber?: string;
+}
+
+export interface TechnicianSkillProfile {
+  technicianId: string;
+  verifiedSkills: Array<{
+    skill: string;
+    verifiedLevel: "basic" | "intermediate" | "master";
+    verifiedAt: string;
+  }>;
+  authorizedEquipmentCategories: string[];
+}
+
+// ─── P3: Business & Multi-Party Revenue Breakdown Types ─────────────────────
+
+export type PaymentStatus = "pending" | "processing" | "completed" | "failed" | "refunded";
+export type PaymentMethod = "upi" | "cash_on_delivery" | "fpo_credit" | "netbanking";
+
+export interface PaymentTransactionBreakdown {
+  diagnosticFee: number;
+  labourCharge: number;
+  partsCost: number;
+  travelCharge: number;
+  subtotal: number;
+  discountAmount: number;
+  discountReason?: string;
+  netFarmerPayable: number;
+  // Transparent multi-party splits:
+  technicianLabourShare: number;
+  technicianTravelShare: number;
+  technicianTotalPayout: number;
+  supplierPartsShare: number;
+  supplierTotalPayout: number;
+  serviceCentreCommission: number;
+  platformLabourFee: number;
+  platformPartsFee: number;
+  platformTotalRevenue: number;
+}
+
+export interface PaymentTransaction {
+  id: string;
+  repairRequestId: string;
+  jobCardId?: string;
+  farmerId: string;
+  farmerPhone: string;
+  serviceCentreId?: string;
+  technicianId?: string;
+  supplierId?: string;
+  breakdown: PaymentTransactionBreakdown;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  gatewayReference?: string;
+  externalTransactionId?: string;
+  upiVpa?: string;
+  initiatedAt: string;
+  completedAt?: string;
+  failedAt?: string;
+  failureReason?: string;
+  notes?: string;
+}
+
+export interface SupplierSettlement {
+  supplierId: string;
+  supplierNameHi: string;
+  totalOrders: number;
+  grossPartsBilled: number;
+  platformPartsFeeDeducted: number;
+  netPayableToSupplier: number;
+  settlementStatus: "pending" | "settled";
+}
+

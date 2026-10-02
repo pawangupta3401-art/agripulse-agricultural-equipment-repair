@@ -1,24 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  getServerJobAssignments,
+  setServerJobAssignment,
+  updateServerRepair,
+  getServerRepairs,
+} from "@/services/serverRepairStore";
 
-/**
- * In-memory server-side jobs registry for active assignments
- */
-const serverJobAssignments: Record<
-  string,
-  {
-    technicianId: string;
-    technicianName: string;
-    status: string;
-    statusTextHi: string;
-    parts?: string[];
-    tools?: string[];
-    messageToFarmer?: string;
-    rejectionReason?: string;
-    rejectedBy?: string[];
-    notes?: string;
-    updatedAt: string;
-  }
-> = {};
+const serverJobAssignments = getServerJobAssignments();
 
 function verifyTechnicianRole(req: NextRequest): { ok: boolean; response?: NextResponse; tokenRole?: string } {
   const authHeader = req.headers.get("authorization") || req.headers.get("x-auth-token") || "";
@@ -114,6 +102,12 @@ export async function POST(req: NextRequest) {
         updatedAt: new Date().toISOString(),
       };
 
+      updateServerRepair(repairId, {
+        status: "technician_assigned",
+        statusTextHi: "मैकेनिक नियुक्त हो गया है",
+        technicianId: technicianId || "tech-current",
+      });
+
       return NextResponse.json({
         success: true,
         action: "accept",
@@ -171,6 +165,10 @@ export async function POST(req: NextRequest) {
         currentAssignment.statusTextHi = "मैकेनिक रास्ते में है";
         currentAssignment.updatedAt = new Date().toISOString();
       }
+      updateServerRepair(repairId, {
+        status: "on_the_way",
+        statusTextHi: "मैकेनिक रास्ते में है",
+      });
       return NextResponse.json({
         success: true,
         action: "start_travel",
@@ -200,6 +198,10 @@ export async function POST(req: NextRequest) {
         currentAssignment.statusTextHi = "मैकेनिक मौके पर पहुँच गया है";
         currentAssignment.updatedAt = new Date().toISOString();
       }
+      updateServerRepair(repairId, {
+        status: "arrived",
+        statusTextHi: "मैकेनिक मौके पर पहुँच गया है",
+      });
       return NextResponse.json({
         success: true,
         action: "arrived",
@@ -216,6 +218,10 @@ export async function POST(req: NextRequest) {
         currentAssignment.statusTextHi = "मरम्मत चल रही है";
         currentAssignment.updatedAt = new Date().toISOString();
       }
+      updateServerRepair(repairId, {
+        status: "repairing",
+        statusTextHi: "मरम्मत चल रही है",
+      });
       return NextResponse.json({
         success: true,
         action: "start_repair",
@@ -233,6 +239,10 @@ export async function POST(req: NextRequest) {
         currentAssignment.notes = notes;
         currentAssignment.updatedAt = new Date().toISOString();
       }
+      updateServerRepair(repairId, {
+        status: "verification_pending",
+        statusTextHi: "मशीन की जाँच बाकी है",
+      });
       return NextResponse.json({
         success: true,
         action: "complete",

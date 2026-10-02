@@ -54,7 +54,7 @@ export const ta: TranslationDictionary = {
     reportProblem: "இயந்திரப் பழுதைப் பதிவு செய்",
     emergencyService: "அவசர விரைவு பழுதுபார்ப்பு",
     preventiveCheck: "தடுப்புப் பராமரிப்பு திட்டங்கள்",
-    oneClickDemoTitle: "⚡ 1-கிளிக் நாக்பூர் RISE மாதிரி செயல்விளக்கம்",
+    oneClickDemoTitle: "⚡ 1-கிளிக் நாக்பூர் RISE நிகழ்வு",
     oneClickDemoBtn: "டிராக்டர் ஹைட்ராலிக் கோளாறு — நாளை விதைப்பு தொடங்குகிறது",
     oneClickDemoSub: "புகார் முதல் மீட்பு இயந்திரம் மற்றும் இயந்திர பாஸ்போர்ட் வரையிலான முழு ஓட்டம்",
     viewAllMachines: "அனைத்து இயந்திரங்களையும் காண்க ➔",
@@ -196,7 +196,7 @@ export const ta: TranslationDictionary = {
     syncQueue: "நிலுவையில் உள்ள ஒத்திசைவுப் பணிகள்",
     syncNowBtn: "இப்போதே ஒத்திசைக்கவும் (Sync Now)",
     storageUsage: "உள்ளூர் நினைவகப் பயன்பாடு",
-    resetDemoData: "மாதிரித் தரவை மீட்டமைக்கவும்",
+    resetDemoData: "தரவை மீட்டமைக்கவும்",
   },
   telephony: {
     ivrModalTitle: "📞 பொத்தான் போன் / உதவி எண் (IVR)",

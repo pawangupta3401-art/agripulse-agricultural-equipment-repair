@@ -9,6 +9,7 @@ import {
   MachinePassportRecord,
   PricingBreakdown,
   FinalPriceAdjustment,
+  ComplaintChannel,
 } from "@/types";
 import {
   normalizeMachineMaintenance,
@@ -412,8 +413,10 @@ export function getMachineById(id: string): Machine | undefined {
 /**
  * Load all repair requests, ensuring unique IDs (deduplication)
  */
+let inMemoryRepairs: RepairRequest[] = [...initialRepairs];
+
 export function getRepairRequests(): RepairRequest[] {
-  if (!isStorageAvailable()) return initialRepairs;
+  if (!isStorageAvailable()) return inMemoryRepairs;
   try {
     const raw = localStorage.getItem(REPAIRS_STORAGE_KEY);
     if (!raw) {
@@ -422,12 +425,12 @@ export function getRepairRequests(): RepairRequest[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      // If empty or only contains legacy demo ID, re-seed with realistic requests
-      if (parsed.length === 0 || (parsed.length === 1 && parsed[0]?.id === "rep-demo-pawan-tractor")) {
+      // If legacy demo ID only, re-seed with realistic requests
+      if (parsed.length === 1 && parsed[0]?.id === "rep-demo-pawan-tractor") {
         localStorage.setItem(REPAIRS_STORAGE_KEY, JSON.stringify(initialRepairs));
         return initialRepairs;
       }
-      // Deduplicate by id to guarantee integrity
+      // Deduplicate by id to guarantee integrity and prevent overwriting
       const seen = new Set<string>();
       return parsed
         .filter((r: RepairRequest) => r.id !== "rep-demo-pawan-tractor")
@@ -608,6 +611,10 @@ export function createRepairRequest(params: {
   farmerId?: string;
   estimatedCost?: PricingBreakdown;
   farmerLocation?: RepairRequest["farmerLocation"];
+  channel?: ComplaintChannel;
+  callerPhoneNumber?: string;
+  farmerPhone?: string;
+  farmerName?: string;
 }): RepairRequest {
   const machines = getMachines();
   const machine = machines.find((m) => m.id === params.machineId) || machines[0];
@@ -639,6 +646,10 @@ export function createRepairRequest(params: {
     diagnosis: params.diagnosis,
     estimatedCost: params.estimatedCost,
     farmerLocation: params.farmerLocation,
+    channel: params.channel,
+    callerPhoneNumber: params.callerPhoneNumber,
+    farmerPhone: params.farmerPhone,
+    farmerName: params.farmerName,
   };
 
   if (isStorageAvailable()) {
@@ -649,6 +660,7 @@ export function createRepairRequest(params: {
         const updatedRepairs = [newRepair, ...repairs];
         localStorage.setItem(REPAIRS_STORAGE_KEY, JSON.stringify(updatedRepairs));
       }
+      inMemoryRepairs = [newRepair, ...inMemoryRepairs];
 
       // 2. Add to outbox queue
       addToOutbox({
@@ -666,7 +678,34 @@ export function createRepairRequest(params: {
         payload: newRepair,
       });
 
-      // 3. Update machine status to 'issue'
+      // 3. Connect to backend API: Asynchronously sync with /api/farmer/repairs
+      if (typeof window !== "undefined" && typeof fetch === "function") {
+        let token = "";
+        try {
+          const rawSession = localStorage.getItem("agripulse_auth_session_v1");
+          if (rawSession) {
+            const sess = JSON.parse(rawSession);
+            token = sess?.token || "";
+          }
+        } catch {
+          // safe fallback
+        }
+        if (!token) {
+          token = `agri-token-farmer-${params.farmerPhone || "9876543210"}-${Date.now()}`;
+        }
+        fetch("/api/farmer/repairs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(newRepair),
+        }).catch(() => {
+          // offline queue already handles retry through syncQueueService
+        });
+      }
+
+      // 4. Update machine status to 'issue'
       const updatedMachines = machines.map((m) => {
         if (m.id === machine.id) {
           return {
@@ -681,6 +720,8 @@ export function createRepairRequest(params: {
     } catch {
       // Fail safely
     }
+  } else {
+    inMemoryRepairs = [newRepair, ...inMemoryRepairs];
   }
 
   return newRepair;
@@ -694,14 +735,26 @@ export function updateRepairStatus(
   repairId: string,
   updates: Partial<RepairRequest>
 ): RepairRequest | null {
-  if (!isStorageAvailable()) return null;
+  const memIdx = inMemoryRepairs.findIndex((r) => r.id === repairId);
+  if (memIdx !== -1) {
+    inMemoryRepairs[memIdx] = { ...inMemoryRepairs[memIdx], ...updates };
+  }
+
+  if (!isStorageAvailable()) {
+    return memIdx !== -1 ? inMemoryRepairs[memIdx] : null;
+  }
   try {
     const repairs = getRepairRequests();
     const idx = repairs.findIndex((r) => r.id === repairId);
-    if (idx === -1) return null;
+    if (idx === -1) {
+      return memIdx !== -1 ? inMemoryRepairs[memIdx] : null;
+    }
     const updated = { ...repairs[idx], ...updates };
     repairs[idx] = updated;
     localStorage.setItem(REPAIRS_STORAGE_KEY, JSON.stringify(repairs));
+    if (memIdx !== -1) {
+      inMemoryRepairs[memIdx] = updated;
+    }
 
     // P2J Step 1: Enqueue update to sync queue
     enqueueSyncOperation({
@@ -713,7 +766,7 @@ export function updateRepairStatus(
 
     return updated;
   } catch {
-    return null;
+    return memIdx !== -1 ? inMemoryRepairs[memIdx] : null;
   }
 }
 
@@ -877,13 +930,13 @@ export function createSimulatedDemoRepair(): RepairRequest {
  */
 export function ensureSimulatedDemoRequest(): RepairRequest {
   const repairs = getRepairRequests();
-  const existing = repairs.find((r) => r.id === initialRepairs[0].id);
-  if (existing) return existing;
+  if (repairs.length > 0) {
+    return repairs[0];
+  }
 
   if (isStorageAvailable()) {
     try {
-      const updated = [...initialRepairs, ...repairs.filter((r) => r.id !== "rep-demo-pawan-tractor")];
-      localStorage.setItem(REPAIRS_STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(REPAIRS_STORAGE_KEY, JSON.stringify(initialRepairs));
     } catch {
       // safe fallback
     }

@@ -54,7 +54,7 @@ export const kn: TranslationDictionary = {
     reportProblem: "ಯಂತ್ರದ ದೋಷ ದಾಖಲಿಸಿ",
     emergencyService: "ತುರ್ತು ತ್ವರಿತ ದುರಸ್ತಿ",
     preventiveCheck: "ಮುನ್ನೆಚ್ಚರಿಕೆ ಸೇವಾ ಪ್ಯಾಕೇಜ್‌ಗಳು",
-    oneClickDemoTitle: "⚡ 1-ಕ್ಲಿಕ್ ನಾಗಪುರ RISE ಡೆಮೊ",
+    oneClickDemoTitle: "⚡ 1-ಕ್ಲಿಕ್ ನಾಗಪುರ RISE ಸನ್ನಿವೇಶ",
     oneClickDemoBtn: "ಟ್ರಾಕ್ಟರ್ ಹೈಡ್ರಾಲಿಕ್ ದೋಷ — ನಾಳೆ ಬಿತ್ತನೆ ಪ್ರಾರಂಭ",
     oneClickDemoSub: "ದೂರಿನಿಂದ ಹಿಡಿದು ರಿಕವರಿ ಎಂಜಿನ್ ಮತ್ತು ಮೆಷಿನ್ ಪಾಸ್‌ಪೋರ್ಟ್‌ವರೆಗೆ ಸಂಪೂರ್ಣ ಹಂತಗಳು",
     viewAllMachines: "ಎಲ್ಲಾ ಯಂತ್ರಗಳನ್ನು ವೀಕ್ಷಿಸಿ ➔",
@@ -196,7 +196,7 @@ export const kn: TranslationDictionary = {
     syncQueue: "ಬಾಕಿ ಉಳಿದ ಸಿಂಕ್ ಕೆಲಸಗಳು",
     syncNowBtn: "ಈಗಲೇ ಸಿಂಕ್ ಮಾಡಿ (Sync Now)",
     storageUsage: "ಸ್ಥಳೀಯ ಮೆಮೊರಿ ಬಳಕೆ",
-    resetDemoData: "ಡೆಮೊ ಡೇಟಾ ಮರುಹೊಂದಿಸಿ",
+    resetDemoData: "ಡೇಟಾ ಮರುಹೊಂದಿಸಿ",
   },
   telephony: {
     ivrModalTitle: "📞 ಫೀಚರ್ ಫೋನ್ / ಸಹಾಯವಾಣಿ (IVR)",

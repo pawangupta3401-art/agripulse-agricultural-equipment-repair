@@ -106,16 +106,18 @@ export function getVerificationBadgeDisplay(status?: TechnicianVerificationBadge
   }
 }
 
-/**
- * Returns technicians with derived verification status and stored updates.
- * Offline-first: Reads from localStorage if available, falls back to mockTechnicians.
- */
+// In-memory cache for server-side / test environments
+let inMemoryTechnicians: Technician[] | null = null;
+
 export function getTechnicians(): Technician[] {
   if (typeof window === "undefined") {
-    return mockTechnicians.map((t) => ({
-      ...t,
-      verificationStatus: deriveTechnicianVerificationStatus(t),
-    }));
+    if (!inMemoryTechnicians) {
+      inMemoryTechnicians = mockTechnicians.map((t) => ({
+        ...t,
+        verificationStatus: deriveTechnicianVerificationStatus(t),
+      }));
+    }
+    return inMemoryTechnicians;
   }
 
   try {
@@ -150,6 +152,7 @@ export function getTechnicians(): Technician[] {
  * Save updated technicians list locally.
  */
 export function saveTechnicians(technicians: Technician[]): void {
+  inMemoryTechnicians = technicians;
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(TECHNICIANS_STORAGE_KEY, JSON.stringify(technicians));

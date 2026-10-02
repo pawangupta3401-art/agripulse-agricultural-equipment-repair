@@ -54,7 +54,7 @@ export const or: TranslationDictionary = {
     reportProblem: "ଯନ୍ତ୍ର ଖରାପ ଅଭିଯୋଗ କରନ୍ତୁ",
     emergencyService: "ଜରୁରୀକାଳୀନ ଦ୍ରୁତ ମରାମତି",
     preventiveCheck: "ଋତୁକାଳୀନ ରକ୍ଷଣାବେକ୍ଷଣ ପ୍ୟାକେଜ୍",
-    oneClickDemoTitle: "⚡ ୧-କ୍ଲିକ୍ ନାଗପୁର RISE ଡେମୋ",
+    oneClickDemoTitle: "⚡ ୧-କ୍ଲିକ୍ ନାଗପୁର RISE ପରିଦୃଶ୍ୟ",
     oneClickDemoBtn: "ଟ୍ରାକ୍ଟର ହାଇଡ୍ରୋଲିକ୍ ସମସ୍ୟା — କାଲି ବୁଣାବୁଣି ଆରମ୍ଭ",
     oneClickDemoSub: "ଅଭିଯୋଗ ଠାରୁ ରିକଭରୀ ଇଞ୍ଜିନ୍ ଓ ମେସିନ୍ ପାସପୋର୍ଟ ପର୍ଯ୍ୟନ୍ତ ସମ୍ପୂର୍ଣ୍ଣ ପ୍ରକ୍ରିୟା",
     viewAllMachines: "ସମସ୍ତ ଯନ୍ତ୍ର ଦେଖନ୍ତୁ ➔",
@@ -196,7 +196,7 @@ export const or: TranslationDictionary = {
     syncQueue: "ବାକି ଥିବା ସିଙ୍କ୍ କାର୍ଯ୍ୟ",
     syncNowBtn: "ବର୍ତ୍ତମାନ ସିଙ୍କ୍ କରନ୍ତୁ (Sync Now)",
     storageUsage: "ଲୋକାଲ୍ ମେମୋରୀ ବ୍ୟବହାର",
-    resetDemoData: "ଡେମୋ ତଥ୍ୟ ରିସେଟ୍ କରନ୍ତୁ",
+    resetDemoData: "ତଥ୍ୟ ରିସେଟ୍ କରନ୍ତୁ",
   },
   telephony: {
     ivrModalTitle: "📞 ସାଧାରଣ ଫୋନ୍ / ହେଲ୍ପଲାଇନ୍ (IVR)",

@@ -808,7 +808,7 @@ export default function LoginScreen({
                     value={villageOrCity}
                     onChange={(e) => setVillageOrCity(e.target.value)}
                     disabled={otpSent}
-                    placeholder="उदा: नागपुर"
+                    placeholder="जैसे: नागपुर"
                     className="w-full h-12 px-3 bg-white border border-[#cbd5e1] text-sm font-medium rounded-xl text-[#0f172a] focus:border-[#165420] focus:ring-2 focus:ring-[#165420]/15 focus:outline-none disabled:bg-slate-100 placeholder:text-[#94a3b8] transition-all"
                   />
                 </div>
@@ -825,7 +825,7 @@ export default function LoginScreen({
                     value={district}
                     onChange={(e) => setDistrict(e.target.value)}
                     disabled={otpSent}
-                    placeholder="उदा: नागपुर"
+                    placeholder="जैसे: नागपुर"
                     className="w-full h-12 px-3 bg-white border border-[#cbd5e1] text-sm font-medium rounded-xl text-[#0f172a] focus:border-[#165420] focus:ring-2 focus:ring-[#165420]/15 focus:outline-none disabled:bg-slate-100 placeholder:text-[#94a3b8] transition-all"
                   />
                 </div>
@@ -842,7 +842,7 @@ export default function LoginScreen({
                     value={stateName}
                     onChange={(e) => setStateName(e.target.value)}
                     disabled={otpSent}
-                    placeholder="उदा: महाराष्ट्र"
+                    placeholder="जैसे: महाराष्ट्र"
                     className="w-full h-12 px-3 bg-white border border-[#cbd5e1] text-sm font-medium rounded-xl text-[#0f172a] focus:border-[#165420] focus:ring-2 focus:ring-[#165420]/15 focus:outline-none disabled:bg-slate-100 placeholder:text-[#94a3b8] transition-all"
                   />
                 </div>
@@ -860,7 +860,7 @@ export default function LoginScreen({
                     value={pinCode}
                     onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ""))}
                     disabled={otpSent}
-                    placeholder="उदा: 440001"
+                    placeholder="जैसे: 440001"
                     className="w-full h-12 px-3 bg-white border border-[#cbd5e1] text-sm font-medium rounded-xl text-[#0f172a] focus:border-[#165420] focus:ring-2 focus:ring-[#165420]/15 focus:outline-none disabled:bg-slate-100 placeholder:text-[#94a3b8] transition-all"
                   />
                 </div>
@@ -915,7 +915,7 @@ export default function LoginScreen({
                   value={techServiceArea}
                   onChange={(e) => setTechServiceArea(e.target.value)}
                   disabled={otpSent}
-                  placeholder="उदा: नागपुर व आसपास (15 किमी)"
+                  placeholder="जैसे: नागपुर व आसपास (15 किमी)"
                   className="w-full h-12 px-3.5 bg-white border border-[#cbd5e1] text-sm font-medium rounded-xl text-[#0f172a] focus:border-[#165420] focus:ring-2 focus:ring-[#165420]/15 focus:outline-none disabled:bg-slate-100 placeholder:text-[#94a3b8] transition-all"
                 />
               </div>
@@ -1182,7 +1182,7 @@ export default function LoginScreen({
                 <input
                   type="text"
                   required
-                  placeholder="उदा: रमेश कुमार"
+                  placeholder="जैसे: रमेश कुमार"
                   value={techName}
                   onChange={(e) => setTechName(e.target.value)}
                   className="w-full h-11 px-3 border border-slate-300 rounded-xl font-medium text-slate-900 focus:border-[#165420] focus:ring-2 focus:ring-[#165420]/15 focus:outline-none"
@@ -1229,7 +1229,7 @@ export default function LoginScreen({
                 </label>
                 <input
                   type="text"
-                  placeholder="उदा: नागपुर ग्रामीण / लखनऊ ब्लॉक"
+                  placeholder="जैसे: नागपुर ग्रामीण / लखनऊ ब्लॉक"
                   value={techArea}
                   onChange={(e) => setTechArea(e.target.value)}
                   className="w-full h-11 px-3 border border-slate-300 rounded-xl font-medium text-slate-900 focus:border-[#165420] focus:ring-2 focus:ring-[#165420]/15 focus:outline-none"

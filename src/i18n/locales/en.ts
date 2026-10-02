@@ -64,7 +64,7 @@ export const en: TranslationDictionary = {
     reportProblem: "Report Machine Breakdown",
     emergencyService: "Emergency Rapid Repair",
     preventiveCheck: "Preventive Service Packages",
-    oneClickDemoTitle: "⚡ 1-Click Nagpur RISE Demo Scenario",
+    oneClickDemoTitle: "⚡ 1-Click Quick RISE Scenario",
     oneClickDemoBtn: "Tractor Hydraulic Issue — Sowing Starts Tomorrow",
     oneClickDemoSub: "End-to-end journey from complaint to Recovery Engine and Machine Passport",
     viewAllMachines: "View All Machines ➔",
@@ -252,7 +252,7 @@ export const en: TranslationDictionary = {
     syncQueue: "Pending Sync Queue",
     syncNowBtn: "Sync Now",
     storageUsage: "Local Storage Usage",
-    resetDemoData: "Reset Demo Data",
+    resetDemoData: "Refresh System Data",
   },
   telephony: {
     ivrModalTitle: "📞 Feature Phone / IVR Helpline",

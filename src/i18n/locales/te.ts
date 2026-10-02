@@ -54,7 +54,7 @@ export const te: TranslationDictionary = {
     reportProblem: "యంత్రం సమస్యను నమోదు చేయండి",
     emergencyService: "అత్యవసర వేగవంతమైన మరమ్మతు",
     preventiveCheck: "ముందస్తు నిర్వహణ ప్యాకేజీలు",
-    oneClickDemoTitle: "⚡ 1-క్లిక్ నాగ్‌పూర్ RISE డెమో",
+    oneClickDemoTitle: "⚡ 1-క్లిక్ నాగ్‌పూర్ RISE దృశ్యం",
     oneClickDemoBtn: "ట్రాక్టర్ హైడ్రాలిక్ సమస్య — రేపు విత్తనాలు వేయాలి",
     oneClickDemoSub: "ఫిర్యాదు నుండి రికవరీ ఇంజిన్ మరియు మెషిన్ పాస్‌పోర్ట్ వరకు పూర్తి ప్రక్రియ",
     viewAllMachines: "అన్ని యంత్రాలను చూడండి ➔",
@@ -196,7 +196,7 @@ export const te: TranslationDictionary = {
     syncQueue: "పెండింగ్‌లో ఉన్న సింక్ పనులు",
     syncNowBtn: "ఇప్పుడే సింక్ చేయండి (Sync Now)",
     storageUsage: "స్థానిక మెమరీ వినియోగం",
-    resetDemoData: "డెమో డేటాను రీసెట్ చేయండి",
+    resetDemoData: "డేటాను రీసెట్ చేయండి",
   },
   telephony: {
     ivrModalTitle: "📞 ఫీచర్ ఫోన్ / హెల్ప్‌లైన్ (IVR)",

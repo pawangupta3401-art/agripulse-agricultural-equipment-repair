@@ -54,7 +54,7 @@ export const gu: TranslationDictionary = {
     reportProblem: "મશીનની ખામી નોંધાવો",
     emergencyService: "તાત્કાલિક ઝડપી સમારકામ",
     preventiveCheck: "નિવારક સર્વિસ પેકેજો",
-    oneClickDemoTitle: "⚡ 1-ક્લિક નાગપુર RISE ડેમો",
+    oneClickDemoTitle: "⚡ 1-ક્લિક નાગપુર RISE પરિદ્રશ્ય",
     oneClickDemoBtn: "ટ્રેક્ટર હાઇડ્રોલિક ખામી — કાલે વાવણી શરૂ",
     oneClickDemoSub: "ફરિયાદથી માંડીને રિકવરી એન્જિન અને મશીન પાસપોર્ટ સુધીનો પૂર્ણ પ્રવાહ",
     viewAllMachines: "બધા મશીનો જુઓ ➔",
@@ -196,7 +196,7 @@ export const gu: TranslationDictionary = {
     syncQueue: "બાકી સિંક કાર્યો",
     syncNowBtn: "હમણાં સિંક કરો (Sync Now)",
     storageUsage: "સ્થાનિક મેમરી વપરાશ",
-    resetDemoData: "ડેમો ડેટા રીસેટ કરો",
+    resetDemoData: "ડેટા રીસેટ કરો",
   },
   telephony: {
     ivrModalTitle: "📞 ફીચર ફોન / હેલ્પલાઇન (IVR)",

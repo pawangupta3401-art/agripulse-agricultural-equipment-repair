@@ -54,7 +54,7 @@ export const ml: TranslationDictionary = {
     reportProblem: "യന്ത്ര തകരാർ റിപ്പോർട്ട് ചെയ്യുക",
     emergencyService: "അടിയന്തിര ദ്രുത റിപ്പയർ",
     preventiveCheck: "പ്രതിരോധ പരിശോധനാ പാക്കേജുകൾ",
-    oneClickDemoTitle: "⚡ 1-ക്ലിക്ക് നാഗ്പൂർ RISE ഡെമോ",
+    oneClickDemoTitle: "⚡ 1-ക്ലിക്ക് നാഗ്പൂർ RISE സാഹചര്യം",
     oneClickDemoBtn: "ട്രാക്ടർ ഹൈഡ്രോളിക് തകരാർ — നാളെ വിതയ്ക്കൽ ആരംഭിക്കുന്നു",
     oneClickDemoSub: "പരാതി മുതൽ റിക്കവറി എഞ്ചിനും മെഷീൻ പാസ്‌പോർട്ടും വരെയുള്ള പൂർണ്ണ പ്രക്രിയ",
     viewAllMachines: "എല്ലാ യന്ത്രങ്ങളും കാണുക ➔",
@@ -196,7 +196,7 @@ export const ml: TranslationDictionary = {
     syncQueue: "ബാക്കിയുള്ള സമന്വയ ജോലികൾ",
     syncNowBtn: "ഇപ്പോൾ സിങ്ക് ചെയ്യുക (Sync Now)",
     storageUsage: "ലോക്കൽ മെമ്മറി ഉപയോഗം",
-    resetDemoData: "ഡെമോ ഡാറ്റ പുനഃക്രമീകരിക്കുക",
+    resetDemoData: "ഡാറ്റ പുനഃക്രമീകരിക്കുക",
   },
   telephony: {
     ivrModalTitle: "📞 സാധാരണ ഫോൺ / ഹെൽപ്പ്‌ലൈൻ (IVR)",

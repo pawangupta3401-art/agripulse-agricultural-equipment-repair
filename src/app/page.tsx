@@ -2456,158 +2456,281 @@ export default function AgriPulseApp() {
       />
 
       {/* ================= HEADER ================= */}
-      {currentScreen !== "profile" && (
-        <header className="bg-emerald-800 text-white px-3 sm:px-5 py-2.5 sm:py-3 border-b border-emerald-900 sticky top-0 z-40">
-          <div className="max-w-6xl mx-auto space-y-2">
-            {/* TOP HEADER: Logo on Left | Language Selector & Profile on Right */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                {currentScreen !== "home" && (
-                  <button
-                    onClick={() => {
-                      if (currentScreen === "diagnosis") {
-                        handleBackFromDiagnosis();
-                      } else if (currentScreen === "machine_detail") {
-                        setCurrentScreen("machines");
-                      } else if (currentScreen === "breakdown" && breakdownStep > 1) {
-                        setBreakdownStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
-                      } else if (
-                        currentScreen === "sahayak" &&
-                        (sahayakStep === "voice" || sahayakStep === "photo")
-                      ) {
-                        stopSahayakVoice();
-                        setSahayakStep("init");
-                      } else {
-                        setCurrentScreen("home");
-                      }
-                    }}
-                    className="bg-emerald-900/90 hover:bg-emerald-900 p-2 rounded-md border border-emerald-700 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
-                    aria-label={t("common.back", currentLanguage)}
-                  >
-                    <ArrowLeft className={`w-4 h-4 ${isRTL(currentLanguage) ? "rotate-180" : ""}`} />
-                  </button>
-                )}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <span className="text-lg sm:text-xl">🌾</span>
-                    <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">AgriPulse</h1>
+      {currentScreen !== "profile" && (() => {
+        const getScreenHeaderInfo = (): { title: string; subtitle?: string; icon?: string } => {
+          switch (currentScreen) {
+            case "machines":
+              return {
+                title: t("machines.title", currentLanguage),
+                subtitle: currentLanguage === "en" ? `${machines.length} machines registered` : `${machines.length} मशीनें पंजीकृत`,
+                icon: "🚜",
+              };
+            case "machine_detail":
+              return {
+                title: selectedMachine?.nameHi || (currentLanguage === "en" ? "Machine Details" : "मशीन विवरण"),
+                subtitle: currentLanguage === "en" ? "Passport & Service History" : "पासपोर्ट व सर्विस रिकॉर्ड",
+                icon: selectedMachine?.icon || "🚜",
+              };
+            case "breakdown":
+              return {
+                title: t("complaint.title", currentLanguage),
+                subtitle: currentLanguage === "en" ? `Step ${breakdownStep} of 4` : `चरण ${breakdownStep} / 4`,
+                icon: "🔧",
+              };
+            case "breakdown_success":
+              return {
+                title: currentLanguage === "en" ? "Booking Confirmed" : "बुकिंग सफल",
+                subtitle: currentLanguage === "en" ? "Finding nearest mechanic" : "मैकेनिक खोजा जा रहा है",
+                icon: "✅",
+              };
+            case "diagnosis":
+              return {
+                title: currentLanguage === "en" ? "AI Diagnosis" : "AI मशीन जांच",
+                subtitle: currentLanguage === "en" ? "Problem & Solution" : "समस्या पहचान व समाधान",
+                icon: "🤖",
+              };
+            case "repair":
+              return {
+                title: t("repair.title", currentLanguage),
+                subtitle: currentLanguage === "en" ? "Live Tracking & History" : "लाइव स्थिति व ट्रैकिंग",
+                icon: "📋",
+              };
+            case "service":
+              return {
+                title: t("preventive.title", currentLanguage),
+                subtitle: currentLanguage === "en" ? "Care & Reminders" : "नियमित देखभाल व अलर्ट",
+                icon: "📅",
+              };
+            case "sahayak":
+              return {
+                title: t("sahayak.title", currentLanguage),
+                subtitle: currentLanguage === "en" ? "Voice & Photo Help" : "आवाज़ व फ़ोटो से सवाल पूछें",
+                icon: "🤖",
+              };
+            case "technician_match":
+              return {
+                title: currentLanguage === "en" ? "Technician Matching" : "मैकेनिक मिलान",
+                subtitle: currentLanguage === "en" ? "Verified Local Technicians" : "उपलब्ध प्रमाणित मैकेनिक",
+                icon: "🔍",
+              };
+            case "technician_job_card":
+              return {
+                title: currentLanguage === "en" ? "Digital Job Card" : "डिजिटल जॉब कार्ड",
+                subtitle: currentLanguage === "en" ? "Parts & Repair Details" : "पुर्जे, काम व बिल विवरण",
+                icon: "📝",
+              };
+            case "repair_verification":
+              return {
+                title: currentLanguage === "en" ? "Repair Verification" : "मरम्मत सत्यापन",
+                subtitle: currentLanguage === "en" ? "OTP & Final Approval" : "OTP व अंतिम अनुमोदन",
+                icon: "🔐",
+              };
+            case "nearby_mechanics":
+              return {
+                title: currentLanguage === "en" ? "Nearby Mechanics" : "नजदीकी मैकेनिक",
+                subtitle: currentLanguage === "en" ? "Certified Technicians" : "आपके क्षेत्र के प्रमाणित मैकेनिक",
+                icon: "📍",
+              };
+            case "recovery_engine":
+              return {
+                title: currentLanguage === "en" ? "Downtime Recovery" : "डाउनटाइम रिकवरी",
+                subtitle: currentLanguage === "en" ? "Equipment & Support" : "बैकअप मशीन व सहायता",
+                icon: "⚡",
+              };
+            default:
+              return {
+                title: "AgriPulse",
+                subtitle: currentLanguage === "en" ? "Agricultural Equipment Repair" : "कृषि उपकरण रिपेयर सेवा",
+                icon: "🌾",
+              };
+          }
+        };
+
+        const handleHeaderBack = () => {
+          if (currentScreen === "diagnosis") {
+            handleBackFromDiagnosis();
+          } else if (currentScreen === "machine_detail") {
+            setCurrentScreen("machines");
+          } else if (currentScreen === "breakdown" && breakdownStep > 1) {
+            setBreakdownStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
+          } else if (
+            currentScreen === "sahayak" &&
+            (sahayakStep === "voice" || sahayakStep === "photo")
+          ) {
+            stopSahayakVoice();
+            setSahayakStep("init");
+          } else {
+            setCurrentScreen("home");
+          }
+        };
+
+        const headerInfo = getScreenHeaderInfo();
+
+        return (
+          <header className="bg-emerald-800 text-white px-3 sm:px-4 py-2 sm:py-2.5 border-b border-emerald-900 sticky top-0 z-40 shadow-xs">
+            <div className="max-w-4xl mx-auto">
+              {/* PRIMARY HEADER ROW: [Back/Logo] [Title/Subtitle] on Left | [AI] [Language] [Profile] on Right */}
+              <div className="flex items-center justify-between gap-2 min-h-[36px]">
+                {/* Left Area */}
+                {currentScreen === "home" ? (
+                  <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                    <span className="text-xl sm:text-2xl filter drop-shadow-2xs select-none shrink-0">🌾</span>
+                    <div className="min-w-0">
+                      <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white leading-tight">
+                        AgriPulse
+                      </h1>
+                      <p className="text-[11px] text-emerald-200/90 font-medium truncate hidden sm:block leading-tight">
+                        {currentLanguage === "en" ? "Agricultural Equipment Repair" : "कृषि उपकरण रिपेयर सेवा"}
+                      </p>
+                    </div>
                   </div>
-                  <p className="hidden sm:block text-xs text-emerald-100/90 font-normal">
-                    From breakdown to back-in-field
-                  </p>
+                ) : (
+                  <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={handleHeaderBack}
+                      className="h-9 w-9 rounded-xl bg-emerald-900/90 hover:bg-emerald-900 border border-emerald-700/80 text-white flex items-center justify-center transition-all cursor-pointer shrink-0 active:scale-95"
+                      aria-label={t("common.back", currentLanguage)}
+                      title={t("common.back", currentLanguage)}
+                    >
+                      <ArrowLeft className={`w-4 h-4 ${isRTL(currentLanguage) ? "rotate-180" : ""}`} />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {headerInfo.icon && (
+                          <span className="text-sm shrink-0 select-none">{headerInfo.icon}</span>
+                        )}
+                        <h1 className="text-base sm:text-lg font-bold tracking-tight text-white leading-tight truncate">
+                          {headerInfo.title}
+                        </h1>
+                      </div>
+                      {headerInfo.subtitle && (
+                        <p className="text-[11px] text-emerald-200/90 font-medium truncate leading-tight mt-0.5">
+                          {headerInfo.subtitle}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Right Area: Action Buttons */}
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  {/* 🗣️✨ Voice AI Assistant Header Button */}
+                  <button
+                    type="button"
+                    id="header-voice-ai-btn"
+                    onClick={() => setIsVoiceAssistantOpen((prev) => !prev)}
+                    title={voiceAssistantStatus === "listening" ? "सुन रहा हूँ..." : "बोलकर AI मदद लें / Ask by Voice"}
+                    className={`h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-700/80 bg-emerald-900/90 hover:bg-emerald-900 text-emerald-50 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0 ${
+                      voiceAssistantStatus === "listening"
+                        ? "ring-1 ring-emerald-400 bg-emerald-800 text-white"
+                        : voiceAssistantStatus === "speaking"
+                        ? "ring-1 ring-emerald-400 bg-emerald-800 text-white"
+                        : voiceAssistantStatus === "processing"
+                        ? "ring-1 ring-emerald-400 bg-emerald-800 text-white"
+                        : ""
+                    }`}
+                    aria-label="बोलकर AI मदद लें"
+                  >
+                    {voiceAssistantStatus === "listening" ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse shrink-0" />
+                        <span className="text-xs font-bold text-emerald-200">सुन रहा हूँ...</span>
+                      </>
+                    ) : voiceAssistantStatus === "processing" ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-300 shrink-0" />
+                        <span className="text-xs font-bold text-emerald-200">सोच रहा हूँ...</span>
+                      </>
+                    ) : voiceAssistantStatus === "speaking" ? (
+                      <>
+                        <Volume2 className="w-3.5 h-3.5 text-emerald-300 animate-bounce shrink-0" />
+                        <span className="text-xs font-bold text-emerald-200">जवाब...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-sm leading-none select-none">🗣️✨</span>
+                        <span className="hidden xs:inline">AI</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Language Selector */}
+                  <button
+                    type="button"
+                    id="header-language-switcher-btn"
+                    onClick={() => setIsLanguageModalOpen(true)}
+                    title="अपनी भाषा चुनें / Choose Language"
+                    className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-700/80 bg-emerald-900/90 hover:bg-emerald-900 text-emerald-50 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+                    aria-label="भाषा चुनें"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                    <span className="max-w-[72px] sm:max-w-none truncate">
+                      {SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage)?.nativeName || "English"}
+                    </span>
+                  </button>
+
+                  {/* Profile Button - Cleanly displayed on Home Screen, hidden on sub-screens to prevent mobile squeeze */}
+                  {currentScreen === "home" && (
+                    <button
+                      type="button"
+                      id="header-profile-btn"
+                      onClick={() => setCurrentScreen("profile")}
+                      title={currentLanguage === "en" ? "Profile" : "प्रोफ़ाइल"}
+                      className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-700/80 bg-emerald-900/90 hover:bg-emerald-900 text-emerald-50 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+                      aria-label={currentLanguage === "en" ? "Profile" : "प्रोफ़ाइल"}
+                    >
+                      <User className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                      <span className="hidden sm:inline">{currentLanguage === "en" ? "Profile" : "प्रोफ़ाइल"}</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                {/* 🗣️✨ Voice AI Assistant Header Button */}
-                <button
-                  type="button"
-                  id="header-voice-ai-btn"
-                  onClick={() => setIsVoiceAssistantOpen((prev) => !prev)}
-                  title={voiceAssistantStatus === "listening" ? "सुन रहा हूँ..." : "बोलकर AI मदद लें / Ask by Voice"}
-                  className={`bg-emerald-900/90 hover:bg-emerald-900 text-emerald-50 border border-emerald-700 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0 ${
-                    voiceAssistantStatus === "listening"
-                      ? "ring-1 ring-emerald-400 bg-emerald-800 text-white"
-                      : voiceAssistantStatus === "speaking"
-                      ? "ring-1 ring-emerald-400 bg-emerald-800 text-white"
-                      : voiceAssistantStatus === "processing"
-                      ? "ring-1 ring-emerald-400 bg-emerald-800 text-white"
-                      : ""
-                  }`}
-                  aria-label="बोलकर AI मदद लें"
-                >
-                  {voiceAssistantStatus === "listening" ? (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse shrink-0" />
-                      <span className="text-xs font-bold text-emerald-200">सुन रहा हूँ...</span>
-                    </>
-                  ) : voiceAssistantStatus === "processing" ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-300 shrink-0" />
-                      <span className="text-xs font-bold text-emerald-200">सोच रहा हूँ...</span>
-                    </>
-                  ) : voiceAssistantStatus === "speaking" ? (
-                    <>
-                      <Volume2 className="w-3.5 h-3.5 text-emerald-300 animate-bounce shrink-0" />
-                      <span className="text-xs font-bold text-emerald-200">जवाब...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-sm leading-none select-none">🗣️✨</span>
-                      <span>AI</span>
-                    </>
-                  )}
-                </button>
+              {/* SECONDARY GREETING & STATUS ROW: Only shown on Home screen to save vertical space on sub-screens */}
+              {currentScreen === "home" && (
+                <div className="flex items-center justify-between gap-2 pt-2 mt-2 border-t border-emerald-700/60 text-xs">
+                  <div className="flex items-center gap-1.5 font-semibold text-emerald-100 truncate min-w-0">
+                    <span className="text-sm shrink-0">🚜</span>
+                    <span className="truncate">
+                      नमस्ते, {authSession.user.nameHi || authSession.user.name} 👋
+                    </span>
+                  </div>
 
-                {/* Language Selector */}
-                <button
-                  type="button"
-                  id="header-language-switcher-btn"
-                  onClick={() => setIsLanguageModalOpen(true)}
-                  title="अपनी भाषा चुनें / Choose Language"
-                  className="bg-emerald-900/90 hover:bg-emerald-900 text-emerald-50 border border-emerald-700 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-                  aria-label="भाषा चुनें"
-                >
-                  <Globe className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>{SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage)?.nativeName || "English"}</span>
-                </button>
-
-                {/* Profile Button (Replaced Settings) */}
-                <button
-                  type="button"
-                  id="header-profile-btn"
-                  onClick={() => setCurrentScreen("profile")}
-                  title={currentLanguage === "en" ? "Profile" : "प्रोफ़ाइल (Profile)"}
-                  className="bg-emerald-900/90 hover:bg-emerald-900 text-emerald-50 border border-emerald-700 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-                  aria-label={currentLanguage === "en" ? "Profile" : "प्रोफ़ाइल"}
-                >
-                  <User className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>{currentLanguage === "en" ? "Profile" : "प्रोफ़ाइल"}</span>
-                </button>
-              </div>
+                  {/* Security / Sync Status Indicator */}
+                  <div className="shrink-0 flex items-center">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 border shadow-2xs ${
+                        syncState === "syncing"
+                          ? "bg-blue-100 text-blue-900 border-blue-300 animate-pulse"
+                          : !isOnline
+                          ? "bg-amber-100 text-amber-950 border-amber-300"
+                          : "bg-emerald-900/80 text-emerald-100 border-emerald-600/70"
+                      }`}
+                      title="डेटा सुरक्षा स्थिति"
+                    >
+                      <span className="text-xs">
+                        {syncState === "syncing"
+                          ? "🔄"
+                          : !isOnline
+                          ? "📴"
+                          : "🟢"}
+                      </span>
+                      <span>
+                        {syncState === "syncing"
+                          ? t("common.syncingNotice", currentLanguage)
+                          : !isOnline
+                          ? t("common.offlineNotice", currentLanguage)
+                          : t("common.dataSafeNotice", currentLanguage)}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
-
-            {/* SECONDARY / USER AREA: User Greeting on Left | Clean Security Status on Right */}
-            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-emerald-700/60 text-xs">
-              <div className="flex items-center gap-1.5 font-bold text-emerald-100 truncate min-w-0">
-                <span className="text-sm shrink-0">🚜</span>
-                <span className="truncate">
-                  नमस्ते, {authSession.user.nameHi || authSession.user.name} 👋
-                </span>
-              </div>
-
-              {/* Small Security / Status Indicator (neatly positioned so it does not compete visually) */}
-              <div className="shrink-0 flex items-center">
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 border shadow-2xs ${
-                    syncState === "syncing"
-                      ? "bg-blue-100 text-blue-900 border-blue-300 animate-pulse"
-                      : !isOnline
-                      ? "bg-amber-100 text-amber-950 border-amber-300"
-                      : "bg-emerald-900/80 text-emerald-100 border-emerald-600/70"
-                  }`}
-                  title="डेटा सुरक्षा स्थिति"
-                >
-                  <span className="text-xs">
-                    {syncState === "syncing"
-                      ? "🔄"
-                      : !isOnline
-                      ? "📴"
-                      : "🟢"}
-                  </span>
-                  <span>
-                    {syncState === "syncing"
-                      ? t("common.syncingNotice", currentLanguage)
-                      : !isOnline
-                      ? t("common.offlineNotice", currentLanguage)
-                      : t("common.dataSafeNotice", currentLanguage)}
-                  </span>
-                </span>
-              </div>
-            </div>
-          </div>
-        </header>
-      )}
+          </header>
+        );
+      })()}
 
       {/* ================= OFFLINE / ONLINE INDICATOR BANNERS (Section 14) ================= */}
       {/* 1. Offline Banner */}
@@ -3081,7 +3204,7 @@ export default function AgriPulseApp() {
                         required
                         value={newCertOrg}
                         onChange={(e) => setNewCertOrg(e.target.value)}
-                        placeholder={currentLanguage === "en" ? "e.g., NAMI Training Institute" : "जैसे: NAMI Demo Institute"}
+                        placeholder={currentLanguage === "en" ? "e.g., NAMI Training Institute" : "जैसे: NAMI ट्रेनिंग संस्थान"}
                         className="w-full border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 bg-white focus:outline-none"
                       />
                     </div>
@@ -3812,7 +3935,7 @@ export default function AgriPulseApp() {
                     type="text"
                     value={newMachineName}
                     onChange={(e) => setNewMachineName(e.target.value)}
-                    placeholder={currentLanguage === "en" ? "e.g. Mahindra 575 Tractor" : "उदा. महिंद्रा 575 ट्रैक्टर"}
+                    placeholder={currentLanguage === "en" ? "e.g. Mahindra 575 Tractor" : "जैसे: महिंद्रा 575 ट्रैक्टर"}
                     className="w-full p-2.5 rounded-md border border-slate-300 font-medium text-sm text-slate-900 bg-white focus:outline-none focus:border-emerald-600"
                   />
                 </div>
@@ -4498,7 +4621,7 @@ export default function AgriPulseApp() {
                       >
                         <span className="flex items-center gap-2">
                           <span>💡</span>
-                          <span>{currentLanguage === "en" ? "Example complaint: " : "उदाहरण समस्या: "}<strong>&quot;{PRIMARY_DEMO_SCENARIO.voiceComplaint}&quot;</strong></span>
+                          <span>{currentLanguage === "en" ? "Suggested complaint: " : "सुझावित समस्या: "}<strong>&quot;{PRIMARY_DEMO_SCENARIO.voiceComplaint}&quot;</strong></span>
                         </span>
                         <span className="text-amber-700 font-black">{currentLanguage === "en" ? "Tap ➔" : "टैप करें ➔"}</span>
                       </button>
@@ -4520,7 +4643,7 @@ export default function AgriPulseApp() {
                             }}
                             className="w-full text-left text-sm font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 p-2.5 rounded-xl border border-amber-300 transition-colors"
                           >
-                            {currentLanguage === "en" ? "💡 Add example phrase: " : "💡 उदाहरण वाक्य जोड़ें: "}
+                            {currentLanguage === "en" ? "💡 Add suggested phrase: " : "💡 त्वरित वाक्य जोड़ें: "}
                             <span className="underline">
                               &quot;{PRIMARY_DEMO_SCENARIO.voiceComplaint}&quot;
                             </span>
@@ -5920,7 +6043,7 @@ export default function AgriPulseApp() {
                         }}
                         className="w-full text-left text-sm font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 p-2.5 rounded-xl border border-amber-300 transition-colors"
                       >
-                        {currentLanguage === "en" ? "💡 Add example sentence: " : "💡 उदाहरण वाक्य जोड़ें: "}
+                        {currentLanguage === "en" ? "💡 Add suggested sentence: " : "💡 त्वरित वाक्य जोड़ें: "}
                         <span className="underline">
                           &quot;{currentLanguage === "en" ? "Smoke is coming out of my tractor and engine is overheating." : "मेरे ट्रैक्टर से धुआं निकल रहा है और इंजन गरम हो रहा है।"}&quot;
                         </span>
@@ -7787,7 +7910,7 @@ export default function AgriPulseApp() {
                       type="text"
                       value={techOverrideDiagnosisInput}
                       onChange={(e) => setTechOverrideDiagnosisInput(e.target.value)}
-                      placeholder={currentLanguage === "en" ? "e.g., Fuel line blockage confirmed / hydraulic valve leakage" : "उदा: फ्यूल सिस्टम में रुकावट की पुष्टि / हाइड्रोलिक वाल्व लीकेज"}
+                      placeholder={currentLanguage === "en" ? "e.g., Fuel line blockage confirmed / hydraulic valve leakage" : "जैसे: फ्यूल सिस्टम में रुकावट की पुष्टि / हाइड्रोलिक वाल्व लीकेज"}
                       className="w-full text-sm font-bold text-slate-900 p-2.5 rounded-xl border-2 border-emerald-400 bg-white"
                     />
                     <div className="flex items-center gap-2">

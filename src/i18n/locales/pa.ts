@@ -54,7 +54,7 @@ export const pa: TranslationDictionary = {
     reportProblem: "ਮਸ਼ੀਨ ਖਰਾਬੀ ਦਰਜ ਕਰੋ",
     emergencyService: "ਐਮਰਜੈਂਸੀ ਤੇਜ਼ ਮੁਰੰਮਤ",
     preventiveCheck: "ਬਚਾਅ ਸੇਵਾ ਪੈਕੇਜ",
-    oneClickDemoTitle: "⚡ 1-ਕਲਿੱਕ ਨਾਗਪੁਰ RISE ਡੈਮੋ",
+    oneClickDemoTitle: "⚡ 1-ਕਲਿੱਕ ਨਾਗਪੁਰ RISE ਦ੍ਰਿਸ਼",
     oneClickDemoBtn: "ਟਰੈਕਟਰ ਹਾਈਡ੍ਰੌਲਿਕ ਖਰਾਬੀ — ਕੱਲ੍ਹ ਬਿਜਾਈ ਸ਼ੁਰੂ",
     oneClickDemoSub: "ਸ਼ਿਕਾਇਤ ਤੋਂ ਰਿਕਵਰੀ ਇੰਜਣ ਅਤੇ ਮਸ਼ੀਨ ਪਾਸਪੋਰਟ ਤੱਕ ਪੂਰੀ ਪ੍ਰਕਿਰਿਆ",
     viewAllMachines: "ਸਾਰੀਆਂ ਮਸ਼ੀਨਾਂ ਦੇਖੋ ➔",
@@ -196,7 +196,7 @@ export const pa: TranslationDictionary = {
     syncQueue: "ਬਕਾਇਆ ਸਿੰਕ ਕੰਮ",
     syncNowBtn: "ਹੁਣੇ ਸਿੰਕ ਕਰੋ (Sync Now)",
     storageUsage: "ਸਥਾਨਕ ਮੈਮੋਰੀ ਵਰਤੋਂ",
-    resetDemoData: "ਡੈਮੋ ਡਾਟਾ ਰੀਸੈੱਟ ਕਰੋ",
+    resetDemoData: "ਡਾਟਾ ਰੀਸੈੱਟ ਕਰੋ",
   },
   telephony: {
     ivrModalTitle: "📞 ਫੀਚਰ ਫ਼ੋਨ / ਹੈਲਪਲਾਈਨ (IVR)",

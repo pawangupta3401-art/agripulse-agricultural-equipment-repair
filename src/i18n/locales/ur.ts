@@ -54,7 +54,7 @@ export const ur: TranslationDictionary = {
     reportProblem: "مشین کی خرابی درج کریں",
     emergencyService: "ہنگامی فوری مرمت",
     preventiveCheck: "احتیاطی سروس پیکیجز",
-    oneClickDemoTitle: "⚡ 1-کلک ناگپور RISE ڈیمو",
+    oneClickDemoTitle: "⚡ 1-کلک ناگپور RISE منظرنامہ",
     oneClickDemoBtn: "ٹریکٹر ہائیڈرولک خرابی — کل بوائی شروع ہے",
     oneClickDemoSub: "شکایت سے لے کر ریکوری انجن اور مشین پاسپورٹ تک مکمل مرحلہ",
     viewAllMachines: "تمام مشینیں دیکھیں ➔",
@@ -196,7 +196,7 @@ export const ur: TranslationDictionary = {
     syncQueue: "زیر التواء سنک کام",
     syncNowBtn: "ابھی سنک کریں (Sync Now)",
     storageUsage: "مقامی میموری کا استعمال",
-    resetDemoData: "ڈیمو ڈیٹا دوبارہ ترتیب دیں",
+    resetDemoData: "ڈیٹا دوبارہ ترتیب دیں",
   },
   telephony: {
     ivrModalTitle: "📞 سادہ فون / ہیلپ لائن (IVR)",

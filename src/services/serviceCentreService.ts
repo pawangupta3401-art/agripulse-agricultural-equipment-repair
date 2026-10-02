@@ -551,3 +551,101 @@ export function getServiceCentreStockedParts(centreId: string) {
     };
   });
 }
+
+// ─── P3: FPO, Cooperative & Technician Backend Relationship Helpers ─────────
+
+/**
+ * Associate a technician with a Service Centre, FPO, or Cooperative.
+ */
+export function associateTechnicianWithCentre(
+  centreId: string,
+  technicianId: string,
+  role: "employed" | "affiliate" | "on_call_partner" = "affiliate"
+): boolean {
+  const centres = getServiceCentres();
+  const centreIdx = centres.findIndex((c) => c.id === centreId);
+  if (centreIdx < 0) return false;
+
+  const centre = centres[centreIdx];
+  const associated = new Set(centre.associatedTechnicianIds || []);
+  associated.add(technicianId);
+
+  const existingAffiliations = centre.technicianAffiliations || [];
+  const updatedAffiliations = [
+    ...existingAffiliations.filter((a) => a.technicianId !== technicianId),
+    {
+      technicianId,
+      role,
+      assignedDate: new Date().toISOString(),
+      isActive: true,
+    },
+  ];
+
+  centres[centreIdx] = {
+    ...centre,
+    associatedTechnicianIds: Array.from(associated),
+    technicianAffiliations: updatedAffiliations,
+  };
+
+  saveServiceCentres(centres);
+  return true;
+}
+
+/**
+ * Disassociate a technician from a Service Centre / FPO.
+ */
+export function disassociateTechnicianFromCentre(centreId: string, technicianId: string): boolean {
+  const centres = getServiceCentres();
+  const centreIdx = centres.findIndex((c) => c.id === centreId);
+  if (centreIdx < 0) return false;
+
+  const centre = centres[centreIdx];
+  const associated = (centre.associatedTechnicianIds || []).filter((id) => id !== technicianId);
+  const affiliations = (centre.technicianAffiliations || []).map((a) =>
+    a.technicianId === technicianId ? { ...a, isActive: false } : a
+  );
+
+  centres[centreIdx] = {
+    ...centre,
+    associatedTechnicianIds: associated,
+    technicianAffiliations: affiliations,
+  };
+
+  saveServiceCentres(centres);
+  return true;
+}
+
+/**
+ * Find all Service Centres / FPOs affiliated with a specific technician.
+ */
+export function getCentresByTechnicianId(technicianId: string): ServiceCentre[] {
+  const centres = getServiceCentres();
+  return centres.filter((c) => (c.associatedTechnicianIds || []).includes(technicianId));
+}
+
+/**
+ * Filter Service Centres by organizational type (e.g. "FPO" or "Cooperative").
+ */
+export function getCentresByOperatingType(orgType: string): ServiceCentre[] {
+  const centres = getServiceCentres();
+  return centres.filter(
+    (c) =>
+      c.centreType.toLowerCase() === orgType.toLowerCase() ||
+      c.operatingOrgType?.toLowerCase() === orgType.toLowerCase()
+  );
+}
+
+/**
+ * Create or register a new Service Centre / FPO Workshop.
+ */
+export function createServiceCentre(data: Omit<ServiceCentre, "id">): ServiceCentre {
+  const centres = getServiceCentres();
+  const newCentre: ServiceCentre = {
+    ...data,
+    id: `sc-${Date.now().toString().slice(-6)}`,
+  };
+
+  saveServiceCentres([...centres, newCentre]);
+  return newCentre;
+}
+
