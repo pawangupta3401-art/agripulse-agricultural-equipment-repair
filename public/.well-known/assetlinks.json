@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.agripulse.app",
+      "sha256_cert_fingerprints": [
+        "14:6D:E9:7D:0C:52:AB:71:6C:54:19:D9:6A:B1:84:8A:2A:42:0E:07:3E:9A:34:64:55:EE:7C:E6:C0:B5:48:82"
+      ]
+    }
+  }
+]

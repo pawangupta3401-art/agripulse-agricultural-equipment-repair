@@ -2,8 +2,18 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AgriPulse - किसान मित्र",
-  description: "From breakdown to back-in-field. सरल और आसान किसान सहायता सेवा।",
+  title: "AgriPulse — कृषि उपकरण रिपेयर",
+  description: "खेती की मशीनों की मदद, एक जगह। मशीन की समस्या बताएं, सही मदद पाएं।",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "AgriPulse",
+  },
+  icons: {
+    icon: "/favicon.png",
+    apple: "/icons/icon-192x192.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -11,6 +21,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#165420",
 };
 
 export default function RootLayout({

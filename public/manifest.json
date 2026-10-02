@@ -1,0 +1,33 @@
+{
+  "name": "AgriPulse — कृषि उपकरण रिपेयर",
+  "short_name": "AgriPulse",
+  "description": "खेती की मशीनों की मदद, एक जगह। मशीन की समस्या बताएं, सही मदद पाएं।",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#165420",
+  "theme_color": "#165420",
+  "categories": ["business", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

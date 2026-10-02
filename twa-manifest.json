@@ -1,0 +1,41 @@
+{
+  "packageId": "com.agripulse.app",
+  "host": "agripulse-agricultural-equipment-repair.vercel.app",
+  "name": "AgriPulse",
+  "launcherName": "AgriPulse",
+  "themeColor": "#165420",
+  "themeColorDark": "#165420",
+  "navigationColor": "#165420",
+  "navigationColorDark": "#165420",
+  "backgroundColor": "#165420",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://agripulse-agricultural-equipment-repair.vercel.app/icons/icon-512x512.png",
+  "maskableIconUrl": "https://agripulse-agricultural-equipment-repair.vercel.app/icons/maskable-icon.png",
+  "appVersionCode": 1,
+  "appVersionName": "1.0.0",
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://agripulse-agricultural-equipment-repair.vercel.app/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    },
+    "playBilling": {
+      "enabled": false
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://agripulse-agricultural-equipment-repair.vercel.app/",
+  "orientation": "portrait",
+  "signing": {
+    "file": "./android-keystore.jks",
+    "alias": "agripulse"
+  }
+}
