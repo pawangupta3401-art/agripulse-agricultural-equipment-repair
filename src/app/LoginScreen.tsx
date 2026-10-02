@@ -18,6 +18,7 @@ import {
   X,
   Sparkles,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import {
   UserRole,
@@ -31,7 +32,7 @@ import {
 } from "@/services/authService";
 import { LanguageCode, t, SUPPORTED_LANGUAGES } from "@/i18n";
 import VoiceHelpAssistant from "@/components/VoiceHelpAssistant";
-import { VoiceHelpScreenContext } from "@/types/voiceAssistant";
+import { VoiceHelpScreenContext, VoiceAssistantStatus } from "@/types/voiceAssistant";
 
 interface LoginScreenProps {
   currentLanguage: LanguageCode;
@@ -94,6 +95,7 @@ export default function LoginScreen({
 
   // Voice-Only AI Help Assistant state ("बोलकर मदद लें")
   const [showVoiceHelp, setShowVoiceHelp] = useState<boolean>(false);
+  const [voiceStatus, setVoiceStatus] = useState<VoiceAssistantStatus>("idle");
 
   // Modals & Popups
   const [showLangModal, setShowLangModal] = useState<boolean>(false);
@@ -408,8 +410,8 @@ export default function LoginScreen({
             </div>
           </div>
 
-          {/* Action Items: AI Voice Help (🗣️✨) & Language Selector */}
-          <div className="flex items-center gap-2.5 sm:gap-3.5">
+          {/* Action Items: 🗣️✨ AI Assistant & Language Selector */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {/* Dedicated AI Voice Assistant Button (🗣️✨) */}
             <button
               id="voiceHelpTriggerBtn"
@@ -422,22 +424,37 @@ export default function LoginScreen({
                 }
                 setShowVoiceHelp((prev) => !prev);
               }}
-              className={`w-12 h-12 sm:w-[52px] sm:h-[52px] flex items-center justify-center relative rounded-[14px] border transition-all duration-150 cursor-pointer select-none active:scale-95 ${
-                showVoiceHelp
-                  ? "bg-[#dcfce7] border-[#165420] ring-2 ring-[#165420]/25 shadow-xs"
-                  : "bg-[#ecf8ee] border-[#bbf0bf] text-[#165420] hover:bg-[#e2f5e3] hover:border-[#86efac]"
+              className={`h-10 sm:h-11 px-3 sm:px-3.5 rounded-xl border flex items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer select-none active:scale-95 ${
+                voiceStatus === "listening"
+                  ? "bg-[#dcfce7] border-[#165420] text-[#165420] shadow-xs"
+                  : voiceStatus === "speaking"
+                  ? "bg-[#ecfdf5] border-emerald-600 text-emerald-900 shadow-xs"
+                  : "bg-[#ecf8ee] border-[#bbf0bf] text-[#165420] hover:bg-[#e2f5e3]"
               }`}
-              title="बोलकर AI मदद लें"
+              title={voiceStatus === "listening" ? "सुन रहा हूँ..." : "बोलकर AI मदद लें"}
               aria-label="बोलकर AI मदद लें"
             >
-              <div className="relative flex items-center justify-center pointer-events-none">
-                <span className="text-[28px] sm:text-[30px] leading-none select-none filter drop-shadow-2xs">
-                  🗣️
-                </span>
-                <span className="text-[14px] sm:text-[15px] absolute -top-1.5 -right-2 leading-none filter drop-shadow-2xs">
-                  ✨
-                </span>
-              </div>
+              {voiceStatus === "listening" ? (
+                <>
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse shrink-0" />
+                  <span className="text-xs sm:text-sm font-bold text-[#165420]">सुन रहा हूँ...</span>
+                </>
+              ) : voiceStatus === "processing" ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#165420] shrink-0" />
+                  <span className="text-xs sm:text-sm font-bold text-[#165420]">सोच रहा हूँ...</span>
+                </>
+              ) : voiceStatus === "speaking" ? (
+                <>
+                  <Volume2 className="w-3.5 h-3.5 text-emerald-700 animate-bounce shrink-0" />
+                  <span className="text-xs sm:text-sm font-bold text-emerald-900">जवाब...</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-base sm:text-lg leading-none select-none">🗣️✨</span>
+                  <span className="text-xs sm:text-sm font-bold text-[#165420]">AI</span>
+                </>
+              )}
             </button>
 
             {/* Language Selector Trigger */}
@@ -460,7 +477,11 @@ export default function LoginScreen({
       {/* ================= VOICE-ONLY AI HELP ASSISTANT ================= */}
       <VoiceHelpAssistant
         isOpen={showVoiceHelp}
-        onClose={() => setShowVoiceHelp(false)}
+        onClose={() => {
+          setShowVoiceHelp(false);
+          setVoiceStatus("idle");
+        }}
+        onStatusChange={setVoiceStatus}
         context={voiceHelpContext}
       />
 

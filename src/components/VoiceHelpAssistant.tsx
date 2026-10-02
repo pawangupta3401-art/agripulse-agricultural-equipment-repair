@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Volume2, Loader2, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { getSpeechRecognitionCode } from "@/i18n";
 import {
   VoiceAssistantStatus,
@@ -14,6 +14,7 @@ interface VoiceHelpAssistantProps {
   isOpen: boolean;
   onClose: () => void;
   context: VoiceHelpScreenContext;
+  onStatusChange?: (status: VoiceAssistantStatus) => void;
   onRequestBreakdown?: () => void;
 }
 
@@ -21,6 +22,7 @@ export default function VoiceHelpAssistant({
   isOpen,
   onClose,
   context,
+  onStatusChange,
 }: VoiceHelpAssistantProps) {
   const [status, setStatus] = useState<VoiceAssistantStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -31,6 +33,15 @@ export default function VoiceHelpAssistant({
   const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const isEn = context.language === "en";
+
+  // Notify parent of status changes for in-header button state
+  const updateStatus = useCallback(
+    (newStatus: VoiceAssistantStatus) => {
+      setStatus(newStatus);
+      onStatusChange?.(newStatus);
+    },
+    [onStatusChange]
+  );
 
   // Stop recognition and speech cleanly
   const handleStop = useCallback(() => {
@@ -44,9 +55,9 @@ export default function VoiceHelpAssistant({
     }
     stopSpeech();
     activeUtteranceRef.current = null;
-    setStatus("idle");
+    updateStatus("idle");
     setErrorMessage(null);
-  }, []);
+  }, [updateStatus]);
 
   // Safe close
   const handleClose = useCallback(() => {
@@ -59,7 +70,7 @@ export default function VoiceHelpAssistant({
   const processQueryAndSpeak = useCallback(
     async (queryText: string) => {
       if (isClosingRef.current) return;
-      setStatus("processing");
+      updateStatus("processing");
       setErrorMessage(null);
 
       try {
@@ -73,7 +84,7 @@ export default function VoiceHelpAssistant({
             ? "I could not find the answer to this question. Please check the help section."
             : "मुझे इस सवाल का सही जवाब नहीं मिला। कृपया मदद सेक्शन से सहायता लें।");
 
-        setStatus("speaking");
+        updateStatus("speaking");
 
         activeUtteranceRef.current = speakAloud(
           textToSpeak,
@@ -95,7 +106,7 @@ export default function VoiceHelpAssistant({
         const fallback = isEn
           ? "I could not find the answer to this question. Please check the help section."
           : "मुझे इस सवाल का सही जवाब नहीं मिला। कृपया मदद सेक्शन से सहायता लें।";
-        setStatus("speaking");
+        updateStatus("speaking");
         speakAloud(fallback, context.language, () => {
           if (!isClosingRef.current) {
             handleClose();
@@ -103,7 +114,7 @@ export default function VoiceHelpAssistant({
         });
       }
     },
-    [context, handleClose, isEn]
+    [context, handleClose, isEn, updateStatus]
   );
 
   // Start listening flow immediately upon tap
@@ -122,7 +133,7 @@ export default function VoiceHelpAssistant({
         ? "Microphone is not supported in this browser."
         : "माइक्रोफोन की अनुमति दें, फिर दोबारा कोशिश करें।";
       setErrorMessage(msg);
-      setStatus("error");
+      updateStatus("error");
       speakAloud(msg, context.language, () => {
         setTimeout(() => handleClose(), 2000);
       });
@@ -137,7 +148,7 @@ export default function VoiceHelpAssistant({
       recognition.interimResults = false;
 
       recognition.onstart = () => {
-        setStatus("listening");
+        updateStatus("listening");
         setErrorMessage(null);
       };
 
@@ -160,7 +171,7 @@ export default function VoiceHelpAssistant({
             ? "I could not hear you clearly. Please speak again."
             : "मुझे ठीक से सुनाई नहीं दिया। कृपया फिर से बोलें।";
           setErrorMessage(noHeardMsg);
-          setStatus("error");
+          updateStatus("error");
           speakAloud(noHeardMsg, context.language, () => {
             setTimeout(() => handleClose(), 2500);
           });
@@ -174,7 +185,7 @@ export default function VoiceHelpAssistant({
             ? "Please grant microphone permission and try again."
             : "माइक्रोफोन की अनुमति दें, फिर दोबारा कोशिश करें।";
           setErrorMessage(micMsg);
-          setStatus("error");
+          updateStatus("error");
           speakAloud(micMsg, context.language, () => {
             setTimeout(() => handleClose(), 2500);
           });
@@ -183,7 +194,7 @@ export default function VoiceHelpAssistant({
             ? "I could not hear you clearly. Please speak again."
             : "मुझे ठीक से सुनाई नहीं दिया। कृपया फिर से बोलें।";
           setErrorMessage(noSpeechMsg);
-          setStatus("error");
+          updateStatus("error");
           speakAloud(noSpeechMsg, context.language, () => {
             setTimeout(() => handleClose(), 2500);
           });
@@ -199,7 +210,7 @@ export default function VoiceHelpAssistant({
             ? "I could not hear you clearly. Please speak again."
             : "मुझे ठीक से सुनाई नहीं दिया। कृपया फिर से बोलें।";
           setErrorMessage(noSpeechMsg);
-          setStatus("error");
+          updateStatus("error");
           speakAloud(noSpeechMsg, context.language, () => {
             setTimeout(() => handleClose(), 2500);
           });
@@ -214,12 +225,12 @@ export default function VoiceHelpAssistant({
         ? "Please grant microphone permission and try again."
         : "माइक्रोफोन की अनुमति दें, फिर दोबारा कोशिश करें।";
       setErrorMessage(micMsg);
-      setStatus("error");
+      updateStatus("error");
       speakAloud(micMsg, context.language, () => {
         setTimeout(() => handleClose(), 2500);
       });
     }
-  }, [context.language, handleClose, handleStop, isEn, processQueryAndSpeak, status]);
+  }, [context.language, handleClose, handleStop, isEn, processQueryAndSpeak, status, updateStatus]);
 
   // When isOpen changes, trigger voice-only interaction
   useEffect(() => {
@@ -233,63 +244,23 @@ export default function VoiceHelpAssistant({
     };
   }, [isOpen]);
 
-  if (!isOpen && status === "idle") return null;
-
-  // VOICE-ONLY UX:
-  // Render ONLY a very small temporary listening/speaking indicator.
-  // NO modal backdrop, NO card, NO popup, NO screen takeover.
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto transition-all duration-200"
-    >
-      {status === "listening" && (
-        <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-emerald-950/90 text-white shadow-xl backdrop-blur-md border border-emerald-500/40 text-xs font-bold animate-pulse">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-          </span>
-          <span>{isEn ? "🎤 Listening..." : "🎤 सुन रहा हूँ..."}</span>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="ml-1 text-emerald-300 hover:text-white text-xs px-1"
-            title="रद्द करें"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {status === "processing" && (
-        <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-950/90 text-white shadow-xl backdrop-blur-md border border-slate-700 text-xs font-bold animate-fadeIn">
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-          <span>{isEn ? "⏳ Understanding..." : "⏳ समझ रहा हूँ..."}</span>
-        </div>
-      )}
-
-      {status === "speaking" && (
-        <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-emerald-900/95 text-white shadow-xl backdrop-blur-md border border-emerald-400/50 text-xs font-bold animate-fadeIn">
-          <Volume2 className="w-3.5 h-3.5 text-emerald-300 animate-bounce" />
-          <span>{isEn ? "🔊 Answering..." : "🔊 जवाब दे रहा हूँ..."}</span>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="ml-1 text-emerald-200 hover:text-white text-xs px-1"
-            title="रोकें"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {status === "error" && errorMessage && (
-        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-950/90 text-rose-100 shadow-xl backdrop-blur-md border border-rose-500/50 text-xs font-semibold animate-fadeIn max-w-[90vw]">
-          <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+  // If there's an error message, display an unobtrusive bottom toast (away from header)
+  if (status === "error" && errorMessage) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-200"
+      >
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 text-white shadow-lg text-xs font-semibold border border-slate-700 max-w-[90vw]">
+          <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           <span className="truncate">{errorMessage}</span>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  // Pure voice interaction: header button itself handles the visual state directly!
+  // NO overlay, NO duplicate circle, NO floating bubble over header.
+  return null;
 }

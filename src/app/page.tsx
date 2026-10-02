@@ -47,6 +47,7 @@ import {
   CalendarDays,
   FileText,
   Globe,
+  Loader2,
 } from "lucide-react";
 import {
   Machine,
@@ -145,6 +146,7 @@ import WelcomeScreen, { hasSeenWelcome, markWelcomeSeen } from "./WelcomeScreen"
 import TechnicianDashboard from "./TechnicianDashboard";
 import ProfileScreen from "./ProfileScreen";
 import VoiceHelpAssistant from "@/components/VoiceHelpAssistant";
+import { VoiceAssistantStatus } from "@/types/voiceAssistant";
 import {
   AuthSession,
   UserRole,
@@ -251,6 +253,7 @@ export default function AgriPulseApp() {
 
   // Voice AI Assistant with 1000 Q&A Knowledge Base
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState<boolean>(false);
+  const [voiceAssistantStatus, setVoiceAssistantStatus] = useState<VoiceAssistantStatus>("idle");
 
   // Authenticated user session (Farmer vs Technician)
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
@@ -2506,12 +2509,39 @@ export default function AgriPulseApp() {
                   type="button"
                   id="header-voice-ai-btn"
                   onClick={() => setIsVoiceAssistantOpen((prev) => !prev)}
-                  title="बोलकर पूछें / Ask by Voice"
-                  className="bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                  aria-label="बोलकर पूछें"
+                  title={voiceAssistantStatus === "listening" ? "सुन रहा हूँ..." : "बोलकर AI मदद लें / Ask by Voice"}
+                  className={`bg-emerald-900/90 hover:bg-emerald-900 text-emerald-50 border border-emerald-700 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0 ${
+                    voiceAssistantStatus === "listening"
+                      ? "ring-1 ring-emerald-400 bg-emerald-800 text-white"
+                      : voiceAssistantStatus === "speaking"
+                      ? "ring-1 ring-emerald-400 bg-emerald-800 text-white"
+                      : voiceAssistantStatus === "processing"
+                      ? "ring-1 ring-emerald-400 bg-emerald-800 text-white"
+                      : ""
+                  }`}
+                  aria-label="बोलकर AI मदद लें"
                 >
-                  <span className="text-sm">🗣️✨</span>
-                  <span className="hidden sm:inline">बोलकर पूछें</span>
+                  {voiceAssistantStatus === "listening" ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse shrink-0" />
+                      <span className="text-xs font-bold text-emerald-200">सुन रहा हूँ...</span>
+                    </>
+                  ) : voiceAssistantStatus === "processing" ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-300 shrink-0" />
+                      <span className="text-xs font-bold text-emerald-200">सोच रहा हूँ...</span>
+                    </>
+                  ) : voiceAssistantStatus === "speaking" ? (
+                    <>
+                      <Volume2 className="w-3.5 h-3.5 text-emerald-300 animate-bounce shrink-0" />
+                      <span className="text-xs font-bold text-emerald-200">जवाब...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm leading-none select-none">🗣️✨</span>
+                      <span>AI</span>
+                    </>
+                  )}
                 </button>
 
                 {/* Language Selector */}
@@ -8773,7 +8803,11 @@ export default function AgriPulseApp() {
       {/* 🗣️✨ Voice AI Assistant Modal with 1000 Q&A Knowledge Base */}
       <VoiceHelpAssistant
         isOpen={isVoiceAssistantOpen}
-        onClose={() => setIsVoiceAssistantOpen(false)}
+        onClose={() => {
+          setIsVoiceAssistantOpen(false);
+          setVoiceAssistantStatus("idle");
+        }}
+        onStatusChange={setVoiceAssistantStatus}
         context={{
           currentPage: currentScreen,
           selectedRole: authSession?.user?.role || "farmer",
