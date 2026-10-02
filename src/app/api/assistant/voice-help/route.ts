@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { VoiceHelpRequest, VoiceHelpResponse } from "@/types/voiceAssistant";
 import { LanguageCode } from "@/i18n";
 import { searchKnowledgeBase } from "@/services/knowledgeBaseService";
+import { checkDangerousCondition } from "@/services/aiAssistantService";
 
 const LANGUAGE_NAMES: Record<string, string> = {
   hi: "Hindi (हिन्दी)",
@@ -123,6 +124,155 @@ function getDeterministicResponse(query: string, language: LanguageCode = "hi", 
     : "मुझे इस सवाल का सही जवाब नहीं मिला। कृपया मदद सेक्शन से सहायता लें।";
 }
 
+/**
+ * Deterministic fallback for किसान हेल्प when offline or Gemini API is not configured.
+ * Automatically recognizes:
+ * A. Machine Help (tractor, pump, sprayer, tiller, etc.)
+ * B. Technician Help ("मुझे मैकेनिक चाहिए", "मिस्त्री बुलाओ")
+ * C. App Help (OTP, machine add, complaint)
+ */
+function getKisanHelpDeterministic(query: string, language: LanguageCode = "hi"): VoiceHelpResponse {
+  const isEn = language === "en";
+  const lower = query.toLowerCase();
+
+  // 1. Danger condition check
+  if (checkDangerousCondition(query)) {
+    return {
+      success: true,
+      spokenText: isEn
+        ? "Warning! Smoke, fire, or severe leak detected. Stop the machine immediately, maintain a safe distance, and call a certified technician."
+        : "सावधानी! मशीन में धुआं, आग या गंभीर रिसाव का खतरा है। मशीन तुरंत बंद रखें, सुरक्षित दूरी बनाएं और प्रमाणित मैकेनिक को दिखाएं।",
+      helpType: "machine",
+      technicianRequired: true,
+      clarificationNeeded: false,
+      recommendedMachine: "tractor",
+      problemSummary: isEn ? "Emergency: Safety Hazard" : "आपातकालीन सुरक्षा खतरा",
+      fallbackUsed: true,
+    };
+  }
+
+  // 2. Technician request
+  if (
+    lower.includes("mechanic") ||
+    lower.includes("मैकेनिक") ||
+    lower.includes("मिस्त्री") ||
+    lower.includes("technician") ||
+    lower.includes("बुलाओ") ||
+    lower.includes("चाहिए")
+  ) {
+    return {
+      success: true,
+      spokenText: isEn
+        ? "Sure, I can help connect you with a nearby certified technician right away. Please tap the button below to proceed."
+        : "ज़रूर, मैं आपके लिए नज़दीकी प्रमाणित मैकेनिक खोजने में मदद करता हूँ। कृपया नीचे दिए बटन से बुकिंग आगे बढ़ाएं।",
+      helpType: "technician",
+      technicianRequired: true,
+      clarificationNeeded: false,
+      recommendedMachine: "tractor",
+      problemSummary: isEn ? "Technician Assistance Request" : "टेक्नीशियन सहायता अनुरोध",
+      fallbackUsed: true,
+    };
+  }
+
+  // 3. App help
+  if (lower.includes("otp") || lower.includes("ओटीपी")) {
+    return {
+      success: true,
+      spokenText: isEn
+        ? "OTP is a 6-digit verification code sent via SMS to your registered mobile. Enter it on the screen to securely log in."
+        : "OTP आपके मोबाइल पर SMS के ज़रिए भेजा गया 6 अंकों का कोड है। उसे स्क्रीन पर दर्ज करें।",
+      helpType: "app",
+      technicianRequired: false,
+      clarificationNeeded: false,
+      fallbackUsed: true,
+    };
+  }
+  if (lower.includes("machine") && (lower.includes("add") || lower.includes("जोड़") || lower.includes("नया") || lower.includes("पंजीकरण"))) {
+    return {
+      success: true,
+      spokenText: isEn
+        ? "To add a machine, go to 'My Machines' on the home screen and tap the '+ Register New Machine' button."
+        : "नई मशीन जोड़ने के लिए होम स्क्रीन पर 'मेरी मशीनें' में जाएं और '+ नई मशीन जोड़ें' बटन दबाएं।",
+      helpType: "app",
+      technicianRequired: false,
+      clarificationNeeded: false,
+      fallbackUsed: true,
+    };
+  }
+  if (lower.includes("complaint") || lower.includes("शिकायत") || lower.includes("रिपोर्ट") || lower.includes("खराबी दर्ज")) {
+    return {
+      success: true,
+      spokenText: isEn
+        ? "To report a breakdown, tap 'Report Machine Breakdown' on the home screen and follow the 4 simple steps."
+        : "शिकायत दर्ज करने के लिए होम स्क्रीन पर 'मशीन में समस्या है / रिपोर्ट करें' बटन दबाएं और 4 आसान चरण पूरे करें।",
+      helpType: "app",
+      technicianRequired: false,
+      clarificationNeeded: false,
+      fallbackUsed: true,
+    };
+  }
+
+  // 4. Machine problem help
+  if (lower.includes("start") || lower.includes("स्टार्ट") || lower.includes("चालू")) {
+    return {
+      success: true,
+      spokenText: isEn
+        ? "Understood. First, check if the battery light turns on on the dashboard when you turn the key."
+        : "ठीक है। पहले बताइए, क्या चाबी घुमाने पर डैशबोर्ड पर बैटरी की लाइट चालू हो रही है?",
+      helpType: "machine",
+      clarificationNeeded: true,
+      technicianRequired: false,
+      recommendedMachine: "tractor",
+      problemSummary: isEn ? "Starting Problem" : "स्टार्ट न होने की समस्या",
+      fallbackUsed: true,
+    };
+  }
+
+  if (lower.includes("pump") || lower.includes("पंप") || lower.includes("पानी")) {
+    return {
+      success: true,
+      spokenText: isEn
+        ? "For the water pump, is water flowing at reduced pressure, or is the motor making a humming noise without lifting water?"
+        : "वाटर पंप के लिए बताइए, क्या पानी का दबाव कम है या मोटर आवाज़ कर रही है पर पानी नहीं उठा रही?",
+      helpType: "machine",
+      clarificationNeeded: true,
+      technicianRequired: false,
+      recommendedMachine: "water_pump",
+      problemSummary: isEn ? "Water Pump Issue" : "वाटर पंप की समस्या",
+      fallbackUsed: true,
+    };
+  }
+
+  if (lower.includes("sprayer") || lower.includes("स्प्रेयर") || lower.includes("दवा")) {
+    return {
+      success: true,
+      spokenText: isEn
+        ? "Check the sprayer nozzle and pressure valve for blockage. Is the pump building any pressure?"
+        : "स्प्रेयर के नोज़ल और प्रेशर वाल्व की जांच करें। क्या पंप प्रेशर बना रहा है?",
+      helpType: "machine",
+      clarificationNeeded: true,
+      technicianRequired: false,
+      recommendedMachine: "sprayer",
+      problemSummary: isEn ? "Sprayer Pressure Issue" : "स्प्रेयर प्रेशर की समस्या",
+      fallbackUsed: true,
+    };
+  }
+
+  // General machine fallback
+  return {
+    success: true,
+    spokenText: isEn
+      ? "Understood your equipment issue. Is there any abnormal sound or smoke coming from the engine?"
+      : "मशीन की समस्या समझ गया। क्या इंजन से कोई असामान्य आवाज़ या धुआं आ रहा है?",
+    helpType: "machine",
+    clarificationNeeded: true,
+    technicianRequired: false,
+    recommendedMachine: "tractor",
+    problemSummary: isEn ? "General Machine Inspection" : "मशीन जांच",
+    fallbackUsed: true,
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body: VoiceHelpRequest = await req.json();
@@ -184,6 +334,133 @@ export async function POST(req: NextRequest) {
         spokenText: spoken,
         fallbackUsed: false,
       } as VoiceHelpResponse);
+    }
+
+    // -------------------------------------------------------------------------
+    // DEDICATED "किसान हेल्प" (Kisan Help) VOICE AI FLOW
+    // Uses AgriPulse Gemini AI (no 1000 Q&A Knowledge Base)
+    // Automatically categorizes: Machine Help, Technician Help, App Help
+    // -------------------------------------------------------------------------
+    if (context?.currentPage === "kisan_help") {
+      // 1. Instant Dangerous condition check
+      if (checkDangerousCondition(userQuery)) {
+        return NextResponse.json({
+          success: true,
+          spokenText: isEn
+            ? "Warning! Dangerous condition detected. Stop the machine immediately, maintain a safe distance, and call a certified technician."
+            : "सावधानी! मशीन में आग, धुआं या गंभीर रिसाव का खतरा है। मशीन तुरंत बंद रखें, सुरक्षित दूरी बनाएं और प्रमाणित मैकेनिक को दिखाएं।",
+          helpType: "machine",
+          technicianRequired: true,
+          clarificationNeeded: false,
+          recommendedMachine: "tractor",
+          problemSummary: isEn ? "Critical Safety Hazard" : "गंभीर सुरक्षा खतरा",
+          fallbackUsed: false,
+        } as VoiceHelpResponse);
+      }
+
+      // 2. Call existing AgriPulse Gemini AI backend
+      const apiKey = (process.env.AI_API_KEY || process.env.GEMINI_API_KEY)?.trim();
+
+      if (apiKey) {
+        const kisanSystemPrompt = `You are AgriPulse "किसान हेल्प" (Farmer Voice Assistant), an intelligent, safe, and respectful AI speaking directly to an Indian farmer in simple ${langName}.
+
+CATEGORIES TO UNDERSTAND AUTOMATICALLY:
+1. "machine" - Problems with farm equipment (tractor, pump, sprayer, tiller, etc.).
+   - If danger detected: strictly tell farmer to stop the machine immediately and maintain safe distance.
+   - If safe, ask only ONE simple clarifying question if needed (e.g. "क्या बैटरी की लाइट चालू हो रही है?") OR provide 1 safe check.
+   - If repair is needed, indicate technician is required.
+2. "technician" - Farmer wants a mechanic/technician ("मुझे मैकेनिक चाहिए", "मिस्त्री बुलाओ", etc.).
+   - Acknowledge warmly and confirm we will help connect to a nearby certified mechanic.
+   - Set technicianRequired to true.
+3. "app" - Questions about using AgriPulse ("OTP kahan dalna hai", "Machine kaise add karu", "Complaint kaise kare").
+   - Give simple, direct 1-2 sentence instruction.
+
+OUTPUT FORMAT:
+Return valid JSON only (no markdown, no backticks, no extra text):
+{
+  "spokenText": "short 1 to 2 sentence answer in ${langName}",
+  "helpType": "machine" | "technician" | "app",
+  "clarificationNeeded": boolean,
+  "technicianRequired": boolean,
+  "recommendedMachine": "tractor" | "sprayer" | "water_pump" | "power_tiller",
+  "problemSummary": "short 3-5 word summary"
+}
+
+RULES:
+- Tone must be warm, simple, respectful, and direct.
+- NO developer jargon (no "AI", "Gemini", "API", "token", "JSON").
+- NEVER mention "1000 Q&A", "Knowledge Base", or "Demo".
+- Ask only ONE question at a time if more information is needed.`;
+
+        const kisanUserPrompt = `The farmer just spoke: "${userQuery}". Respond as JSON.`;
+
+        const CANDIDATE_MODELS = [
+          "gemini-2.5-flash",
+          "gemini-1.5-flash",
+          "gemini-2.0-flash",
+        ];
+
+        for (const model of CANDIDATE_MODELS) {
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+          try {
+            const response = await fetch(geminiUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              signal: controller.signal,
+              body: JSON.stringify({
+                system_instruction: { parts: [{ text: kisanSystemPrompt }] },
+                contents: [{ role: "user", parts: [{ text: kisanUserPrompt }] }],
+                generationConfig: {
+                  temperature: 0.2,
+                  maxOutputTokens: 250,
+                  response_mime_type: "application/json",
+                },
+              }),
+            });
+
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+              const rawJson = await response.json();
+              const text = rawJson?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+              if (text) {
+                try {
+                  const parsed = JSON.parse(text);
+                  if (parsed.spokenText) {
+                    return NextResponse.json({
+                      success: true,
+                      spokenText: parsed.spokenText,
+                      helpType: parsed.helpType || "machine",
+                      clarificationNeeded: !!parsed.clarificationNeeded,
+                      technicianRequired: !!parsed.technicianRequired,
+                      recommendedMachine: parsed.recommendedMachine || "tractor",
+                      problemSummary: parsed.problemSummary || "मशीन सहायता",
+                      fallbackUsed: false,
+                    } as VoiceHelpResponse);
+                  }
+                } catch {
+                  // Fallback to text if JSON parsing fails
+                  return NextResponse.json({
+                    success: true,
+                    spokenText: text.replace(/[*#`_"{}]/g, "").trim(),
+                    helpType: "machine",
+                    fallbackUsed: false,
+                  } as VoiceHelpResponse);
+                }
+              }
+            }
+          } catch {
+            clearTimeout(timeoutId);
+          }
+        }
+      }
+
+      // 3. Fallback when offline or no API key
+      const deterministicResult = getKisanHelpDeterministic(userQuery, language);
+      return NextResponse.json(deterministicResult);
     }
 
     // 3. Search 1000+ Q&A Knowledge Base for agricultural machine & app inquiries

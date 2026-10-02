@@ -18,6 +18,7 @@ export interface Machine {
   nameHi: string;
   type: string;
   icon: string;
+  imageUrl?: string;
   status: MachineStatus;
   statusText: string;
   lastService: string;

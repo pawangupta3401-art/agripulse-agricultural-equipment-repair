@@ -25,6 +25,8 @@ export interface VoiceHelpRequest {
   context: VoiceHelpScreenContext;
 }
 
+export type FarmerHelpType = "machine" | "technician" | "app";
+
 export interface VoiceHelpResponse {
   success: boolean;
   spokenText: string;
@@ -36,4 +38,9 @@ export interface VoiceHelpResponse {
   steps?: string[];
   warning?: string;
   mechanicRequired?: boolean;
+  technicianRequired?: boolean;
+  helpType?: FarmerHelpType;
+  clarificationNeeded?: boolean;
+  recommendedMachine?: string;
+  problemSummary?: string;
 }

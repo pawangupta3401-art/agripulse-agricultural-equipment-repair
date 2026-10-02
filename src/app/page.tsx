@@ -146,6 +146,7 @@ import WelcomeScreen from "./WelcomeScreen";
 import TechnicianDashboard from "./TechnicianDashboard";
 import ProfileScreen from "./ProfileScreen";
 import VoiceHelpAssistant from "@/components/VoiceHelpAssistant";
+import KisanHelpScreen from "@/components/KisanHelpScreen";
 import { VoiceAssistantStatus } from "@/types/voiceAssistant";
 import {
   AuthSession,
@@ -230,9 +231,17 @@ type ScreenType =
   | "repair_verification"
   | "nearby_mechanics"
   | "recovery_engine"
-  | "profile";
+  | "profile"
+  | "kisan_help";
 
 type SyncState = "idle" | "syncing" | "synced";
+
+const MACHINE_IMAGE_MAP: Record<string, string> = {
+  tractor: "/assets/images/mahindra-575-di.png",
+  sprayer: "/assets/images/sprayer.png",
+  water_pump: "/assets/images/water-pump.png",
+  power_tiller: "/assets/images/power-tiller.png",
+};
 
 export default function AgriPulseApp() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>("home");
@@ -2537,6 +2546,12 @@ export default function AgriPulseApp() {
                 subtitle: currentLanguage === "en" ? "Equipment & Support" : "बैकअप मशीन व सहायता",
                 icon: "⚡",
               };
+            case "kisan_help":
+              return {
+                title: currentLanguage === "en" ? "Farmer Help" : "किसान हेल्प",
+                subtitle: currentLanguage === "en" ? "Ask anything by voice" : "किसी भी समस्या के बारे में बोलकर पूछें",
+                icon: "🗣️✨",
+              };
             default:
               return {
                 title: "AgriPulse",
@@ -3600,9 +3615,10 @@ export default function AgriPulseApp() {
               </p>
             </div>
 
-            {/* 🗣️✨ Voice AI Assistant Banner with 1000 Q&A Knowledge Base */}
+            {/* 🗣️✨ किसान हेल्प (Dedicated Farmer Voice AI Tab) */}
             <div
-              onClick={() => setIsVoiceAssistantOpen((prev) => !prev)}
+              id="home-kisan-help-tab"
+              onClick={() => setCurrentScreen("kisan_help")}
               className="w-full bg-gradient-to-r from-emerald-800 to-teal-800 text-white rounded-xl p-3.5 shadow-sm border border-emerald-900 cursor-pointer hover:shadow-md transition-all flex items-center justify-between group active:scale-[0.99]"
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -3610,16 +3626,16 @@ export default function AgriPulseApp() {
                   🗣️✨
                 </span>
                 <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-white leading-tight">
-                    बोलकर पूछें (Voice AI सहायक)
+                  <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
+                    {currentLanguage === "en" ? "Farmer Help" : "किसान हेल्प"}
                   </h3>
                   <p className="text-xs text-emerald-100 font-medium truncate mt-0.5">
-                    ट्रैक्टर, पंप, टिलर या मशीन की समस्या बोलें — सरल हिन्दी में जवाब
+                    {currentLanguage === "en" ? "Get help by speaking" : "बोलकर मदद पाएं"}
                   </p>
                 </div>
               </div>
               <span className="text-xs font-bold bg-white text-emerald-900 px-3 py-1.5 rounded-lg shrink-0 shadow-2xs group-hover:bg-emerald-50 transition-colors">
-                पूछें ➔
+                {currentLanguage === "en" ? "Ask ➔" : "पूछें ➔"}
               </span>
             </div>
 
@@ -3987,8 +4003,16 @@ export default function AgriPulseApp() {
                     )}
 
                     <div className="flex items-start gap-3">
-                      <span className="w-12 h-12 bg-slate-100 rounded-md border border-slate-200 flex items-center justify-center text-2xl shrink-0">
-                        {machine.icon}
+                      <span className="w-12 h-12 p-1 bg-slate-100 rounded-md border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                        {machine.imageUrl || MACHINE_IMAGE_MAP[machine.id] ? (
+                          <img
+                            src={machine.imageUrl || MACHINE_IMAGE_MAP[machine.id]}
+                            alt={currentLanguage === "en" ? machine.name : machine.nameHi}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-2xl">{machine.icon}</span>
+                        )}
                       </span>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-base font-bold text-slate-900 truncate">
@@ -4420,8 +4444,17 @@ export default function AgriPulseApp() {
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl p-2 bg-slate-50 rounded-md border border-slate-200">
-                            {machine.icon}
+                          <span className="w-11 h-11 p-1 bg-slate-50 rounded-md border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                            {machine.imageUrl || MACHINE_IMAGE_MAP[machine.id] ? (
+                              <img
+                                src={machine.imageUrl || MACHINE_IMAGE_MAP[machine.id]}
+                                alt={currentLanguage === "en" ? machine.name : machine.nameHi}
+                                className="w-full h-full object-contain"
+                                loading="eager"
+                              />
+                            ) : (
+                              <span className="text-2xl">{machine.icon}</span>
+                            )}
                           </span>
                           <span className="text-base font-bold text-slate-900">
                             {currentLanguage === "en" ? machine.name : machine.nameHi}
@@ -6972,8 +7005,16 @@ export default function AgriPulseApp() {
                     {/* Header: Machine & Tag */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <span className="w-11 h-11 bg-slate-100 rounded-md border border-slate-200 flex items-center justify-center text-2xl shrink-0">
-                          {machine.icon}
+                        <span className="w-11 h-11 p-1 bg-slate-100 rounded-md border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                          {machine.imageUrl || MACHINE_IMAGE_MAP[machine.id] ? (
+                            <img
+                              src={machine.imageUrl || MACHINE_IMAGE_MAP[machine.id]}
+                              alt={currentLanguage === "en" ? machine.name : machine.nameHi}
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <span className="text-2xl">{machine.icon}</span>
+                          )}
                         </span>
                         <div>
                           <h3 className="text-base font-bold text-slate-900">
@@ -8854,6 +8895,20 @@ export default function AgriPulseApp() {
             </div>
           );
         })()}
+
+        {/* ================= 15. DEDICATED “किसान हेल्प” VOICE AI SCREEN ================= */}
+        {currentScreen === "kisan_help" && (
+          <KisanHelpScreen
+            currentLanguage={currentLanguage}
+            onBack={() => setCurrentScreen("home")}
+            onRequestTechnician={(machineType, problemText) => {
+              handleStartBreakdown(machineType || "tractor");
+              if (problemText) {
+                setBreakdownDescription(problemText);
+              }
+            }}
+          />
+        )}
 
       </main>
       )}
