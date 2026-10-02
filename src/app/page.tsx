@@ -249,6 +249,28 @@ export default function AgriPulseApp() {
   // Flow: App launch par hamesha First Welcome Screen show ho -> "शुरू करें" -> Login/Registration Page
   const [showWelcomeScreen, setShowWelcomeScreen] = useState<boolean>(true);
 
+  const prevScreenRef = useRef<ScreenType>(currentScreen);
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state && e.state.screen) {
+        prevScreenRef.current = e.state.screen;
+        setCurrentScreen(e.state.screen);
+      } else {
+        prevScreenRef.current = "home";
+        setCurrentScreen("home");
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && currentScreen !== prevScreenRef.current) {
+      window.history.pushState({ screen: currentScreen }, "");
+      prevScreenRef.current = currentScreen;
+    }
+  }, [currentScreen]);
+
   const handleWelcomeGetStarted = () => {
     setShowWelcomeScreen(false);
   };
@@ -2471,7 +2493,7 @@ export default function AgriPulseApp() {
             case "machines":
               return {
                 title: t("machines.title", currentLanguage),
-                subtitle: currentLanguage === "en" ? `${machines.length} machines registered` : `${machines.length} मशीनें पंजीकृत`,
+                subtitle: currentLanguage === "en" ? "All your machines" : "आपकी सभी मशीनें",
                 icon: "🚜",
               };
             case "machine_detail":
@@ -4021,43 +4043,69 @@ export default function AgriPulseApp() {
               </div>
             )}
 
-            {/* Machines List */}
-            <div className="space-y-3">
-              {machines.map((machine) => {
-                const isIssue = machine.status === "issue";
-                const statusDisp = getMaintenanceStatusDisplay(machine.maintenanceStatus || "upcoming");
+            {/* Machines List or Empty State */}
+            {machines.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-xl p-8 text-center space-y-3 shadow-2xs">
+                <span className="text-4xl block">🚜</span>
+                <h3 className="text-base font-bold text-slate-900">
+                  {currentLanguage === "en" ? "No machines registered yet" : "अभी कोई मशीन नहीं जुड़ी है"}
+                </h3>
+                <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                  {currentLanguage === "en"
+                    ? "Add your tractor, sprayer, or pump to track maintenance and book repairs."
+                    : "सर्विस ट्रैक करने और त्वरित मरम्मत के लिए अपनी मशीन जोड़ें।"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewMachineType("tractor");
+                    setNewMachineName(currentLanguage === "en" ? "New Mahindra 575 Tractor" : "नया महिंद्रा 575 ट्रैक्टर");
+                    setIsAddMachineModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors cursor-pointer shadow-2xs"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>+ {currentLanguage === "en" ? "Add Machine" : "मशीन जोड़ें"}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {machines.map((machine) => {
+                  const machineImage = machine.imageUrl || MACHINE_IMAGE_MAP[machine.id];
 
-                return (
-                  <div
-                    key={machine.id}
-                    className={`bg-white border rounded-lg p-4 shadow-2xs space-y-3 transition-colors ${
-                      machine.maintenanceStatus === "overdue"
-                        ? "border-red-300"
-                        : machine.maintenanceStatus === "due"
-                        ? "border-amber-300"
-                        : "border-slate-200"
-                    }`}
-                  >
-                    {/* Overdue/Due Alert Box */}
-                    {statusDisp.reminderMessageHi && (
-                      <div
-                        className={`p-2.5 rounded-md border flex items-center gap-2 text-xs font-semibold ${
-                          machine.maintenanceStatus === "overdue"
-                            ? "bg-red-50 text-red-900 border-red-200"
-                            : "bg-amber-50 text-amber-900 border-amber-200"
-                        }`}
-                      >
-                        <span>{currentLanguage === "en" ? (machine.maintenanceStatus === "overdue" ? "⚠️ Service is overdue for this machine" : "🔔 Service is due soon for this machine") : statusDisp.reminderMessageHi}</span>
-                      </div>
-                    )}
+                  // Actual backend status derivation
+                  let statusText = "ठीक है";
+                  let statusDot = "●";
+                  let statusClass = "text-emerald-700 bg-emerald-50 border-emerald-200";
 
-                    <div className="flex items-start gap-3">
-                      <span className="w-12 h-12 p-1 bg-slate-100 rounded-md border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
-                        {machine.imageUrl || MACHINE_IMAGE_MAP[machine.id] ? (
+                  if (machine.status === "issue") {
+                    statusText = "मरम्मत चल रही है";
+                    statusDot = "🔧";
+                    statusClass = "text-red-700 bg-red-50 border-red-200";
+                  } else if (machine.status === "service_soon" || machine.maintenanceStatus === "due" || machine.maintenanceStatus === "overdue") {
+                    statusText = "सर्विस जरूरी है";
+                    statusDot = "⚠";
+                    statusClass = "text-amber-700 bg-amber-50 border-amber-200";
+                  }
+
+                  const localizedStatus = currentLanguage === "en"
+                    ? (machine.status === "issue" ? "Repair in progress" : machine.status === "service_soon" ? "Service required" : "Operational")
+                    : statusText;
+
+                  return (
+                    <button
+                      key={machine.id}
+                      type="button"
+                      onClick={() => handleOpenMachineDetail(machine)}
+                      className="w-full bg-white hover:bg-slate-50/90 active:bg-slate-100 border border-slate-200 hover:border-emerald-300 rounded-xl p-3 shadow-2xs transition-all text-left cursor-pointer group flex flex-col gap-2.5"
+                    >
+                      {/* [ MACHINE IMAGE ] */}
+                      <div className="w-full h-36 sm:h-40 bg-slate-50/70 rounded-lg p-2.5 flex items-center justify-center border border-slate-100 overflow-hidden relative">
+                        {machineImage ? (
                           <img
-                            src={machine.imageUrl || MACHINE_IMAGE_MAP[machine.id]}
+                            src={machineImage}
                             alt={currentLanguage === "en" ? machine.name : machine.nameHi}
-                            className="w-full h-full object-contain"
+                            className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-105"
                             onError={(e) => {
                               const target = e.currentTarget;
                               target.style.display = "none";
@@ -4067,61 +4115,39 @@ export default function AgriPulseApp() {
                           />
                         ) : null}
                         <span
-                          className="fallback-icon text-2xl items-center justify-center"
-                          style={{ display: (machine.imageUrl || MACHINE_IMAGE_MAP[machine.id]) ? "none" : "flex" }}
+                          className="fallback-icon text-4xl items-center justify-center text-slate-400"
+                          style={{ display: machineImage ? "none" : "flex" }}
                         >
                           {machine.icon}
                         </span>
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-base font-bold text-slate-900 truncate">
-                          {currentLanguage === "en" ? machine.name : machine.nameHi}
-                        </h3>
-
-                        {/* Status Badges */}
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {isIssue ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-200">
-                              <AlertCircle className="w-3 h-3 text-amber-700" />
-                              {t("machines.attentionNeeded", currentLanguage)}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              {t("machines.operational", currentLanguage)}
-                            </span>
-                          )}
-
-                          {/* P2G Maintenance Tag */}
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${statusDisp.badgeClass}`}
-                          >
-                            <span>{currentLanguage === "en" ? (machine.maintenanceStatus === "overdue" ? "🔴 Overdue" : machine.maintenanceStatus === "due" ? "🟠 Due" : "🟢 Healthy") : statusDisp.fullTagHi}</span>
-                          </span>
-                        </div>
-
-                        {/* Next Service Date */}
-                        <div className="text-xs font-medium text-slate-600 mt-2 flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span>{t("passport.nextMaintenance", currentLanguage)}: <span className="font-semibold text-slate-800">{currentLanguage === "en" ? machine.nextServiceDate : formatServiceDateHi(machine.nextServiceDate)}</span></span>
-                        </div>
                       </div>
-                    </div>
 
-                    {/* "मशीन देखें" Button */}
-                    <div className="pt-2 border-t border-slate-100">
-                      <button
-                        onClick={() => handleOpenMachineDetail(machine)}
-                        className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 px-3 rounded-md text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <span>{t("machines.viewMachine", currentLanguage)}</span>
-                        <span>➔</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                      {/* Machine Name & Status */}
+                      <div className="flex items-center justify-between gap-3 px-1">
+                        <div className="min-w-0">
+                          <h3 className="text-base font-bold text-slate-900 group-hover:text-emerald-800 transition-colors truncate">
+                            {currentLanguage === "en" ? machine.name : machine.nameHi}
+                          </h3>
+                          <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold">
+                            <span className="text-slate-500 font-medium">
+                              {currentLanguage === "en" ? "Status:" : "स्थिति:"}
+                            </span>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-semibold ${statusClass}`}>
+                              <span>{statusDot}</span>
+                              <span>{localizedStatus}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-emerald-700 text-slate-600 group-hover:text-white flex items-center justify-center text-sm font-bold transition-all shrink-0">
+                          →
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
