@@ -307,4 +307,11 @@ export interface TranslationDictionary {
     micDenied: string;
     unavailable: string;
   };
+  welcomeScreen?: {
+    heading: string;
+    subheading: string;
+    getStartedBtn: string;
+    voiceAiLabel: string;
+    voiceAiGreeting: string;
+  };
 }

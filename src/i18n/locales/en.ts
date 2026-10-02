@@ -275,4 +275,12 @@ export const en: TranslationDictionary = {
     micDenied: "Microphone permission not granted. You can proceed using the options on the screen.",
     unavailable: "Currently unable to assist by voice. You can proceed using the options on screen.",
   },
+  welcomeScreen: {
+    heading: "Farm Equipment Help, All in One Place",
+    subheading: "Describe your machine problem, get the right help",
+    getStartedBtn: "Get Started",
+    voiceAiLabel: "Get AI Help by Voice",
+    voiceAiGreeting: "Hello! I can help you with AgriPulse. Ask me anything by speaking.",
+  },
 };
+

@@ -141,6 +141,7 @@ import { MockBackendProvider, setBackendProvider, getBackendProvider } from "@/s
 import { DEMO_OIL_LEAK_PHOTO_DATA_URL, PRIMARY_DEMO_SCENARIO } from "@/services/demoData";
 import dynamic from "next/dynamic";
 import LoginScreen from "./LoginScreen";
+import WelcomeScreen, { hasSeenWelcome, markWelcomeSeen } from "./WelcomeScreen";
 import TechnicianDashboard from "./TechnicianDashboard";
 import ProfileScreen from "./ProfileScreen";
 import {
@@ -232,6 +233,20 @@ type SyncState = "idle" | "syncing" | "synced";
 
 export default function AgriPulseApp() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>("home");
+
+  // Welcome screen: shown only on first launch (before auth flow)
+  const [showWelcomeScreen, setShowWelcomeScreen] = useState<boolean>(() => {
+    // SSR-safe: default to false; client-side useEffect will correct this
+    if (typeof window !== "undefined") {
+      return !hasSeenWelcome();
+    }
+    return false;
+  });
+
+  const handleWelcomeGetStarted = () => {
+    markWelcomeSeen();
+    setShowWelcomeScreen(false);
+  };
 
   // Authenticated user session (Farmer vs Technician)
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
@@ -2357,7 +2372,21 @@ export default function AgriPulseApp() {
   const latestRepair = activeRepairs[0] || (repairs.length > 0 ? repairs[0] : null);
   const currentBreakdownMachine =
     machines.find((m) => m.id === breakdownMachineId) || machines[0];
-  // 1. If not authenticated, render LoginScreen as the entry screen
+  // 1a. First-ever launch: show the Welcome Screen before auth
+  if (showWelcomeScreen) {
+    return (
+      <WelcomeScreen
+        currentLanguage={currentLanguage}
+        onLanguageChange={(lang) => {
+          setCurrentLanguage(lang);
+          setStoredLanguage(lang);
+        }}
+        onGetStarted={handleWelcomeGetStarted}
+      />
+    );
+  }
+
+  // 1b. If not authenticated, render LoginScreen as the entry screen
   if (!authSession) {
     return (
       <LoginScreen
