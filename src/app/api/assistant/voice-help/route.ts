@@ -119,8 +119,8 @@ function getDeterministicResponse(query: string, language: LanguageCode = "hi", 
   }
 
   return isEn
-    ? "I can help you navigate AgriPulse. Please let me know if you need help with login, registration, or selecting farmer or technician."
-    : "मैं AgriPulse इस्तेमाल करने में आपकी मदद कर सकता हूँ। बताइए आपको लॉगिन, रजिस्ट्रेशन या किसान/टेक्नीशियन खाता चुनने में मदद चाहिए?";
+    ? "I could not find the answer to this question. Please check the help section."
+    : "मुझे इस सवाल का सही जवाब नहीं मिला। कृपया मदद सेक्शन से सहायता लें।";
 }
 
 export async function POST(req: NextRequest) {
@@ -134,8 +134,8 @@ export async function POST(req: NextRequest) {
           success: false,
           spokenText:
             context?.language === "en"
-              ? "I could not hear you clearly. Please tap the button and speak again."
-              : "आपकी आवाज़ स्पष्ट नहीं सुनाई दी। कृपया बटन दबाकर फिर से बोलें।",
+              ? "I could not hear you clearly. Please speak again."
+              : "मुझे ठीक से सुनाई नहीं दिया। कृपया फिर से बोलें।",
         } as VoiceHelpResponse,
         { status: 200 }
       );
@@ -145,24 +145,58 @@ export async function POST(req: NextRequest) {
     const langName = LANGUAGE_NAMES[language] || LANGUAGE_NAMES["hi"];
     const isEn = language === "en";
 
-    // 1. Search 1000+ Q&A Knowledge Base for agricultural machine & repair inquiries
+    const isLoginScreen = context?.currentPage === "login_registration" || context?.currentPage === "login";
+
+    // 1. On unauthenticated login/registration screen, redirect machine issues to login first
+    if (isLoginScreen && isMachineIssueQuery(userQuery)) {
+      return NextResponse.json({
+        success: true,
+        spokenText: isEn
+          ? "Understood. That is a machine issue. After logging in, I can help you report the machine problem. First please log in to your AgriPulse account."
+          : "समझ गया। यह मशीन की समस्या है। लॉगिन के बाद मैं आपको मशीन की समस्या दर्ज करने में मदद कर सकता हूँ। पहले अपने AgriPulse खाते में लॉगिन करें।",
+        isMachineBreakdownQuery: true,
+        fallbackUsed: false,
+      } as VoiceHelpResponse);
+    }
+
+    // 2. On login screen, handle screen-specific navigation queries
+    const lowerQuery = userQuery.toLowerCase();
+    const isNavigationQuery =
+      lowerQuery.includes("समझ नहीं") ||
+      lowerQuery.includes("dont understand") ||
+      lowerQuery.includes("don't understand") ||
+      lowerQuery.includes("what to do") ||
+      lowerQuery.includes("क्या करूँ") ||
+      lowerQuery.includes("क्या करना") ||
+      lowerQuery.includes("what is an otp") ||
+      lowerQuery.includes("what is otp");
+
+    if (isLoginScreen && isNavigationQuery) {
+      const spoken = getDeterministicResponse(
+        userQuery,
+        language,
+        context?.selectedRole,
+        context?.authMode,
+        context?.currentStep
+      );
+      return NextResponse.json({
+        success: true,
+        spokenText: spoken,
+        fallbackUsed: false,
+      } as VoiceHelpResponse);
+    }
+
+    // 3. Search 1000+ Q&A Knowledge Base for agricultural machine & app inquiries
     const kbResult = searchKnowledgeBase(userQuery);
-    const isMachineQuery = isMachineIssueQuery(userQuery) || kbResult.score >= 20;
+    const isKnownQuery = isMachineIssueQuery(userQuery) || kbResult.score >= 25;
 
-    if (isMachineQuery) {
-      const isLoginScreen = context?.currentPage === "login" && !context?.selectedRole;
-      let finalSpokenText = isEn ? kbResult.spokenResponseEn : kbResult.spokenResponseHi;
-
-      if (isLoginScreen) {
-        finalSpokenText += isEn
-          ? " You can log in to AgriPulse anytime to book a verified technician to your field."
-          : " आप AgriPulse में लॉगिन करके सीधे अपने खेत पर प्रमाणित मिस्त्री भी बुला सकते हैं।";
-      }
+    if (isKnownQuery) {
+      const finalSpokenText = isEn ? kbResult.spokenResponseEn : kbResult.spokenResponseHi;
 
       return NextResponse.json({
         success: true,
         spokenText: finalSpokenText,
-        isMachineBreakdownQuery: true,
+        isMachineBreakdownQuery: kbResult.entry.category !== "app",
         matchedTopic: kbResult.entry.questionHi,
         categoryHi: kbResult.entry.categoryHi,
         steps: kbResult.entry.steps,

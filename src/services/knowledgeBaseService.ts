@@ -53,7 +53,22 @@ export function understandFarmerQuestion(query: string): UnderstoodIntent {
     detectedMachine = "harvester";
   } else if (normalized.includes("बैटरी") || normalized.includes("battery") || normalized.includes("फ्यूज") || normalized.includes("तार") || normalized.includes("अल्टरनेटर") || normalized.includes("लाइट")) {
     detectedMachine = "electrical";
-  } else if (normalized.includes("मिस्त्री") || normalized.includes("mechanic") || normalized.includes("बुकिंग") || normalized.includes("एग्रीपल्स") || normalized.includes("agripulse") || normalized.includes("फीस") || normalized.includes("खर्च")) {
+  } else if (
+    normalized.includes("मिस्त्री") ||
+    normalized.includes("mechanic") ||
+    normalized.includes("टेक्नीशियन") ||
+    normalized.includes("technician") ||
+    normalized.includes("otp") ||
+    normalized.includes("ओटीपी") ||
+    normalized.includes("भाषा") ||
+    normalized.includes("bhasha") ||
+    normalized.includes("language") ||
+    normalized.includes("बुकिंग") ||
+    normalized.includes("एग्रीपल्स") ||
+    normalized.includes("agripulse") ||
+    normalized.includes("फीस") ||
+    normalized.includes("खर्च")
+  ) {
     detectedMachine = "app";
   } else if (normalized.includes("सर्विस") || normalized.includes("ऑयल") || normalized.includes("मोबिल") || normalized.includes("फिल्टर") || normalized.includes("घंटे")) {
     detectedMachine = "maintenance";
@@ -164,7 +179,7 @@ export function searchKnowledgeBase(query: string): KnowledgeSearchResult {
   }
 
   // If a high or exact match was found, return it
-  if (bestEntry && highestScore >= 15) {
+  if (bestEntry && highestScore >= 25) {
     return {
       entry: bestEntry,
       score: highestScore,
@@ -199,6 +214,26 @@ function generateContextualAnswer(intent: UnderstoodIntent): KnowledgeEntry {
     intent.detectedMachine === "rotavator" ? "रोटावेटर" :
     intent.detectedMachine === "harvester" ? "हार्वेस्टर या थ्रेशर" :
     "आपकी कृषि मशीन";
+
+  // If query is outside machines, symptoms, and app help:
+  if (intent.detectedMachine === "general" && !intent.detectedSymptom) {
+    return {
+      id: "not_found_" + Date.now(),
+      category: "app",
+      categoryHi: "AgriPulse सहायता",
+      questionHi: intent.rawQuery || "सवाल",
+      questionEn: intent.rawQuery || "Question",
+      aliases: [intent.normalizedQuery],
+      keywords: intent.extractedKeywords,
+      answerHi: "मुझे इस सवाल का सही जवाब नहीं मिला। कृपया मदद सेक्शन से सहायता लें।",
+      answerEn: "I could not find the answer to this question. Please check the help section.",
+      steps: [
+        "स्क्रीन पर दिए गए मदद सेक्शन को देखें।",
+        "अपनी समस्या किसी अन्य सरल शब्द में बोलकर पूछें।"
+      ],
+      mechanicRequired: false,
+    };
+  }
 
   let spokenHi = `नमस्ते किसान भाई। ${machineName} से जुड़ी यह समस्या सामान्यतः नियमित रख-रखाव, तेल या वायरिंग की ढिलाई के कारण हो सकती है।`;
   let steps: string[] = [

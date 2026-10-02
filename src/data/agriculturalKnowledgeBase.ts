@@ -582,5 +582,87 @@ export const AGRICULTURAL_KNOWLEDGE_BASE: KnowledgeEntry[] = [
       "भुगतान काम पूरा होने और संतुष्ट होने पर सीधे मिस्त्री को नकद या UPI से करें।"
     ],
     mechanicRequired: false
+  },
+  {
+    id: "app_otp_01",
+    category: "app",
+    categoryHi: "AgriPulse - OTP सत्यापन",
+    questionHi: "OTP कहाँ डालना है?",
+    questionEn: "Where do I enter the OTP?",
+    aliases: [
+      "otp कहाँ डालना है",
+      "otp kahan dalna hai",
+      "otp kahan dale",
+      "otp enter kahan kare",
+      "otp code kahan dale",
+      "ओटीपी कहां डालें",
+      "ओटीपी कहाँ डालना है",
+      "ओटीपी कहां भरना है",
+      "otp kahan bhare",
+      "otp kahan likhna hai"
+    ],
+    keywords: ["OTP", "ओटीपी", "कहाँ", "डालना", "भरना", "सत्यापन", "कोड", "enter"],
+    answerHi: "मोबाइल नंबर दर्ज करने के बाद आपके फोन पर 6 अंकों का OTP आता है। स्क्रीन पर दिख रहे 6 अंकों वाले बॉक्स में वह OTP दर्ज करें और 'सत्यापित करें' या 'लॉगिन' बटन दबाएं।",
+    answerEn: "Enter the 6-digit verification OTP received on your mobile into the boxes on your screen, then tap Verify or Login.",
+    steps: [
+      "अपने मैसेज (SMS) बॉक्स में 6 अंकों का AgriPulse OTP देखें।",
+      "स्क्रीन पर बने 6 छोटे बॉक्स में एक-एक करके अंक डालें।",
+      "सत्यापित करें (Verify) बटन दबाकर आगे बढ़ें।"
+    ],
+    mechanicRequired: false
+  },
+  {
+    id: "app_tech_01",
+    category: "app",
+    categoryHi: "AgriPulse - टेक्नीशियन खोज",
+    questionHi: "टेक्नीशियन कैसे मिलेगा?",
+    questionEn: "How do I find or book a technician?",
+    aliases: [
+      "टेक्नीशियन कैसे मिलेगा",
+      "technician kaise milega",
+      "technician kaise dhunde",
+      "technician kaise bulaye",
+      "मिस्त्री कैसे मिलेगा",
+      "मैकेनिक कैसे मिलेगा",
+      "mistri kaise milega",
+      "mechanic kaise milega",
+      "technician khoje"
+    ],
+    keywords: ["टेक्नीशियन", "मिस्त्री", "मैकेनिक", "मिलेगा", "खोजे", "बुलाएं", "technician"],
+    answerHi: "AgriPulse ऐप की होम स्क्रीन पर 'खराबी दर्ज करें' बटन दबाएं। अपनी मशीन और समस्या बताएं। AgriPulse आपके खेत के सबसे नजदीकी और प्रमाणित टेक्नीशियन को तुरंत आपके पास भेज देगा।",
+    answerEn: "Tap 'Report Breakdown' on the home screen and describe your machine issue. AgriPulse will connect you with the nearest verified technician right to your farm.",
+    steps: [
+      "होम स्क्रीन पर 'खराबी दर्ज करें' पर जाएं।",
+      "मशीन और समस्या दर्ज करें।",
+      "अनुरोध भेजें, नजदीकी मिस्त्री को तुरंत अलर्ट मिल जाएगा।"
+    ],
+    mechanicRequired: false
+  },
+  {
+    id: "app_lang_01",
+    category: "app",
+    categoryHi: "AgriPulse - भाषा बदलना",
+    questionHi: "मेरी भाषा कैसे बदलूं?",
+    questionEn: "How do I change my app language?",
+    aliases: [
+      "मेरी भाषा कैसे बदलूं",
+      "bhasha kaise badle",
+      "language kaise badle",
+      "language kaise change kare",
+      "भाषा कैसे बदलें",
+      "भाषा कैसे चेंज करें",
+      "hindi se english",
+      "english se hindi",
+      "bhasha change"
+    ],
+    keywords: ["भाषा", "बदलूं", "बदले", "चेंज", "language", "bhasha", "hindi", "english"],
+    answerHi: "स्क्रीन के ऊपर दाईं ओर दिए गए 'भाषा' (🌐 Languages) बटन पर टैप करें। वहां से आप हिन्दी, अंग्रेज़ी या अपनी क्षेत्रीय भाषा चुन सकते हैं।",
+    answerEn: "Tap the Language button (🌐 Languages) at the top right corner of the screen. From there, select Hindi, English, or your preferred language.",
+    steps: [
+      "ऊपर दाईं तरफ ग्लोब (🌐) या भाषा बटन दबाएं।",
+      "सूची में से अपनी पसंदीदा भाषा चुनें।",
+      "ऐप तुरंत आपकी चुनी हुई भाषा में बदल जाएगा।"
+    ],
+    mechanicRequired: false
   }
 ];

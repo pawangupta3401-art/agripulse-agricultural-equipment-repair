@@ -2505,7 +2505,7 @@ export default function AgriPulseApp() {
                 <button
                   type="button"
                   id="header-voice-ai-btn"
-                  onClick={() => setIsVoiceAssistantOpen(true)}
+                  onClick={() => setIsVoiceAssistantOpen((prev) => !prev)}
                   title="बोलकर पूछें / Ask by Voice"
                   className="bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
                   aria-label="बोलकर पूछें"
@@ -3454,7 +3454,7 @@ export default function AgriPulseApp() {
 
             {/* 🗣️✨ Voice AI Assistant Banner with 1000 Q&A Knowledge Base */}
             <div
-              onClick={() => setIsVoiceAssistantOpen(true)}
+              onClick={() => setIsVoiceAssistantOpen((prev) => !prev)}
               className="w-full bg-gradient-to-r from-emerald-800 to-teal-800 text-white rounded-xl p-3.5 shadow-sm border border-emerald-900 cursor-pointer hover:shadow-md transition-all flex items-center justify-between group active:scale-[0.99]"
             >
               <div className="flex items-center gap-3 min-w-0">
