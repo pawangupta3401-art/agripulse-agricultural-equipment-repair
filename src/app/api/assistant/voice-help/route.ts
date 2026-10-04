@@ -48,8 +48,8 @@ function getDeterministicResponse(query: string, language: LanguageCode = "hi", 
   // Machine breakdown query redirect
   if (isMachineIssueQuery(query)) {
     return isEn
-      ? "Understood. That is a machine issue. After logging in, I can help you report the machine problem. First please log in to your AgriPulse account."
-      : "समझ गया। यह मशीन की समस्या है। लॉगिन के बाद मैं आपको मशीन की समस्या दर्ज करने में मदद कर सकता हूँ। पहले अपने AgriPulse खाते में लॉगिन करें।";
+      ? "Understood. That is a machine issue. After logging in, I can help you report the machine problem. First please log in to your YANTRIQ account."
+      : "समझ गया। यह मशीन की समस्या है। लॉगिन के बाद मैं आपको मशीन की समस्या दर्ज करने में मदद कर सकता हूँ। पहले अपने YANTRIQ खाते में लॉगिन करें।";
   }
 
   // User confused: "मुझे समझ नहीं आ रहा"
@@ -102,8 +102,8 @@ function getDeterministicResponse(query: string, language: LanguageCode = "hi", 
   // Off-topic or general greeting
   if (lower.includes("नमस्ते") || lower.includes("hello") || lower.includes("hi") || lower.includes("राम राम")) {
     return isEn
-      ? "Hello! I can help you use AgriPulse. Let me know if you need help with login, registration, or choosing your account."
-      : "नमस्ते! मैं AgriPulse में आपकी मदद के लिए तैयार हूँ। बताइए आपको लॉगिन, रजिस्ट्रेशन या खाता चुनने में सहायता चाहिए?";
+      ? "Hello! I can help you use YANTRIQ. Let me know if you need help with login, registration, or choosing your account."
+      : "नमस्ते! मैं YANTRIQ में आपकी मदद के लिए तैयार हूँ। बताइए आपको लॉगिन, रजिस्ट्रेशन या खाता चुनने में सहायता चाहिए?";
   }
 
   // Context-specific fallback
@@ -350,8 +350,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         spokenText: isEn
-          ? "Understood. That is a machine issue. After logging in, I can help you report the machine problem. First please log in to your AgriPulse account."
-          : "समझ गया। यह मशीन की समस्या है। लॉगिन के बाद मैं आपको मशीन की समस्या दर्ज करने में मदद कर सकता हूँ। पहले अपने AgriPulse खाते में लॉगिन करें।",
+          ? "Understood. That is a machine issue. After logging in, I can help you report the machine problem. First please log in to your YANTRIQ account."
+          : "समझ गया। यह मशीन की समस्या है। लॉगिन के बाद मैं आपको मशीन की समस्या दर्ज करने में मदद कर सकता हूँ। पहले अपने YANTRIQ खाते में लॉगिन करें।",
         isMachineBreakdownQuery: true,
         fallbackUsed: false,
       } as VoiceHelpResponse);
@@ -410,7 +410,7 @@ export async function POST(req: NextRequest) {
       const apiKey = (process.env.AI_API_KEY || process.env.GEMINI_API_KEY)?.trim();
 
       if (apiKey) {
-        const kisanSystemPrompt = `You are AgriPulse "किसान हेल्प" (Farmer Voice Assistant), an intelligent, safe, and respectful AI assistant speaking directly to an Indian farmer in simple ${langName}.
+        const kisanSystemPrompt = `You are YANTRIQ "किसान हेल्प" (Farmer Voice Assistant), an intelligent, safe, and respectful AI assistant speaking directly to an Indian farmer in simple ${langName}.
 
 CRITICAL ROLE BOUNDARIES:
 - You are ONLY a question-answering AI assistant.
@@ -550,7 +550,7 @@ Return valid JSON only (no markdown, no backticks, no extra text):
     }
 
     // 3. Build Gemini system prompt with exact screen context
-    const systemPrompt = `You are the AgriPulse Voice Guide, a helpful and respectful voice assistant speaking directly to an Indian farmer or rural technician on the AgriPulse login/registration screen.
+    const systemPrompt = `You are the YANTRIQ Voice Guide, a helpful and respectful voice assistant speaking directly to an Indian farmer or rural technician on the YANTRIQ login/registration screen.
 
 CURRENT USER CONTEXT:
 - Screen: Login and Account Registration

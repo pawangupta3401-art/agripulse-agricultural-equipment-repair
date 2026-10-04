@@ -2,7 +2,7 @@ import { TranslationDictionary } from "../types";
 
 export const en: TranslationDictionary = {
   common: {
-    appName: "AgriPulse",
+    appName: "YANTRIQ",
     tagline: "One-Stop Agricultural Equipment Repair Network",
     back: "Back",
     continue: "Continue",
@@ -46,7 +46,7 @@ export const en: TranslationDictionary = {
     help: "Help",
   },
   welcome: {
-    title: "🌾 Welcome to AgriPulse",
+    title: "🌾 Welcome to YANTRIQ",
     subtitle: "A trusted agricultural machinery repair ecosystem for Indian farmers",
     chooseLanguage: "Choose Your Language / अपनी भाषा चुनें",
     popularLanguages: "Popular Languages",
@@ -155,7 +155,7 @@ export const en: TranslationDictionary = {
     aiUnavailableMessage: "AI inspection is not available right now. You can retake the photo or speak directly with a mechanic.",
   },
   recovery: {
-    title: "⚡ AgriPulse Recovery Engine",
+    title: "⚡ YANTRIQ Recovery Engine",
     subtitle: "Most practical return-to-service path based on failure, deadline, parts, technicians, and budget",
     fastestOption: "⚡ Fastest Recovery",
     nearestCentreOption: "🏪 Nearest Service Centre (FPO / Workshop)",
@@ -280,7 +280,7 @@ export const en: TranslationDictionary = {
     subheading: "Describe your machine problem, get the right help",
     getStartedBtn: "Get Started",
     voiceAiLabel: "Get AI Help by Voice",
-    voiceAiGreeting: "Hello! I can help you with AgriPulse. Ask me anything by speaking.",
+    voiceAiGreeting: "Hello! I can help you with YANTRIQ. Ask me anything by speaking.",
   },
 };
 

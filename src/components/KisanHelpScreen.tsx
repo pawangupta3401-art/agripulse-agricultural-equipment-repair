@@ -340,7 +340,7 @@ export default function KisanHelpScreen({
             <div className="flex items-center justify-between text-[11px] font-bold text-emerald-800 mb-1">
               <span className="flex items-center gap-1">
                 <span>🗣️✨</span>
-                <span>{isEn ? "AgriPulse Assistant:" : "AgriPulse सहायक:"}</span>
+                <span>{isEn ? "YANTRIQ Assistant:" : "YANTRIQ सहायक:"}</span>
               </span>
               <button
                 type="button"

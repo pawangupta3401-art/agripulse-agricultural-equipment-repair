@@ -2,7 +2,7 @@ import { TranslationDictionary } from "../types";
 
 export const gu: TranslationDictionary = {
   common: {
-    appName: "AgriPulse",
+    appName: "YANTRIQ",
     tagline: "કૃષિ સાધનો વન-સ્ટોપ રિપેર નેટવર્ક",
     back: "પાછા જાઓ",
     continue: "આગળ વધો",
@@ -38,7 +38,7 @@ export const gu: TranslationDictionary = {
     assistedDesk: "FPO સહાય ડેસ્ક",
   },
   welcome: {
-    title: "🌾 AgriPulse માં તમારું સ્વાગત છે",
+    title: "🌾 YANTRIQ માં તમારું સ્વાગત છે",
     subtitle: "ખેડૂતો માટે વિશ્વસનીય કૃષિ મશીનરી સમારકામ નેટવર્ક",
     chooseLanguage: "તમારી ભાષા પસંદ કરો (Choose Your Language)",
     popularLanguages: "લોકપ્રિય ભાષાઓ",
@@ -108,7 +108,7 @@ export const gu: TranslationDictionary = {
     viewRecoveryOptionsBtn: "વ્યવહારુ રિકવરી વિકલ્પો જુઓ ➔",
   },
   recovery: {
-    title: "⚡ AgriPulse રિકવરી એન્જિન",
+    title: "⚡ YANTRIQ રિકવરી એન્જિન",
     subtitle: "ખામી, સમયમર્યાદા, અંતર, સ્પેરપાર્ટ્સ અને બજેટ અનુસાર શ્રેષ્ઠ ઉકેલ",
     fastestOption: "⚡ સૌથી ઝડપી રિકવરી (Fastest Recovery)",
     nearestCentreOption: "🏪 નજીકનું સર્વિસ સેન્ટર (FPO / વર્કશોપ)",

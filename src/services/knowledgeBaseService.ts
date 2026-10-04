@@ -66,6 +66,8 @@ export function understandFarmerQuestion(query: string): UnderstoodIntent {
     normalized.includes("बुकिंग") ||
     normalized.includes("एग्रीपल्स") ||
     normalized.includes("agripulse") ||
+    normalized.includes("यांत्रिक") ||
+    normalized.includes("yantriq") ||
     normalized.includes("फीस") ||
     normalized.includes("खर्च")
   ) {

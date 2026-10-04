@@ -1085,11 +1085,11 @@ export default function TechnicianDashboard({
                   शून्य कमीशन मॉडल
                 </span>
                 <span className="bg-slate-800 text-slate-300 text-[10px] font-semibold px-2 py-0.5 rounded border border-slate-700">
-                  AgriPulse
+                  YANTRIQ
                 </span>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">
-                AgriPulse पर मरम्मत शुल्क का 100% भुगतान सीधा आपके बैंक खाते में जाता है। कोई मध्यस्थ या छिपे हुए शुल्क नहीं।
+                YANTRIQ पर मरम्मत शुल्क का 100% भुगतान सीधा आपके बैंक खाते में जाता है। कोई मध्यस्थ या छिपे हुए शुल्क नहीं।
               </p>
             </div>
           </div>

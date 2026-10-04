@@ -658,7 +658,7 @@ export default function AgriPulseApp() {
   const [ivrState, setIvrState] = useState<IVRStepState>({
     step: "main_menu",
     callerPhone: "9876543210",
-    audioPromptHi: "AgriPulse किसान हेल्पलाइन में आपका स्वागत है। मशीन मरम्मत के लिए 1 दबाएं, शिकायत की स्थिति जानने के लिए 2 दबाएं, मैकेनिक से सीधे बात करने के लिए 3 दबाएं।",
+    audioPromptHi: "YANTRIQ किसान हेल्पलाइन में आपका स्वागत है। मशीन मरम्मत के लिए 1 दबाएं, शिकायत की स्थिति जानने के लिए 2 दबाएं, मैकेनिक से सीधे बात करने के लिए 3 दबाएं।",
     options: [
       { key: "1", labelHi: "मशीन मरम्मत", actionTextHi: "1: मशीन मरम्मत" },
       { key: "2", labelHi: "शिकायत स्थिति", actionTextHi: "2: स्थिति जांचें" },
@@ -2317,7 +2317,7 @@ export default function AgriPulseApp() {
       }
 
       // 5. Dispatch SMS alert
-      const smsText = `AgriPulse: ${activeRecoveryPlan.machineNameHi} रिकवरी योजना पुष्टीकृत (${option.badgeHi})। प्रदाता: ${option.providerNameHi}। अनुमान: ₹${option.pricing.total}। सहायता: 1800-AGRI-HELP`;
+      const smsText = `YANTRIQ: ${activeRecoveryPlan.machineNameHi} रिकवरी योजना पुष्टीकृत (${option.badgeHi})। प्रदाता: ${option.providerNameHi}। अनुमान: ₹${option.pricing.total}। सहायता: 1800-AGRI-HELP`;
       dispatchSimulatedSMS({
         recipientPhone: "9876543210",
         messageTextHi: smsText,
@@ -2576,7 +2576,7 @@ export default function AgriPulseApp() {
               };
             default:
               return {
-                title: "AgriPulse",
+                title: "YANTRIQ",
                 subtitle: currentLanguage === "en" ? "Agricultural Equipment Repair" : "कृषि उपकरण रिपेयर सेवा",
                 icon: "🌾",
               };
@@ -2614,7 +2614,7 @@ export default function AgriPulseApp() {
                     <span className="text-xl sm:text-2xl filter drop-shadow-2xs select-none shrink-0">🌾</span>
                     <div className="min-w-0">
                       <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white leading-tight">
-                        AgriPulse
+                        YANTRIQ
                       </h1>
                       <p className="text-[11px] text-emerald-200/90 font-medium truncate hidden sm:block leading-tight">
                         {currentLanguage === "en" ? "Agricultural Equipment Repair" : "कृषि उपकरण रिपेयर सेवा"}
@@ -2814,7 +2814,7 @@ export default function AgriPulseApp() {
                 🌾
               </div>
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                AgriPulse
+                YANTRIQ
               </h2>
               <div className="text-xl sm:text-2xl font-black text-emerald-800">
                 Choose Your Language
@@ -2984,8 +2984,8 @@ export default function AgriPulseApp() {
             <div className="text-[11px] font-bold text-emerald-950 bg-emerald-50 p-2.5 rounded-xl border border-emerald-300 leading-snug">
               🛡️ <strong>{currentLanguage === "en" ? "Service Verification:" : "सेवा सत्यापन सूचना:"}</strong>{" "}
               {currentLanguage === "en"
-                ? "Technician credentials and certifications are verified according to AgriPulse service standards."
-                : "तकनीशियन की योग्यता और प्रमाणपत्र एग्रीपल्स सेवा मानकों के अनुसार सत्यापित किए गए हैं।"}
+                ? "Technician credentials and certifications are verified according to YANTRIQ service standards."
+                : "तकनीशियन की योग्यता और प्रमाणपत्र यांत्रिक सेवा मानकों के अनुसार सत्यापित किए गए हैं।"}
             </div>
 
             {/* Section 1: Equipment Categories */}
@@ -3298,7 +3298,7 @@ export default function AgriPulseApp() {
                 <span className="text-2xl">📞</span>
                 <div>
                   <h3 className="text-lg font-black text-white">
-                    {currentLanguage === "en" ? "AgriPulse Phone Service (IVR)" : "AgriPulse फोन सेवा (IVR)"}
+                    {currentLanguage === "en" ? "YANTRIQ Phone Service (IVR)" : "YANTRIQ फोन सेवा (IVR)"}
                   </h3>
                   <p className="text-[11px] font-bold text-blue-300">
                     {currentLanguage === "en" ? "Toll-Free: 1800-AGRI-HELP" : "टोल-फ्री: 1800-AGRI-HELP"}
@@ -3380,7 +3380,7 @@ export default function AgriPulseApp() {
                   setIvrState({
                     step: "main_menu",
                     callerPhone: "9876543210",
-                    audioPromptHi: "AgriPulse किसान हेल्पलाइन में आपका स्वागत है। मशीन मरम्मत के लिए 1 दबाएं, शिकायत की स्थिति जानने के लिए 2 दबाएं, मैकेनिक से सीधे बात करने के लिए 3 दबाएं।",
+                    audioPromptHi: "YANTRIQ किसान हेल्पलाइन में आपका स्वागत है। मशीन मरम्मत के लिए 1 दबाएं, शिकायत की स्थिति जानने के लिए 2 दबाएं, मैकेनिक से सीधे बात करने के लिए 3 दबाएं।",
                     options: [
                       { key: "1", labelHi: "मशीन मरम्मत", actionTextHi: "1: मशीन मरम्मत" },
                       { key: "2", labelHi: "शिकायत स्थिति", actionTextHi: "2: स्थिति जांचें" },

@@ -233,7 +233,7 @@ export default function WelcomeScreen({
             </div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/35 backdrop-blur-xs border border-white/20">
               <span className="text-xl sm:text-2xl font-black text-white tracking-tight leading-none">
-                AgriPulse
+                YANTRIQ
               </span>
             </div>
           </div>

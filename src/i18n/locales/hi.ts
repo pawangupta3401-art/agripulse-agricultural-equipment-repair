@@ -2,7 +2,7 @@ import { TranslationDictionary } from "../types";
 
 export const hi: TranslationDictionary = {
   common: {
-    appName: "AgriPulse",
+    appName: "YANTRIQ",
     tagline: "कृषि उपकरण वन-स्टॉप रिपेयर नेटवर्क",
     back: "वापस",
     continue: "आगे बढ़ें",
@@ -46,7 +46,7 @@ export const hi: TranslationDictionary = {
     help: "मदद",
   },
   welcome: {
-    title: "🌾 AgriPulse में आपका स्वागत है",
+    title: "🌾 YANTRIQ में आपका स्वागत है",
     subtitle: "भारतीय किसानों के लिए एक भरोसेमंद कृषि उपकरण मरम्मत नेटवर्क",
     chooseLanguage: "अपनी पसंदीदा भाषा चुनें (Choose Your Language)",
     popularLanguages: "लोकप्रिय भाषाएं",
@@ -155,7 +155,7 @@ export const hi: TranslationDictionary = {
     aiUnavailableMessage: "अभी AI जांच उपलब्ध नहीं है। आप फोटो दोबारा भेज सकते हैं या मैकेनिक से बात कर सकते हैं।",
   },
   recovery: {
-    title: "⚡ AgriPulse रिकवरी इंजन",
+    title: "⚡ YANTRIQ रिकवरी इंजन",
     subtitle: "खराबी, समय सीमा, स्थान, स्पेयर पार्ट्स व बजट के अनुसार श्रेष्ठतम व्यवहार्य समाधान",
     fastestOption: "⚡ सबसे त्वरित रिकवरी (Fastest Recovery)",
     nearestCentreOption: "🏪 नजदीकी सर्विस सेंटर (FPO / Workshop)",
@@ -280,7 +280,7 @@ export const hi: TranslationDictionary = {
     subheading: "मशीन की समस्या बताएं, सही मदद पाएं",
     getStartedBtn: "शुरू करें",
     voiceAiLabel: "बोलकर AI मदद लें",
-    voiceAiGreeting: "नमस्ते! मैं AgriPulse में आपकी मदद कर सकता हूँ। बोलकर पूछिए।",
+    voiceAiGreeting: "नमस्ते! मैं YANTRIQ में आपकी मदद कर सकता हूँ। बोलकर पूछिए।",
   },
 };
 

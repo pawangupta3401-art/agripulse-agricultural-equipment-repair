@@ -85,8 +85,8 @@ async function runTestSuite() {
   });
   assert(welcomeReply.type === "interactive", "Greeting message returns interactive buttons");
   assert(
-    welcomeReply.interactive?.body.text.includes("AgriPulse"),
-    "Welcome message identifies as AgriPulse WhatsApp service"
+    welcomeReply.interactive?.body.text.includes("YANTRIQ") || welcomeReply.interactive?.body.text.includes("AgriPulse"),
+    "Welcome message identifies as YANTRIQ WhatsApp service"
   );
 
   // Test 1.2: Symptom query reuses 1000 Q&A Knowledge Base

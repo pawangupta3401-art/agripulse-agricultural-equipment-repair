@@ -430,7 +430,7 @@ export default function TechnicianProfileScreen({
 
         {/* Footer info note */}
         <div className="px-5 py-6 text-center text-xs text-slate-400 space-y-1">
-          <p className="font-semibold text-slate-500">AgriPulse Field Operations v2.4</p>
+          <p className="font-semibold text-slate-500">YANTRIQ Field Operations v2.4</p>
           <p>{isEn ? "Technician Service & Dispatch Management" : "टेक्नीशियन सेवा एवं मरम्मत प्रबंधन प्रणाली"}</p>
         </div>
       </main>
@@ -720,7 +720,7 @@ export default function TechnicianProfileScreen({
                 क्रमांक: NAMI-SP-2025-882 • वैध: 2025–2027
               </div>
               <div className="text-emerald-700 font-bold mt-1">
-                ✓ AgriPulse फील्ड सुरक्षा सत्यापन पूर्ण
+                ✓ YANTRIQ फील्ड सुरक्षा सत्यापन पूर्ण
               </div>
             </div>
 
@@ -756,7 +756,7 @@ export default function TechnicianProfileScreen({
             </div>
 
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs">
-              <div className="font-bold text-slate-900 text-sm">📞 AgriPulse टेक्नीशियन डेस्क:</div>
+              <div className="font-bold text-slate-900 text-sm">📞 YANTRIQ टेक्नीशियन डेस्क:</div>
               <div className="text-emerald-700 font-bold text-base">1800-AGRI-HELP (1800-2474-4357)</div>
               <p className="text-slate-500">24/7 तकनीकी मार्गदर्शन, भुगतान निपटान सहायता व पार्ट्स डिलीवरी सहायता।</p>
             </div>

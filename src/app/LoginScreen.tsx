@@ -416,7 +416,7 @@ export default function LoginScreen({
             <span className="text-2xl filter drop-shadow-2xs">🌾</span>
             <div className="flex flex-col">
               <span className="text-xl font-bold text-[#165420] tracking-tight leading-tight">
-                AgriPulse
+                YANTRIQ
               </span>
               <span className="text-[11px] font-semibold text-[#475569] -mt-0.5 hidden xs:inline">
                 कृषि उपकरण रिपेयर सेवा
@@ -1315,8 +1315,8 @@ export default function LoginScreen({
 
             <p className="text-xs sm:text-sm font-medium text-slate-600 leading-relaxed">
               {activeInfoModal === "verification"
-                ? "AgriPulse के सभी मिस्त्री राज्य कृषि कौशल मिशन एवं NAMI द्वारा प्रशिक्षित एवं पूर्व-सत्यापित हैं। हर मैकेनिक की रेटिंग और सेवा इतिहास पारदर्शी रूप से देखा जा सकता है।"
-                : "आपकी व्यक्तिगत जानकारी, खेत का पता और उपकरण का विवरण 100% सुरक्षित है। AgriPulse डेटा किसी भी तीसरे पक्ष के साथ साझा नहीं किया जाता है।"}
+                ? "YANTRIQ के सभी मिस्त्री राज्य कृषि कौशल मिशन एवं NAMI द्वारा प्रशिक्षित एवं पूर्व-सत्यापित हैं। हर मैकेनिक की रेटिंग और सेवा इतिहास पारदर्शी रूप से देखा जा सकता है।"
+                : "आपकी व्यक्तिगत जानकारी, खेत का पता और उपकरण का विवरण 100% सुरक्षित है। YANTRIQ डेटा किसी भी तीसरे पक्ष के साथ साझा नहीं किया जाता है।"}
             </p>
 
             <button

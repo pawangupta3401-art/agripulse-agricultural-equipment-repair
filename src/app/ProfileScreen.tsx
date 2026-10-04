@@ -100,7 +100,7 @@ export default function ProfileScreen({
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <h2 className="text-base font-bold text-slate-900 truncate">
-                    {user.nameHi || user.name || (isEn ? "AgriPulse User" : "एग्रीपल्स उपयोगकर्ता")}
+                    {user.nameHi || user.name || (isEn ? "YANTRIQ User" : "यांत्रिक उपयोगकर्ता")}
                   </h2>
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 </div>
@@ -311,7 +311,7 @@ export default function ProfileScreen({
 
         {/* Platform Footer Note */}
         <div className="px-5 py-6 text-center text-xs text-slate-400 space-y-1">
-          <p className="font-semibold text-slate-500">AgriPulse v2.4</p>
+          <p className="font-semibold text-slate-500">YANTRIQ v2.4</p>
           <p>{isEn ? "Agricultural Service & Equipment Platform" : "कृषि यंत्र मरम्मत एवं सेवा मंच"}</p>
         </div>
       </main>

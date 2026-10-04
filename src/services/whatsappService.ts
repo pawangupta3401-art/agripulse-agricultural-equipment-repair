@@ -73,7 +73,7 @@ export function buildWhatsAppInteractiveButtons(
     type: "interactive",
     interactive: {
       type: "button",
-      header: { type: "text", text: "🌾 AgriPulse कृषक सेवा" },
+      header: { type: "text", text: "🌾 YANTRIQ कृषक सेवा" },
       body: { text: bodyText },
       footer: { text: "उत्तर देने के लिए नीचे बटन दबाएं" },
       action: {
@@ -257,7 +257,7 @@ export async function processWhatsAppIncomingMessage(
     const searchRes = searchKnowledgeBase(caption);
 
     const photoAnswer =
-      `📸 *AgriPulse फोटो विश्लेषण प्राप्त हुआ!*\n\n` +
+      `📸 *YANTRIQ फोटो विश्लेषण प्राप्त हुआ!*\n\n` +
       `• संभावित समस्या: *${searchRes.entry.questionHi}*\n` +
       `• श्रेणी: *${searchRes.entry.categoryHi}*\n\n` +
       `🔍 *मुख्य कारण व जांच:*\n` +
@@ -307,7 +307,7 @@ export async function processWhatsAppIncomingMessage(
   const lower = query.toLowerCase();
   if (["hi", "hello", "namaste", "नमस्ते", "help", "शुरू"].includes(lower)) {
     const welcome =
-      `नमस्ते किसान भाई! 🙏\n*AgriPulse व्हाट्सएप कृषि सेवा* में आपका स्वागत है।\n\n` +
+      `नमस्ते किसान भाई! 🙏\n*YANTRIQ व्हाट्सएप कृषि सेवा* में आपका स्वागत है।\n\n` +
       `आप यहाँ:\n` +
       `• ट्रैक्टर, पंप, स्प्रेयर या रोटावेटर की खराबी पूछ सकते हैं।\n` +
       `• मशीन की फोटो या आवाज रिकॉर्ड करके भेज सकते हैं।\n` +
@@ -341,7 +341,7 @@ export async function processWhatsAppIncomingMessage(
   const searchResult = searchKnowledgeBase(query);
 
   const answer =
-    `🌾 *AgriPulse समाधान:* \n\n` +
+    `🌾 *YANTRIQ समाधान:* \n\n` +
     `• विषय: *${searchResult.entry.categoryHi} — ${searchResult.entry.questionHi}*\n` +
     `• कारण व समाधान: ${searchResult.entry.answerHi}\n\n` +
     `🛠️ *समाधान के कदम:*\n` +

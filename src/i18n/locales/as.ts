@@ -2,7 +2,7 @@ import { TranslationDictionary } from "../types";
 
 export const as: TranslationDictionary = {
   common: {
-    appName: "AgriPulse",
+    appName: "YANTRIQ",
     tagline: "কৃষি যন্ত্ৰপাতি মেৰামতিৰ ওৱান-ষ্টপ নেটৱৰ্ক",
     back: "উভতি যাওক",
     continue: "আগবাঢ়ক",
@@ -38,7 +38,7 @@ export const as: TranslationDictionary = {
     assistedDesk: "FPO সহায় কেন্দ্ৰ",
   },
   welcome: {
-    title: "🌾 AgriPulse-লৈ আপোনাক স্বাগতম",
+    title: "🌾 YANTRIQ-লৈ আপোনাক স্বাগতম",
     subtitle: "ভাৰতীয় কৃষকসকলৰ বাবে নিৰ্ভৰযোগ্য কৃষি যন্ত্ৰ মেৰামতি নেটৱৰ্ক",
     chooseLanguage: "আপোনাৰ ভাষা বাছক (Choose Your Language)",
     popularLanguages: "জনপ্ৰিয় ভাষাসমূহ",
@@ -108,7 +108,7 @@ export const as: TranslationDictionary = {
     viewRecoveryOptionsBtn: "বাস্তৱিক সমাধানৰ বিকল্পসমূহ চাওক ➔",
   },
   recovery: {
-    title: "⚡ AgriPulse ৰিকভাৰী ইঞ্জিন",
+    title: "⚡ YANTRIQ ৰিকভাৰী ইঞ্জিন",
     subtitle: "বিজুতি, সময়সীমা, দূৰত্ব, যন্ত্ৰাংশ আৰু খৰচৰ ভিত্তিত সৰ্বোত্তম ব্যৱহাৰিক সমাধান",
     fastestOption: "⚡ আটাইতকৈ ক্ষিপ্ৰ সমাধান (Fastest Recovery)",
     nearestCentreOption: "🏪 নিকটৱৰ্তী সেৱা কেন্দ্ৰ (FPO / ৱৰ্কশ্বপ)",

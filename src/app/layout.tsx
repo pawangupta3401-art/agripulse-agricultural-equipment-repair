@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AgriPulse — कृषि उपकरण रिपेयर",
+  title: "YANTRIQ — कृषि उपकरण रिपेयर",
   description: "खेती की मशीनों की मदद, एक जगह। मशीन की समस्या बताएं, सही मदद पाएं।",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "AgriPulse",
+    title: "YANTRIQ",
   },
   icons: {
     icon: "/favicon.png",

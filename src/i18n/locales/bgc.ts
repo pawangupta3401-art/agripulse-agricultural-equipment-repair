@@ -2,7 +2,7 @@ import { TranslationDictionary } from "../types";
 
 export const bgc: TranslationDictionary = {
   common: {
-    appName: "AgriPulse",
+    appName: "YANTRIQ",
     tagline: "खेती के औजारां की एक जगह मरम्मत सेवा",
     back: "पाच्छै",
     continue: "आग्गै बढ़ो",
@@ -38,7 +38,7 @@ export const bgc: TranslationDictionary = {
     assistedDesk: "FPO मदद केंद्र",
   },
   welcome: {
-    title: "🌾 AgriPulse म्ह थारा स्वागत सै",
+    title: "🌾 YANTRIQ म्ह थारा स्वागत सै",
     subtitle: "किसान भाईयों खातर कृषि औजारां की पक्की मरम्मत सेवा",
     chooseLanguage: "आपणी पसंद की बोली चुणो (Choose Your Language)",
     popularLanguages: "घणी बोली जाण आली भाषा",
@@ -108,7 +108,7 @@ export const bgc: TranslationDictionary = {
     viewRecoveryOptionsBtn: "बढ़िया समाधान के रस्ते देखो ➔",
   },
   recovery: {
-    title: "⚡ AgriPulse रिकवरी इंजन",
+    title: "⚡ YANTRIQ रिकवरी इंजन",
     subtitle: "खराबी, टैम, दूरी, पुर्जे अर खर्चे के हिसाब तै सबसे सही रस्ता",
     fastestOption: "⚡ सबसे तेज रस्ता (Fastest Recovery)",
     nearestCentreOption: "🏪 धोरे का सर्विस सेंटर (FPO / वर्कशॉप)",
