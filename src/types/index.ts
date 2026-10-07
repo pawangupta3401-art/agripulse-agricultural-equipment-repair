@@ -194,6 +194,17 @@ export interface MachinePassportRecord {
   serviceCentreNameHi?: string;
   maintenanceRecommendation?: string;
   technicianOverrideDiagnosis?: string;
+  // ─── Job-Ready Verification Fields ──────────────────────────────────────
+  machineId?: string;
+  repairId?: string;
+  technicianId?: string;
+  repairDetails?: string;
+  jobOperation?: string;
+  jobReadyStatus?: string;
+  score?: number;
+  verificationEvidence?: string[];
+  farmerConfirmation?: boolean;
+  timestamp?: string;
 }
 
 export type InputMethod = "voice" | "photo" | "video" | "text";
@@ -595,7 +606,8 @@ export type SyncEntityType =
   | "spare_parts_selection"
   | "repair_verification"
   | "machine_passport"
-  | "maintenance_record";
+  | "maintenance_record"
+  | "job_readiness_record";
 
 export type SyncOperationType = "create" | "update" | "delete";
 
@@ -960,5 +972,117 @@ export interface SupplierSettlement {
   platformPartsFeeDeducted: number;
   netPayableToSupplier: number;
   settlementStatus: "pending" | "settled";
+}
+
+// ─── JOB-READY VERIFICATION TYPES ───────────────────────────────────────────
+
+export type FarmOperation = "spraying";
+
+export type JobReadyCheckId =
+  | "no_leak"
+  | "all_nozzles_active"
+  | "spray_pattern_normal"
+  | "safety_check"
+  | "visual_analysis";
+
+export type JobReadyCheckStatus = "pass" | "fail" | "pending";
+
+export type JobReadyOverallStatus =
+  | "JOB_READY"
+  | "NOT_JOB_READY"
+  | "STOP_AND_TECHNICIAN"
+  | "NEED_RECHECK";
+
+export interface JobReadyCheck {
+  id: JobReadyCheckId;
+  labelHi: string;
+  status: JobReadyCheckStatus;
+  isTechnicianVerified?: boolean;
+  isRequired: boolean;
+}
+
+// ─── VISUAL ANALYSIS / YOLO ABSTRACTION LAYER ────────────────────────────────
+
+/**
+ * Source of the visual analysis.
+ * - "mock_fallback": No real model connected. Deterministic safe result used.
+ * - "local_yolo":    Real local YOLO/CV model produced this result.
+ * - "cloud_vision": Cloud-based CV API produced this result.
+ */
+export type VisualAnalysisSource = "mock_fallback" | "local_yolo" | "cloud_vision";
+
+/**
+ * Structured result from the visual analysis layer.
+ * All boolean fields use explicit true/false/null:
+ *   - null  = could not determine (evidence_quality insufficient)
+ *   - true  = detected
+ *   - false = not detected
+ */
+export interface VisualAnalysisResult {
+  /** Which engine produced this result */
+  source: VisualAnalysisSource;
+
+  /** Whether active spray from nozzles was detected */
+  nozzle_activity: boolean | null;
+
+  /** Whether a visible liquid leak was detected */
+  visible_leak: boolean | null;
+
+  /** Whether spray pattern appeared normal / uniform */
+  spray_pattern: "normal" | "irregular" | "absent" | null;
+
+  /** Whether physical damage was visible on machine body/fittings */
+  visible_damage: boolean | null;
+
+  /**
+   * Quality of the submitted evidence.
+   * - "good"         : clear, well-lit, sufficient
+   * - "low_light"    : dark or blurry but still usable
+   * - "insufficient" : too dark, out of focus or too short to analyse
+   */
+  evidence_quality: "good" | "low_light" | "insufficient";
+
+  /** Confidence score 0-1 (1.0 for mock, model-specific otherwise) */
+  confidence: number;
+
+  /** ISO timestamp when analysis ran */
+  analyzedAt: string;
+
+  /** Human-readable note — NOT shown as final verdict to farmer */
+  internalNote?: string;
+}
+
+/** Lightweight evidence metadata stored in the sync outbox */
+export interface EvidenceCaptureMetadata {
+  /** Unique capture session id */
+  captureId: string;
+  /** ISO timestamp of capture */
+  capturedAt: string;
+  /** "photo" | "video" */
+  mediaType: "photo" | "video";
+  /** Size in bytes (approximate) */
+  sizeBytes?: number;
+  /** Reference key — NOT the raw base64 data (kept out of sync payload) */
+  localKey: string;
+}
+
+export interface JobReadinessRecord {
+  id: string;
+  machineId: string;
+  repairRequestId: string;
+  operation: FarmOperation;
+  status: JobReadyOverallStatus;
+  score: number;
+  checks: JobReadyCheck[];
+  /** Raw evidence data urls / object URLs — kept local, not synced in full */
+  evidence: string[];
+  /** Lightweight metadata for each piece of evidence — safe to sync */
+  evidenceMetadata?: EvidenceCaptureMetadata[];
+  /** Visual analysis result if evidence was analysed */
+  visualAnalysis?: VisualAnalysisResult;
+  technicianId?: string;
+  technicianNameHi?: string;
+  farmerVerified: boolean;
+  createdAt: string;
 }
 

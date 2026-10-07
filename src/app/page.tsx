@@ -147,7 +147,13 @@ import TechnicianDashboard from "./TechnicianDashboard";
 import ProfileScreen from "./ProfileScreen";
 import VoiceHelpAssistant from "@/components/VoiceHelpAssistant";
 import KisanHelpScreen from "@/components/KisanHelpScreen";
+import JobReadyVerificationScreen from "@/components/JobReadyVerificationScreen";
 import { VoiceAssistantStatus } from "@/types/voiceAssistant";
+import { JobReadinessRecord } from "@/types";
+import {
+  getJobReadinessForRepair,
+  saveJobReadinessRecord,
+} from "@/services/jobReadinessService";
 import {
   AuthSession,
   UserRole,
@@ -229,6 +235,7 @@ type ScreenType =
   | "technician_match"
   | "technician_job_card"
   | "repair_verification"
+  | "job_ready_verification"
   | "nearby_mechanics"
   | "recovery_engine"
   | "profile"
@@ -422,6 +429,11 @@ export default function AgriPulseApp() {
   const [mapPreselectedTech, setMapPreselectedTech] = useState<Technician | null>(null);
   const [farmerLocation, setFarmerLocation] = useState<FarmerLocation | null>(null);
   const [isAssigningTechnician, setIsAssigningTechnician] = useState<boolean>(false);
+
+  // ─── JOB-READY VERIFICATION STATE ────────────────────────────────────────
+  const [currentJobReadinessRecord, setCurrentJobReadinessRecord] =
+    useState<JobReadinessRecord | null>(null);
+
 
   // P2M Step 1: Farmer-Friendly Voice, Sahayak, and Input states
   const [voiceRecordedComplete, setVoiceRecordedComplete] = useState<boolean>(false);
@@ -2392,7 +2404,8 @@ export default function AgriPulseApp() {
       currentScreen === "technician_match" ||
       currentScreen === "nearby_mechanics" ||
       currentScreen === "technician_job_card" ||
-      currentScreen === "repair_verification"
+      currentScreen === "repair_verification" ||
+      currentScreen === "job_ready_verification"
     ) return "repair";
     if (currentScreen === "service") return "service";
     if (currentScreen === "profile") return "profile";
@@ -2555,6 +2568,12 @@ export default function AgriPulseApp() {
                 title: currentLanguage === "en" ? "Repair Verification" : "मरम्मत सत्यापन",
                 subtitle: currentLanguage === "en" ? "OTP & Final Approval" : "OTP व अंतिम अनुमोदन",
                 icon: "🔐",
+              };
+            case "job_ready_verification":
+              return {
+                title: currentLanguage === "en" ? "Job-Ready Check" : "Job-Ready जाँच",
+                subtitle: currentLanguage === "en" ? "Spraying Readiness Verification" : "स्प्रेयर उपयोग की तैयारी जाँच",
+                icon: "🎒",
               };
             case "nearby_mechanics":
               return {
@@ -4474,6 +4493,77 @@ export default function AgriPulseApp() {
                     </div>
                   </div>
                 </div>
+
+                {/* 5. Job-Ready Verification Records */}
+                {(() => {
+                  const { getJobReadinessForRepair } = require("@/services/jobReadinessService") as typeof import("@/services/jobReadinessService");
+                  return null;
+                })()}
+                {/* JRV Records Display */}
+                {(() => {
+                  try {
+                    const raw = typeof window !== "undefined" ? localStorage.getItem("agripulse_job_readiness_v1") : null;
+                    const allJrv: Array<{id:string;machineId:string;repairRequestId:string;operation:string;status:string;score:number;farmerVerified:boolean;createdAt:string;technicianNameHi?:string;evidence?:string[];evidenceMetadata?:Array<{mediaType:string}>;visualAnalysis?:{source:string;evidence_quality:string}}> = raw ? JSON.parse(raw) : [];
+                    const machineJrv = allJrv
+                      .filter((r) => r.machineId === selectedMachine.id)
+                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                      .slice(0, 3);
+                    if (machineJrv.length === 0) return null;
+                    return (
+                      <div className="p-3 bg-emerald-50 rounded-md border border-emerald-200 space-y-2">
+                        <div className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                          <span>🎒</span>
+                          <span>Job-Ready Verification History</span>
+                        </div>
+                        <div className="space-y-2">
+                          {machineJrv.map((jrv, idx) => {
+                            const statusEmoji = jrv.status === "JOB_READY" ? "✅" : jrv.status === "NOT_JOB_READY" ? "❌" : jrv.status === "STOP_AND_TECHNICIAN" ? "🛑" : "⚠️";
+                            const statusLabel = jrv.status === "JOB_READY" ? "JOB READY" : jrv.status === "NOT_JOB_READY" ? "NOT JOB-READY" : jrv.status === "STOP_AND_TECHNICIAN" ? "STOP" : "NEED RECHECK";
+                            const evidenceCount = jrv.evidenceMetadata?.length ?? jrv.evidence?.length ?? 0;
+                            const isLatest = idx === 0;
+                            return (
+                              <div key={jrv.id} className={`p-2.5 rounded-md border text-xs space-y-1.5 ${isLatest ? "bg-white border-emerald-300 shadow-sm" : "bg-emerald-50/50 border-emerald-100"}`}>
+                                <div className="flex justify-between items-center">
+                                  <span className={`font-black ${jrv.status === "JOB_READY" ? "text-emerald-800" : jrv.status === "NOT_JOB_READY" ? "text-orange-700" : jrv.status === "STOP_AND_TECHNICIAN" ? "text-red-700" : "text-amber-700"}`}>
+                                    {statusEmoji} {statusLabel}
+                                  </span>
+                                  <span className="text-slate-500 font-bold">Score: {jrv.score}/100</span>
+                                </div>
+                                <div className="flex justify-between text-[11px] text-slate-500">
+                                  <span>🌿 {jrv.operation}</span>
+                                  <span>{new Date(jrv.createdAt).toLocaleDateString("hi-IN")}</span>
+                                </div>
+                                {jrv.technicianNameHi && (
+                                  <div className="text-[11px] text-slate-600 font-medium">👨‍🔧 {jrv.technicianNameHi}</div>
+                                )}
+                                {evidenceCount > 0 && (
+                                  <div className="text-[11px] text-blue-700 font-medium">📸 {evidenceCount} evidence captured</div>
+                                )}
+                                {jrv.visualAnalysis && (
+                                  <div className="text-[10px] text-slate-500 font-medium">
+                                    🔍 {jrv.visualAnalysis.source === "mock_fallback" ? "Manual-Assist" : jrv.visualAnalysis.source === "local_yolo" ? "Local Vision" : "Cloud Vision"} | Quality: {jrv.visualAnalysis.evidence_quality}
+                                  </div>
+                                )}
+                                <div className="flex gap-1.5 flex-wrap">
+                                  {jrv.farmerVerified && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                                      👨‍🌾 Farmer Confirmed
+                                    </span>
+                                  )}
+                                  {isLatest && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                      Latest
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  } catch { return null; }
+                })()}
 
                 {/* 4. अगली सर्विस */}
                 <div className="p-3 bg-emerald-50/70 rounded-md border border-emerald-200 flex items-center justify-between text-xs">
@@ -8217,7 +8307,7 @@ export default function AgriPulseApp() {
                 {currentLanguage === "en" ? "Action — Update Status" : "कार्यवाही — स्थिति अपडेट करें"}
               </div>
               <p className="text-xs font-bold text-slate-500">
-                {currentLanguage === "en" ? "(Prototype testing: Update mechanic progress)" : "(प्रोटोटाइप परीक्षण: मैकेनिक की प्रगति अपडेट करें)"}
+                {currentLanguage === "en" ? "Live Repair Workflow Progress" : "मरम्मत कार्य की वर्तमान स्थिति"}
               </p>
 
               {/* Status = assigned -> Move to on_the_way */}
@@ -8434,7 +8524,7 @@ export default function AgriPulseApp() {
                       </span>
                     </div>
                     <p className="text-xs font-bold text-slate-500">
-                      {currentLanguage === "en" ? "(Prototype) Indicate required parts below" : "(प्रोटोटाइप) नीचे बताएं कि कोनसा पार्ट चाहिए"}
+                      {currentLanguage === "en" ? "Select verified replacement parts below" : "नीचे आवश्यक स्पेयर पार्ट्स का चयन करें"}
                     </p>
 
                     <div className="space-y-2.5">
@@ -8841,6 +8931,16 @@ export default function AgriPulseApp() {
                       <span className="text-2xl sm:text-3xl">❌</span>
                       <span>{t("verification.issueRemains", currentLanguage)}</span>
                     </button>
+
+                    {/* OPTION 3: REAL EVIDENCE JOB-READY VERIFICATION */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentScreen("job_ready_verification")}
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-black py-4 px-5 rounded-2xl text-xl shadow-lg border-2 border-emerald-950 flex items-center justify-center gap-2 transition-transform cursor-pointer"
+                    >
+                      <span>🎒</span>
+                      <span>{currentLanguage === "en" ? "Start Job-Ready Check (Clean Water Test)" : "Job-Ready Check शुरू करें (Clean Water Test)"}</span>
+                    </button>
                   </div>
                 </div>
               )}
@@ -8933,25 +9033,67 @@ export default function AgriPulseApp() {
                   )}
 
                   <div className="space-y-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setCurrentScreen("machines")}
-                      className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-emerald-950 flex items-center justify-center gap-2 transition-transform"
-                    >
-                      <span>{t("nav.machines", currentLanguage)}</span>
-                      <span>➔</span>
-                    </button>
+                    {/* ── NEW: Job-Ready Verification CTA ── */}
+                    {(() => {
+                      const repairId = activeCard?.repairRequestId || latestRepair?.id || "";
+                      const existingJrv = repairId ? getJobReadinessForRepair(repairId) : null;
+                      if (existingJrv?.farmerVerified) {
+                        // Already completed — show badge and go to machines
+                        return (
+                          <div className="space-y-2">
+                            <div className="p-3 bg-emerald-50 border-2 border-emerald-400 rounded-2xl text-center">
+                              <p className="text-sm font-black text-emerald-800">
+                                ✅ Job-Ready Verification पूरी हो गई
+                              </p>
+                              <p className="text-xs font-bold text-emerald-600 mt-0.5">
+                                Score: {existingJrv.score}/100 — {existingJrv.status}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setCurrentScreen("machines")}
+                              className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-emerald-950 flex items-center justify-center gap-2 transition-transform"
+                            >
+                              <span>{t("nav.machines", currentLanguage)}</span>
+                              <span>➔</span>
+                            </button>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentScreen("job_ready_verification");
+                            }}
+                            className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-black py-4 px-4 rounded-2xl text-xl shadow-lg border-2 border-emerald-950 flex items-center justify-center gap-2 transition-transform"
+                          >
+                            <span>🎒</span>
+                            <span>Job-Ready Check शुरू करें</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCurrentScreen("machines")}
+                            className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-xl text-sm border-2 border-slate-300 flex items-center justify-center gap-2"
+                          >
+                            <span>{t("nav.machines", currentLanguage)}</span>
+                          </button>
+                        </div>
+                      );
+                    })()}
 
                     <button
                       type="button"
                       onClick={() => setCurrentScreen("repair")}
-                      className="w-full bg-white hover:bg-slate-50 text-slate-800 font-bold py-3 px-4 rounded-xl text-base border-2 border-slate-300 flex items-center justify-center gap-2"
+                      className="w-full bg-white hover:bg-slate-50 text-slate-600 font-bold py-2.5 px-4 rounded-xl text-sm border border-slate-200 flex items-center justify-center gap-2"
                     >
                       <span>{t("nav.repairs", currentLanguage)}</span>
                     </button>
                   </div>
                 </div>
               )}
+
 
               {/* 3. VERIFICATION FAILED VIEW */}
               {activeCard?.verificationStatus === "failed" && (
@@ -9011,6 +9153,111 @@ export default function AgriPulseApp() {
           );
         })()}
 
+        {/* ================= JOB-READY VERIFICATION SCREEN ================= */}
+        {currentScreen === "job_ready_verification" && (() => {
+          const activeCard = currentJobCard || (latestRepair ? getJobCardByRepairId(latestRepair.id) : getLatestJobCard());
+          const repairForJrv = latestRepair || repairs[0] || null;
+          const machineForJrv = machines.find((m) => m.id === repairForJrv?.machineId) || selectedMachine || machines[0];
+          const repairDateStr = activeCard?.verificationTime
+            ? new Date(activeCard.verificationTime).toLocaleDateString("hi-IN")
+            : new Date().toLocaleDateString("hi-IN");
+
+          return (
+            <JobReadyVerificationScreen
+              repairRequestId={repairForJrv?.id || activeCard?.repairRequestId || "demo-repair"}
+              machineId={machineForJrv?.id || "sprayer"}
+              machineNameHi={activeCard?.machine || machineForJrv?.nameHi || "sprayer"}
+              technicianNameHi={activeCard?.technicianNameHi || "Mechanic"}
+              technicianId={activeCard?.technicianId}
+              repairDate={repairDateStr}
+              onBack={() => setCurrentScreen("repair_verification")}
+              onComplete={(record) => {
+                setCurrentJobReadinessRecord(record);
+                const machineId = machineForJrv?.id || record.machineId || "sprayer";
+                const repairId = repairForJrv?.id || activeCard?.repairRequestId || record.repairRequestId || `repair-${Date.now()}`;
+                const techId = record.technicianId || activeCard?.technicianId || "tech-rajesh";
+                const techName = record.technicianNameHi || activeCard?.technicianNameHi || "राजेश वर्मा (प्रमाणित मैकेनिक)";
+
+                const partsList = (activeCard?.partSelections || [])
+                  .filter((s) => s.decision === "needed")
+                  .map((s) => s.partNameHi);
+
+                const finalPricing = activeCard?.finalCost || activeCard?.estimatedCost || calculateEstimatedPricing({
+                  machineType: activeCard?.machine || machineForJrv?.nameHi || "स्प्रेयर",
+                  partSelections: activeCard?.partSelections,
+                  distanceKm: activeCard?.technicianDistanceKm || 3.2,
+                });
+
+                const passportData: MachinePassportRecord = {
+                  repairDate: repairDateStr,
+                  diagnosis: activeCard?.technicianOverrideDiagnosis || activeCard?.diagnosis || repairForJrv?.diagnosis?.possibleProblem || "स्प्रेयर मरम्मत एवं जाँच",
+                  technician: techName,
+                  partsUsed: partsList.length > 0 ? partsList : ["कोई नया पार्ट नहीं लगा"],
+                  repairResult: "सफलतापूर्वक मरम्मत हुई",
+                  verificationResult: `मशीन सही पाई गई (Job-Ready: ${record.status}, Score: ${record.score}/100)`,
+                  verificationId: record.id,
+                  finalCost: finalPricing.total,
+                  costBreakdown: finalPricing,
+                  problemDescription: activeCard?.problem || repairForJrv?.problemDescription || "स्प्रेयर रिसाव एवं नोजल रुकावट",
+                  estimatedCost: activeCard?.estimatedCost?.total,
+                  serviceCentreNameHi: activeCard?.serviceCentreNameHi,
+                  maintenanceRecommendation: "Clean Water Test पास। अगली सामान्य सर्विस 90 दिन बाद अनुशंसित है।",
+                  machineId,
+                  repairId,
+                  technicianId: techId,
+                  repairDetails: `Job-Ready Verification: ${record.operation} (${record.status}, Score: ${record.score}/100)`,
+                  jobOperation: record.operation,
+                  jobReadyStatus: record.status,
+                  score: record.score,
+                  verificationEvidence: record.evidence,
+                  farmerConfirmation: record.farmerVerified,
+                  timestamp: record.createdAt,
+                };
+
+                if (activeCard) {
+                  const updatedCard = recordJobCardVerification(activeCard.jobId, true, undefined, record.id);
+                  if (updatedCard) setCurrentJobCard(updatedCard);
+                }
+
+                recordRepairVerification(repairId, true, passportData, `Job-Ready Verification पास: स्कोर ${record.score}/100`, record.id);
+
+                const updatedMachines = machines.map((m) => {
+                  if (m.id === machineId) {
+                    const jrvEntry = `${repairDateStr}: Job-Ready (${record.operation}) Score:${record.score}/100 [${record.status}] किसान द्वारा सत्यापित`;
+                    return {
+                      ...m,
+                      status: "active" as const,
+                      statusText: "सक्रिय",
+                      lastService: repairDateStr,
+                      lastServiceDate: new Date().toISOString(),
+                      serviceHistory: `${m.serviceHistory || ""}; ${jrvEntry}`,
+                    };
+                  }
+                  return m;
+                });
+                try { localStorage.setItem("agripulse_machines_v1", JSON.stringify(updatedMachines)); } catch {}
+                refreshData();
+                setFeedbackMessage(
+                  currentLanguage === "en"
+                    ? "Job-Ready Verification complete! Record saved to Machine Passport."
+                    : "Job-Ready Verification सफल! मशीन पासपोर्ट में रिकॉर्ड सुरक्षित हुआ।"
+                );
+                setTimeout(() => setFeedbackMessage(null), 4000);
+                const freshMachine = updatedMachines.find((m) => m.id === machineId) || machineForJrv;
+                if (freshMachine) setSelectedMachine(freshMachine);
+                setCurrentScreen("machine_detail");
+              }}
+              onCallTechnician={() => {
+                if (repairForJrv) {
+                  const card = getJobCardByRepairId(repairForJrv.id) || currentJobCard;
+                  if (card) setCurrentJobCard(card);
+                }
+                setCurrentScreen("repair_verification");
+              }}
+              onRetest={() => { /* Component handles internal reset */ }}
+            />
+          );
+        })()}
         {/* ================= 15. DEDICATED “किसान हेल्प” VOICE AI SCREEN ================= */}
         {currentScreen === "kisan_help" && (
           <KisanHelpScreen

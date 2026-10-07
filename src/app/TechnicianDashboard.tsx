@@ -191,7 +191,7 @@ export default function TechnicianDashboard({
       (r.technicianId === session.user.id || (r.status !== "finding_mechanic" && r.status !== "reported" && r.technicianId))
   );
 
-  const completedRepairs = repairs.filter((r) => r.status === "completed");
+  const completedRepairs = repairs.filter((r) => r.status === "completed" || r.status === "verification_pending");
   const assignedRepairs = activeRepairs;
 
   // Realistic technician workflow modal states
@@ -591,8 +591,8 @@ export default function TechnicianDashboard({
     };
 
     updateRepairStatus(targetRepairId, {
-      status: "completed",
-      statusTextHi: "मरम्मत पूर्ण हो चुकी है",
+      status: "verification_pending",
+      statusTextHi: "मरम्मत पूरी हुई — जाँच बाकी",
       technicianWorkflowStatus: "completed",
       verificationTime: new Date().toISOString(),
       finalCost: finalPricingBreakdown,
